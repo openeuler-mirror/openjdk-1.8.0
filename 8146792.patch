@@ -1,0 +1,52 @@
+From 81b3011925783d6eb1effec9b858e1d0e162d378 Mon Sep 17 00:00:00 2001
+From: guoxuanda <guoxuanda@huawei.com>
+Date: Tue, 20 Aug 2019 21:09:30 +0000
+Subject: [PATCH] Backport of JDK-8146792
+
+summary: Predicate moved after partial peel may lead to broken
+LLT:
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8146792
+---
+ hotspot/src/share/vm/opto/loopPredicate.cpp | 26 +++++++++++++++++++++++++-
+ 1 file changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/hotspot/src/share/vm/opto/loopPredicate.cpp b/hotspot/src/share/vm/opto/loopPredicate.cpp
+index db3447dc6e..f216fd9d1e 100644
+--- a/hotspot/src/share/vm/opto/loopPredicate.cpp
++++ b/hotspot/src/share/vm/opto/loopPredicate.cpp
+@@ -505,7 +505,31 @@ class Invariance : public StackObj {
+     _lpt(lpt), _phase(lpt->_phase),
+     _visited(area), _invariant(area), _stack(area, 10 /* guess */),
+     _clone_visited(area), _old_new(area)
+-  {}
++  {
++    Node* head = _lpt->_head;
++    Node* entry = head->in(LoopNode::EntryControl);
++    if (entry->outcnt() != 1) {
++      // If a node is pinned between the predicates and the loop
++      // entry, we won't be able to move any node in the loop that
++      // depends on it above it in a predicate. Mark all those nodes
++      // as non loop invariatnt.
++      Unique_Node_List wq;
++      wq.push(entry);
++      for (uint next = 0; next < wq.size(); ++next) {
++        Node *n = wq.at(next);
++        for (DUIterator_Fast imax, i = n->fast_outs(imax); i < imax; i++) {
++          Node* u = n->fast_out(i);
++          if (!u->is_CFG()) {
++            Node* c = _phase->get_ctrl(u);
++            if (_lpt->is_member(_phase->get_loop(c)) || _phase->is_dominator(c, head)) {
++              _visited.set(u->_idx);
++              wq.push(u);
++            }
++          }
++        }
++      }
++    }
++  }
+ 
+   // Map old to n for invariance computation and clone
+   void map_ctrl(Node* old, Node* n) {
+-- 
+2.12.3
+

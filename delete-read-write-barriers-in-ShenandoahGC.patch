@@ -1,0 +1,608 @@
+From 455904c69b9f3e7590559d7f3367bc4518fea74d Mon Sep 17 00:00:00 2001
+From: guoge <guoge1@huawei.com>
+Date: Fri, 19 Apr 2019 22:40:50 +0000
+Subject: [PATCH] delete read/write barriers in ShenandoahGC
+
+---
+ hotspot/src/share/vm/oops/oop.hpp        |  16 +-
+ hotspot/src/share/vm/oops/oop.inline.hpp | 399 +++++++++++++++++------
+ hotspot/src/share/vm/runtime/globals.hpp |   7 +-
+ 3 files changed, 311 insertions(+), 111 deletions(-)
+
+diff --git a/hotspot/src/share/vm/oops/oop.hpp b/hotspot/src/share/vm/oops/oop.hpp
+index 7e31327a2b..a9461b45ba 100644
+--- a/hotspot/src/share/vm/oops/oop.hpp
++++ b/hotspot/src/share/vm/oops/oop.hpp
+@@ -70,14 +70,22 @@ class oopDesc {
+ 
+  public:
+   markOop  mark()      const {
+-    oop p = bs()->read_barrier((oop) this);
+-    return p->_mark;
++    if (UseShenandoahGC) {
++      oop p = bs()->read_barrier((oop) this);
++      return p->_mark;
++    } else {
++      return _mark;
++    }
+   }
+   markOop* mark_addr() const    { return (markOop*) &_mark; }
+ 
+   void set_mark(volatile markOop m) {
+-    oop p = bs()->write_barrier(this);
+-    p->_mark = m;
++    if (UseShenandoahGC) {
++      oop p = bs()->write_barrier(this);
++      p->_mark = m;
++    } else {
++      _mark = m;
++    }
+   }
+ 
+   void set_mark_raw(volatile markOop m) {
+diff --git a/hotspot/src/share/vm/oops/oop.inline.hpp b/hotspot/src/share/vm/oops/oop.inline.hpp
+index 93a803e830..e0ebd1edcf 100644
+--- a/hotspot/src/share/vm/oops/oop.inline.hpp
++++ b/hotspot/src/share/vm/oops/oop.inline.hpp
+@@ -65,13 +65,21 @@
+ // We need a separate file to avoid circular references
+ 
+ inline void oopDesc::release_set_mark(markOop m) {
+-  oop p = bs()->write_barrier(this);
+-  OrderAccess::release_store_ptr(&p->_mark, m);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    OrderAccess::release_store_ptr(&p->_mark, m);
++  } else {
++    OrderAccess::release_store_ptr(&_mark, m);
++  }
+ }
+ 
+ inline markOop oopDesc::cas_set_mark(markOop new_mark, markOop old_mark) {
+-  oop p = bs()->write_barrier(this);
+-  return (markOop) Atomic::cmpxchg_ptr(new_mark, &p->_mark, old_mark);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    return (markOop) Atomic::cmpxchg_ptr(new_mark, &p->_mark, old_mark);
++  } else {
++    return (markOop) Atomic::cmpxchg_ptr(new_mark, &_mark, old_mark);
++  }
+ }
+ 
+ inline Klass* oopDesc::klass() const {
+@@ -307,10 +315,16 @@ inline oop oopDesc::atomic_exchange_oop(oop exchange_value, volatile HeapWord *d
+ // In order to put or get a field out of an instance, must first check
+ // if the field has been compressed and uncompress it.
+ inline oop oopDesc::obj_field(int offset) const {
+-  oop p = bs()->read_barrier((oop) this);
+-  return UseCompressedOops ?
+-    load_decode_heap_oop(p->obj_field_addr<narrowOop>(offset)) :
+-    load_decode_heap_oop(p->obj_field_addr<oop>(offset));
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return UseCompressedOops ?
++      load_decode_heap_oop(p->obj_field_addr<narrowOop>(offset)) :
++      load_decode_heap_oop(p->obj_field_addr<oop>(offset));
++  } else {
++    return UseCompressedOops ?
++      load_decode_heap_oop(obj_field_addr<narrowOop>(offset)) :
++      load_decode_heap_oop(obj_field_addr<oop>(offset));
++  }
+ }
+ inline volatile oop oopDesc::obj_field_volatile(int offset) const {
+   volatile oop value = obj_field(offset);
+@@ -318,28 +332,47 @@ inline volatile oop oopDesc::obj_field_volatile(int offset) const {
+   return value;
+ }
+ inline void oopDesc::obj_field_put(int offset, oop value) {
+-  oop p = bs()->write_barrier(this);
+-  value = bs()->read_barrier(value);
+-  UseCompressedOops ? oop_store(p->obj_field_addr<narrowOop>(offset), value) :
+-                      oop_store(p->obj_field_addr<oop>(offset),       value);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    value = bs()->read_barrier(value);
++    UseCompressedOops ? oop_store(p->obj_field_addr<narrowOop>(offset), value) :
++                        oop_store(p->obj_field_addr<oop>(offset),       value);
++  } else {
++    UseCompressedOops ? oop_store(obj_field_addr<narrowOop>(offset), value) :
++                        oop_store(obj_field_addr<oop>(offset),       value);
++  }
+ }
+ 
+ inline Metadata* oopDesc::metadata_field(int offset) const {
+-  oop p = bs()->read_barrier((oop) this);
+-  return *p->metadata_field_addr(offset);
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return *p->metadata_field_addr(offset);
++  } else {
++    return *metadata_field_addr(offset);
++  }
+ }
+ 
+ inline void oopDesc::metadata_field_put(int offset, Metadata* value) {
+-  oop p = bs()->write_barrier(this);
+-  *p->metadata_field_addr(offset) = value;
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    *p->metadata_field_addr(offset) = value;
++  } else {
++    *metadata_field_addr(offset) = value;
++  }
+ }
+ 
+ inline void oopDesc::obj_field_put_raw(int offset, oop value) {
+-  oop p = bs()->write_barrier(this);
+-  value = bs()->read_barrier(value);
+-  UseCompressedOops ?
+-    encode_store_heap_oop(p->obj_field_addr<narrowOop>(offset), value) :
+-    encode_store_heap_oop(p->obj_field_addr<oop>(offset),       value);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    value = bs()->read_barrier(value);
++    UseCompressedOops ?
++      encode_store_heap_oop(p->obj_field_addr<narrowOop>(offset), value) :
++      encode_store_heap_oop(p->obj_field_addr<oop>(offset),       value);
++  } else {
++    UseCompressedOops ?
++      encode_store_heap_oop(obj_field_addr<narrowOop>(offset), value) :
++      encode_store_heap_oop(obj_field_addr<oop>(offset),       value);
++  }
+ }
+ inline void oopDesc::obj_field_put_volatile(int offset, oop value) {
+   OrderAccess::release();
+@@ -348,184 +381,342 @@ inline void oopDesc::obj_field_put_volatile(int offset, oop value) {
+ }
+ 
+ inline jbyte oopDesc::byte_field(int offset) const                  {
+-  oop p = bs()->read_barrier((oop) this);
+-  return (jbyte) *p->byte_field_addr(offset);
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return (jbyte) *p->byte_field_addr(offset);
++  } else {
++    return (jbyte) *byte_field_addr(offset);
++  }
+ }
+ inline void oopDesc::byte_field_put(int offset, jbyte contents)     {
+-  oop p = bs()->write_barrier(this);
+-  *p->byte_field_addr(offset) = (jint) contents;
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    *p->byte_field_addr(offset) = (jint) contents;
++  } else {
++    *byte_field_addr(offset) = (jint) contents;
++  }
+ }
+ 
+ inline jboolean oopDesc::bool_field(int offset) const               {
+-  oop p = bs()->read_barrier((oop) this);
+-  return (jboolean) *p->bool_field_addr(offset);
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return (jboolean) *p->bool_field_addr(offset);
++  } else {
++    return (jboolean) *bool_field_addr(offset);
++  }
+ }
+ inline void oopDesc::bool_field_put(int offset, jboolean contents)  {
+-  oop p = bs()->write_barrier(this);
+-  *p->bool_field_addr(offset) =  (( (jint) contents) & 1);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    *p->bool_field_addr(offset) =  (((jint) contents) & 1);
++  } else {
++    *bool_field_addr(offset) =  (((jint) contents) & 1);
++  }
+ }
+ 
+ inline jchar oopDesc::char_field(int offset) const                  {
+-  oop p = bs()->read_barrier((oop) this);
+-  return (jchar) *p->char_field_addr(offset);
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return (jchar) *p->char_field_addr(offset);
++  } else {
++    return (jchar) *char_field_addr(offset);
++  }
+ }
+ inline void oopDesc::char_field_put(int offset, jchar contents)     {
+-  oop p = bs()->write_barrier(this);
+-  *p->char_field_addr(offset) = (jint) contents;
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    *p->char_field_addr(offset) = (jint) contents;
++  } else {
++    *char_field_addr(offset) = (jint) contents;
++  }
+ }
+ 
+ inline jint oopDesc::int_field(int offset) const                    {
+-  oop p = bs()->read_barrier((oop) this);
+-  return *p->int_field_addr(offset);
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return *p->int_field_addr(offset);
++  } else {
++    return *int_field_addr(offset);
++  }
+ }
+ inline void oopDesc::int_field_put(int offset, jint contents)       {
+-  oop p = bs()->write_barrier(this);
+-  *p->int_field_addr(offset) = contents;
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    *p->int_field_addr(offset) = contents;
++  } else {
++    *int_field_addr(offset) = contents;
++  }
+ }
+ inline void oopDesc::int_field_put_raw(int offset, jint contents)   {
+   *int_field_addr(offset) = contents;
+ }
+ 
+ inline jshort oopDesc::short_field(int offset) const                {
+-  oop p = bs()->read_barrier((oop) this);
+-  return (jshort) *p->short_field_addr(offset);
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return (jshort) *p->short_field_addr(offset);
++  } else {
++    return (jshort) *short_field_addr(offset);
++  }
+ }
+ inline void oopDesc::short_field_put(int offset, jshort contents)   {
+-  oop p = bs()->write_barrier(this);
+-  *p->short_field_addr(offset) = (jint) contents;
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    *p->short_field_addr(offset) = (jint) contents;
++  } else {
++    *short_field_addr(offset) = (jint) contents;
++  }
+ }
+ 
+ inline jlong oopDesc::long_field(int offset) const                  {
+-  oop p = bs()->read_barrier((oop) this);
+-  return *p->long_field_addr(offset);
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return *p->long_field_addr(offset);
++  } else {
++    return *long_field_addr(offset);
++  }
+ }
+ inline void oopDesc::long_field_put(int offset, jlong contents)     {
+-  oop p = bs()->write_barrier(this);
+-  *p->long_field_addr(offset) = contents;
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    *p->long_field_addr(offset) = contents;
++  } else {
++    *long_field_addr(offset) = contents;
++  }
+ }
+ 
+ inline jfloat oopDesc::float_field(int offset) const                {
+-  oop p = bs()->read_barrier((oop) this);
+-  return *p->float_field_addr(offset);
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return *p->float_field_addr(offset);
++  } else {
++    return *float_field_addr(offset);
++  }
+ }
+ inline void oopDesc::float_field_put(int offset, jfloat contents)   {
+-  oop p = bs()->write_barrier(this);
+-  *p->float_field_addr(offset) = contents;
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    *p->float_field_addr(offset) = contents;
++  } else {
++    *float_field_addr(offset) = contents;
++  }
+ }
+ 
+ inline jdouble oopDesc::double_field(int offset) const              {
+-  oop p = bs()->read_barrier((oop) this);
+-  return *p->double_field_addr(offset);
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return *p->double_field_addr(offset);
++  } else {
++    return *double_field_addr(offset);
++  }
+ }
+ inline void oopDesc::double_field_put(int offset, jdouble contents) {
+-  oop p = bs()->write_barrier(this);
+-  *p->double_field_addr(offset) = contents;
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    *p->double_field_addr(offset) = contents;
++  } else {
++    *double_field_addr(offset) = contents;
++  }
+ }
+ 
+ inline address oopDesc::address_field(int offset) const              {
+-  oop p = bs()->read_barrier((oop) this);
+-  return *p->address_field_addr(offset);
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return *p->address_field_addr(offset);
++  } else {
++    return *address_field_addr(offset);
++  }
+ }
+ inline void oopDesc::address_field_put(int offset, address contents) {
+-  oop p = bs()->write_barrier(this);
+-  *p->address_field_addr(offset) = contents;
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    *p->address_field_addr(offset) = contents;
++  } else {
++    *address_field_addr(offset) = contents;
++  }
+ }
+ 
+ inline oop oopDesc::obj_field_acquire(int offset) const {
+-  oop p = bs()->read_barrier((oop) this);
+-  return UseCompressedOops ?
+-             decode_heap_oop((narrowOop)
+-               OrderAccess::load_acquire(p->obj_field_addr<narrowOop>(offset)))
+-           : decode_heap_oop((oop)
+-               OrderAccess::load_ptr_acquire(p->obj_field_addr<oop>(offset)));
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return UseCompressedOops ?
++              decode_heap_oop((narrowOop)
++                OrderAccess::load_acquire(p->obj_field_addr<narrowOop>(offset)))
++            : decode_heap_oop((oop)
++                OrderAccess::load_ptr_acquire(p->obj_field_addr<oop>(offset)));
++  } else {
++    return UseCompressedOops ?
++              decode_heap_oop((narrowOop)
++                OrderAccess::load_acquire(obj_field_addr<narrowOop>(offset)))
++            : decode_heap_oop((oop)
++                OrderAccess::load_ptr_acquire(obj_field_addr<oop>(offset)));
++  }
+ }
+ inline void oopDesc::release_obj_field_put(int offset, oop value) {
+-  oop p = bs()->write_barrier(this);
+-  value = bs()->read_barrier(value);
+-  UseCompressedOops ?
+-    oop_store((volatile narrowOop*)p->obj_field_addr<narrowOop>(offset), value) :
+-    oop_store((volatile oop*)      p->obj_field_addr<oop>(offset),       value);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    value = bs()->read_barrier(value);
++    UseCompressedOops ?
++      oop_store((volatile narrowOop*)p->obj_field_addr<narrowOop>(offset), value) :
++      oop_store((volatile oop*)      p->obj_field_addr<oop>(offset),       value);
++  } else {
++    UseCompressedOops ?
++      oop_store((volatile narrowOop*)obj_field_addr<narrowOop>(offset), value) :
++      oop_store((volatile oop*)      obj_field_addr<oop>(offset),       value);
++  }
+ }
+ 
+ inline jbyte oopDesc::byte_field_acquire(int offset) const                  {
+-  oop p = bs()->read_barrier((oop) this);
+-  return OrderAccess::load_acquire(p->byte_field_addr(offset));
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return OrderAccess::load_acquire(p->byte_field_addr(offset));
++  } else {
++    return OrderAccess::load_acquire(byte_field_addr(offset));
++  }
+ }
+ inline void oopDesc::release_byte_field_put(int offset, jbyte contents)     {
+-  oop p = bs()->write_barrier(this);
+-  OrderAccess::release_store(p->byte_field_addr(offset), contents);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    OrderAccess::release_store(p->byte_field_addr(offset), contents);
++  } else {
++    OrderAccess::release_store(byte_field_addr(offset), contents);
++  }
+ }
+ 
+ inline jboolean oopDesc::bool_field_acquire(int offset) const               {
+-  oop p = bs()->read_barrier((oop) this);
+-  return OrderAccess::load_acquire(p->bool_field_addr(offset));
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return OrderAccess::load_acquire(p->bool_field_addr(offset));
++  } else {
++    return OrderAccess::load_acquire(bool_field_addr(offset));
++  }
+ }
+ inline void oopDesc::release_bool_field_put(int offset, jboolean contents)  {
+-  oop p = bs()->write_barrier(this);
+-  OrderAccess::release_store(p->bool_field_addr(offset), (contents & 1));
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    OrderAccess::release_store(p->bool_field_addr(offset), (contents & 1));
++  } else {
++    OrderAccess::release_store(bool_field_addr(offset), (contents & 1));
++  }
+ }
+ 
+ inline jchar oopDesc::char_field_acquire(int offset) const                  {
+-  oop p = bs()->read_barrier((oop) this);
+-  return OrderAccess::load_acquire(p->char_field_addr(offset));
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return OrderAccess::load_acquire(p->char_field_addr(offset));
++  } else {
++    return OrderAccess::load_acquire(char_field_addr(offset));
++  }
+ }
+ inline void oopDesc::release_char_field_put(int offset, jchar contents)     {
+-  oop p = bs()->write_barrier(this);
+-  OrderAccess::release_store(p->char_field_addr(offset), contents);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    OrderAccess::release_store(p->char_field_addr(offset), contents);
++  } else {
++    OrderAccess::release_store(char_field_addr(offset), contents);
++  }
+ }
+ 
+ inline jint oopDesc::int_field_acquire(int offset) const                    {
+-  oop p = bs()->read_barrier((oop) this);
+-  return OrderAccess::load_acquire(p->int_field_addr(offset));
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return OrderAccess::load_acquire(p->int_field_addr(offset));
++  } else {
++    return OrderAccess::load_acquire(int_field_addr(offset));
++  }
+ }
+ inline void oopDesc::release_int_field_put(int offset, jint contents)       {
+-  oop p = bs()->write_barrier(this);
+-  OrderAccess::release_store(p->int_field_addr(offset), contents);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    OrderAccess::release_store(p->int_field_addr(offset), contents);
++  } else {
++    OrderAccess::release_store(int_field_addr(offset), contents);
++  }
+ }
+ 
+ inline jshort oopDesc::short_field_acquire(int offset) const                {
+-  oop p = bs()->read_barrier((oop) this);
+-  return (jshort)OrderAccess::load_acquire(p->short_field_addr(offset));
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return (jshort)OrderAccess::load_acquire(p->short_field_addr(offset));
++  } else {
++    return (jshort)OrderAccess::load_acquire(short_field_addr(offset));
++  }
+ }
+ inline void oopDesc::release_short_field_put(int offset, jshort contents)   {
+-  oop p = bs()->write_barrier(this);
+-  OrderAccess::release_store(p->short_field_addr(offset), contents);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    OrderAccess::release_store(p->short_field_addr(offset), contents);
++  } else {
++    OrderAccess::release_store(short_field_addr(offset), contents);
++  }
+ }
+ 
+ inline jlong oopDesc::long_field_acquire(int offset) const                  {
+-  oop p = bs()->read_barrier((oop) this);
+-  return OrderAccess::load_acquire(p->long_field_addr(offset));
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return OrderAccess::load_acquire(p->long_field_addr(offset));
++  } else {
++    return OrderAccess::load_acquire(long_field_addr(offset));
++  }
+ }
+ inline void oopDesc::release_long_field_put(int offset, jlong contents)     {
+-  oop p = bs()->write_barrier(this);
+-  OrderAccess::release_store(p->long_field_addr(offset), contents);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    OrderAccess::release_store(p->long_field_addr(offset), contents);
++  } else {
++    OrderAccess::release_store(long_field_addr(offset), contents);
++  }
+ }
+ 
+ inline jfloat oopDesc::float_field_acquire(int offset) const                {
+-  oop p = bs()->read_barrier((oop) this);
+-  return OrderAccess::load_acquire(p->float_field_addr(offset));
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return OrderAccess::load_acquire(p->float_field_addr(offset));
++  } else {
++    return OrderAccess::load_acquire(float_field_addr(offset));
++  }
+ }
+ inline void oopDesc::release_float_field_put(int offset, jfloat contents)   {
+-  oop p = bs()->write_barrier(this);
+-  OrderAccess::release_store(p->float_field_addr(offset), contents);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    OrderAccess::release_store(p->float_field_addr(offset), contents);
++  } else {
++    OrderAccess::release_store(float_field_addr(offset), contents);
++  }
+ }
+ 
+ inline jdouble oopDesc::double_field_acquire(int offset) const              {
+-  oop p = bs()->read_barrier((oop) this);
+-  return OrderAccess::load_acquire(p->double_field_addr(offset));
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return OrderAccess::load_acquire(p->double_field_addr(offset));
++  } else {
++    return OrderAccess::load_acquire(double_field_addr(offset));
++  }
+ }
+ inline void oopDesc::release_double_field_put(int offset, jdouble contents) {
+-  oop p = bs()->write_barrier(this);
+-  OrderAccess::release_store(p->double_field_addr(offset), contents);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    OrderAccess::release_store(p->double_field_addr(offset), contents);
++  } else {
++    OrderAccess::release_store(double_field_addr(offset), contents);
++  }
+ }
+ 
+ inline address oopDesc::address_field_acquire(int offset) const             {
+-  oop p = bs()->read_barrier((oop) this);
+-  return (address) OrderAccess::load_ptr_acquire(p->address_field_addr(offset));
++  if (UseShenandoahGC) {
++    oop p = bs()->read_barrier((oop) this);
++    return (address) OrderAccess::load_ptr_acquire(p->address_field_addr(offset));
++  } else {
++    return (address) OrderAccess::load_ptr_acquire(address_field_addr(offset));
++  }
+ }
+ inline void oopDesc::release_address_field_put(int offset, address contents) {
+-  oop p = bs()->write_barrier(this);
+-  OrderAccess::release_store_ptr(p->address_field_addr(offset), contents);
++  if (UseShenandoahGC) {
++    oop p = bs()->write_barrier(this);
++    OrderAccess::release_store_ptr(p->address_field_addr(offset), contents);
++  } else {
++    OrderAccess::release_store_ptr(address_field_addr(offset), contents);
++  }
+ }
+ 
+ inline int oopDesc::size_given_klass(Klass* klass)  {
+diff --git a/hotspot/src/share/vm/runtime/globals.hpp b/hotspot/src/share/vm/runtime/globals.hpp
+index a45c522449..e7c1721c03 100644
+--- a/hotspot/src/share/vm/runtime/globals.hpp
++++ b/hotspot/src/share/vm/runtime/globals.hpp
+@@ -216,6 +216,10 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
+ 
+ #endif // no compilers
+ 
++// Since Shenandoah GC will add read/write barrier, that wii affect the
++// performance of critical, it will disabled forcibly.
++#define UseShenandoahGC false
++
+ // string type aliases used only in this file
+ typedef const char* ccstr;
+ typedef const char* ccstrlist;   // represents string arguments which accumulate
+@@ -1427,9 +1431,6 @@ class CommandLineFlags {
+   product(bool, UseParallelOldGC, false,                                    \
+           "Use the Parallel Old garbage collector")                         \
+                                                                             \
+-  product(bool, UseShenandoahGC, false,                                     \
+-          "Use the Shenandoah garbage collector")                           \
+-                                                                            \
+   product(uintx, HeapMaximumCompactionInterval, 20,                         \
+           "How often should we maximally compact the heap (not allowing "   \
+           "any dead space)")                                                \
+-- 
+2.19.0
+

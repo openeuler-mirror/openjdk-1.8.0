@@ -1,0 +1,331 @@
+From cad6af30875f8c5731b76cca494f1f1301e04c96 Mon Sep 17 00:00:00 2001
+From: zhanggaofeng <zhanggaofeng9@huawei.com>
+Date: Mon, 11 Nov 2019 17:16:36 +0000
+Subject: [PATCH] 8033552:Fix missing missing volatile specifiers in CAS
+ operations in GC code
+
+Summary: GC:Fix missing missing volatile specifiers in CAS operations in GC code
+LLT: org.openjdk.jcstress.tests.defaultValues.arrays.small.plain.StringTest
+Patch Type: backport
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8033552
+---
+ .../vm/gc_implementation/concurrentMarkSweep/cmsOopClosures.hpp   | 4 ++--
+ .../concurrentMarkSweep/concurrentMarkSweepGeneration.cpp         | 8 ++++----
+ .../concurrentMarkSweep/concurrentMarkSweepGeneration.hpp         | 2 +-
+ hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.cpp    | 4 ++--
+ hotspot/src/share/vm/gc_implementation/g1/sparsePRT.cpp           | 2 +-
+ hotspot/src/share/vm/gc_implementation/g1/sparsePRT.hpp           | 2 +-
+ .../gc_implementation/parallelScavenge/parallelScavengeHeap.hpp   | 2 +-
+ .../share/vm/gc_implementation/parallelScavenge/psYoungGen.hpp    | 2 +-
+ .../gc_implementation/parallelScavenge/vmStructs_parallelgc.hpp   | 3 ++-
+ hotspot/src/share/vm/gc_implementation/shared/mutableSpace.hpp    | 4 ++--
+ hotspot/src/share/vm/gc_interface/collectedHeap.hpp               | 2 +-
+ hotspot/src/share/vm/memory/defNewGeneration.cpp                  | 2 +-
+ hotspot/src/share/vm/memory/defNewGeneration.hpp                  | 2 +-
+ hotspot/src/share/vm/memory/genCollectedHeap.cpp                  | 2 +-
+ hotspot/src/share/vm/memory/genCollectedHeap.hpp                  | 2 +-
+ hotspot/src/share/vm/memory/generation.hpp                        | 2 +-
+ hotspot/src/share/vm/runtime/vmStructs.cpp                        | 3 +++
+ 17 files changed, 26 insertions(+), 22 deletions(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/cmsOopClosures.hpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/cmsOopClosures.hpp
+index 5220ee1f34..2697beda2b 100644
+--- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/cmsOopClosures.hpp
++++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/cmsOopClosures.hpp
+@@ -295,7 +295,7 @@ class Par_PushOrMarkClosure: public MetadataAwareOopClosure {
+   OopTaskQueue*    _work_queue;
+   CMSMarkStack*    _overflow_stack;
+   HeapWord*  const _finger;
+-  HeapWord** const _global_finger_addr;
++  HeapWord*volatile* const _global_finger_addr;
+   Par_MarkFromRootsClosure* const
+                    _parent;
+  protected:
+@@ -307,7 +307,7 @@ class Par_PushOrMarkClosure: public MetadataAwareOopClosure {
+                         OopTaskQueue* work_queue,
+                         CMSMarkStack* mark_stack,
+                         HeapWord* finger,
+-                        HeapWord** global_finger_addr,
++                        HeapWord*volatile* global_finger_addr,
+                         Par_MarkFromRootsClosure* parent);
+   virtual void do_oop(oop* p);
+   virtual void do_oop(narrowOop* p);
+diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
+index e3c0048da8..6de20cb571 100644
+--- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
++++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
+@@ -3914,7 +3914,7 @@ class CMSConcMarkingTask: public YieldingFlexibleGangTask {
+   bool          _result;
+   CompactibleFreeListSpace*  _cms_space;
+   char          _pad_front[64];   // padding to ...
+-  HeapWord*     _global_finger;   // ... avoid sharing cache line
++  HeapWord* volatile    _global_finger;   // ... avoid sharing cache line
+   char          _pad_back[64];
+   HeapWord*     _restart_addr;
+ 
+@@ -3953,7 +3953,7 @@ class CMSConcMarkingTask: public YieldingFlexibleGangTask {
+ 
+   OopTaskQueue* work_queue(int i) { return task_queues()->queue(i); }
+ 
+-  HeapWord** global_finger_addr() { return &_global_finger; }
++  HeapWord*volatile* global_finger_addr() { return &_global_finger; }
+ 
+   CMSConcMarkingTerminator* terminator() { return &_term; }
+ 
+@@ -7655,7 +7655,7 @@ void Par_MarkFromRootsClosure::scan_oops_in_oop(HeapWord* ptr) {
+ 
+   // Note: the local finger doesn't advance while we drain
+   // the stack below, but the global finger sure can and will.
+-  HeapWord** gfa = _task->global_finger_addr();
++  HeapWord*volatile* gfa = _task->global_finger_addr();
+   Par_PushOrMarkClosure pushOrMarkClosure(_collector,
+                                       _span, _bit_map,
+                                       _work_queue,
+@@ -7824,7 +7824,7 @@ Par_PushOrMarkClosure::Par_PushOrMarkClosure(CMSCollector* collector,
+                      OopTaskQueue* work_queue,
+                      CMSMarkStack*  overflow_stack,
+                      HeapWord* finger,
+-                     HeapWord** global_finger_addr,
++                     HeapWord*volatile* global_finger_addr,
+                      Par_MarkFromRootsClosure* parent) :
+   MetadataAwareOopClosure(collector->ref_processor()),
+   _collector(collector),
+diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp
+index a6d06a5dc5..cf2c085dc0 100644
+--- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp
++++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp
+@@ -750,7 +750,7 @@ class CMSCollector: public CHeapObj<mtGC> {
+  private:
+   // Support for parallelizing young gen rescan in CMS remark phase
+   Generation* _young_gen;  // the younger gen
+-  HeapWord** _top_addr;    // ... Top of Eden
++  HeapWord*volatile* _top_addr;    // ... Top of Eden
+   HeapWord** _end_addr;    // ... End of Eden
+   Mutex*     _eden_chunk_lock;
+   HeapWord** _eden_chunk_array; // ... Eden partitioning array
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.cpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.cpp
+index ad8a3562e8..8167d2b09d 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.cpp
+@@ -56,7 +56,7 @@ class PerRegionTable: public CHeapObj<mtGC> {
+   PerRegionTable * _collision_list_next;
+ 
+   // Global free list of PRTs
+-  static PerRegionTable* _free_list;
++  static PerRegionTable* volatile _free_list;
+ 
+ protected:
+   // We need access in order to union things into the base table.
+@@ -250,7 +250,7 @@ public:
+   static void test_fl_mem_size();
+ };
+ 
+-PerRegionTable* PerRegionTable::_free_list = NULL;
++PerRegionTable*volatile  PerRegionTable::_free_list = NULL;
+ 
+ size_t OtherRegionsTable::_max_fine_entries = 0;
+ size_t OtherRegionsTable::_mod_max_fine_entries_mask = 0;
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/sparsePRT.cpp b/hotspot/src/share/vm/gc_implementation/g1/sparsePRT.cpp
+index 1439fe668e..b9020002b8 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/sparsePRT.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/sparsePRT.cpp
+@@ -376,7 +376,7 @@ size_t RSHashTable::mem_size() const {
+ 
+ // ----------------------------------------------------------------------
+ 
+-SparsePRT* SparsePRT::_head_expanded_list = NULL;
++SparsePRT* volatile SparsePRT::_head_expanded_list = NULL;
+ 
+ void SparsePRT::add_to_expanded_list(SparsePRT* sprt) {
+   // We could expand multiple times in a pause -- only put on list once.
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/sparsePRT.hpp b/hotspot/src/share/vm/gc_implementation/g1/sparsePRT.hpp
+index 5cc884621a..17bd4a145a 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/sparsePRT.hpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/sparsePRT.hpp
+@@ -236,7 +236,7 @@ class SparsePRT VALUE_OBJ_CLASS_SPEC {
+ 
+   bool should_be_on_expanded_list();
+ 
+-  static SparsePRT* _head_expanded_list;
++  static SparsePRT*volatile _head_expanded_list;
+ 
+ public:
+   SparsePRT(HeapRegion* hr);
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.hpp
+index 5173ff94ec..bf3a207cdf 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.hpp
+@@ -177,7 +177,7 @@ class ParallelScavengeHeap : public CollectedHeap {
+ 
+   bool supports_inline_contig_alloc() const { return !UseNUMA; }
+ 
+-  HeapWord** top_addr() const { return !UseNUMA ? young_gen()->top_addr() : (HeapWord**)-1; }
++  HeapWord*volatile* top_addr() const { return !UseNUMA ? young_gen()->top_addr() : (HeapWord**)-1; }
+   HeapWord** end_addr() const { return !UseNUMA ? young_gen()->end_addr() : (HeapWord**)-1; }
+ 
+   void ensure_parsability(bool retire_tlabs);
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psYoungGen.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psYoungGen.hpp
+index e3da6bdf2b..9bb7eb8e6e 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psYoungGen.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psYoungGen.hpp
+@@ -162,7 +162,7 @@ class PSYoungGen : public CHeapObj<mtGC> {
+     return result;
+   }
+ 
+-  HeapWord** top_addr() const   { return eden_space()->top_addr(); }
++  HeapWord*volatile* top_addr() const   { return eden_space()->top_addr(); }
+   HeapWord** end_addr() const   { return eden_space()->end_addr(); }
+ 
+   // Iteration.
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/vmStructs_parallelgc.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/vmStructs_parallelgc.hpp
+index 3c1a20284e..051bcbd800 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/vmStructs_parallelgc.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/vmStructs_parallelgc.hpp
+@@ -26,6 +26,7 @@
+ #define SHARE_VM_GC_IMPLEMENTATION_PARALLELSCAVENGE_VMSTRUCTS_PARALLELGC_HPP
+ 
+ #define VM_STRUCTS_PARALLELGC(nonstatic_field, \
++                   volatile_nonstatic_field, \
+                    static_field) \
+                                                                                                                                      \
+   /**********************/                                                                                                           \
+@@ -40,7 +41,7 @@
+   nonstatic_field(ImmutableSpace,              _bottom,                                       HeapWord*)                             \
+   nonstatic_field(ImmutableSpace,              _end,                                          HeapWord*)                             \
+                                                                                                                                      \
+-  nonstatic_field(MutableSpace,                _top,                                          HeapWord*)                             \
++  volatile_nonstatic_field(MutableSpace,       _top,                                          HeapWord*)                             \
+                                                                                                                                      \
+   nonstatic_field(PSYoungGen,                  _reserved,                                     MemRegion)                             \
+   nonstatic_field(PSYoungGen,                  _virtual_space,                                PSVirtualSpace*)                       \
+diff --git a/hotspot/src/share/vm/gc_implementation/shared/mutableSpace.hpp b/hotspot/src/share/vm/gc_implementation/shared/mutableSpace.hpp
+index 0f1dd075d4..dbd52f24be 100644
+--- a/hotspot/src/share/vm/gc_implementation/shared/mutableSpace.hpp
++++ b/hotspot/src/share/vm/gc_implementation/shared/mutableSpace.hpp
+@@ -51,7 +51,7 @@ class MutableSpace: public ImmutableSpace {
+   MemRegion _last_setup_region;
+   size_t _alignment;
+  protected:
+-  HeapWord* _top;
++  HeapWord *volatile _top;
+ 
+   MutableSpaceMangler* mangler() { return _mangler; }
+ 
+@@ -69,7 +69,7 @@ class MutableSpace: public ImmutableSpace {
+   HeapWord* top() const                    { return _top;    }
+   virtual void set_top(HeapWord* value)    { _top = value;   }
+ 
+-  HeapWord** top_addr()                    { return &_top; }
++  HeapWord*volatile* top_addr()            { return &_top; }
+   HeapWord** end_addr()                    { return &_end; }
+ 
+   virtual void set_bottom(HeapWord* value) { _bottom = value; }
+diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp b/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
+index 48fd7e7c0a..653ef5c2ed 100644
+--- a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
++++ b/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
+@@ -379,7 +379,7 @@ class CollectedHeap : public CHeapObj<mtInternal> {
+   // These functions return the addresses of the fields that define the
+   // boundaries of the contiguous allocation area.  (These fields should be
+   // physically near to one another.)
+-  virtual HeapWord** top_addr() const {
++  virtual HeapWord*volatile* top_addr() const {
+     guarantee(false, "inline contiguous allocation not supported");
+     return NULL;
+   }
+diff --git a/hotspot/src/share/vm/memory/defNewGeneration.cpp b/hotspot/src/share/vm/memory/defNewGeneration.cpp
+index 273d8a3130..15ff6b7328 100644
+--- a/hotspot/src/share/vm/memory/defNewGeneration.cpp
++++ b/hotspot/src/share/vm/memory/defNewGeneration.cpp
+@@ -494,7 +494,7 @@ size_t DefNewGeneration::contiguous_available() const {
+ }
+ 
+ 
+-HeapWord** DefNewGeneration::top_addr() const { return eden()->top_addr(); }
++HeapWord*volatile* DefNewGeneration::top_addr() const { return eden()->top_addr(); }
+ HeapWord** DefNewGeneration::end_addr() const { return eden()->end_addr(); }
+ 
+ void DefNewGeneration::object_iterate(ObjectClosure* blk) {
+diff --git a/hotspot/src/share/vm/memory/defNewGeneration.hpp b/hotspot/src/share/vm/memory/defNewGeneration.hpp
+index a5c0eb3095..11359b7979 100644
+--- a/hotspot/src/share/vm/memory/defNewGeneration.hpp
++++ b/hotspot/src/share/vm/memory/defNewGeneration.hpp
+@@ -233,7 +233,7 @@ protected:
+   size_t max_survivor_size() const          { return _max_survivor_size; }
+ 
+   bool supports_inline_contig_alloc() const { return true; }
+-  HeapWord** top_addr() const;
++  HeapWord*volatile* top_addr() const;
+   HeapWord** end_addr() const;
+ 
+   // Thread-local allocation buffers
+diff --git a/hotspot/src/share/vm/memory/genCollectedHeap.cpp b/hotspot/src/share/vm/memory/genCollectedHeap.cpp
+index 596960e473..572436a388 100644
+--- a/hotspot/src/share/vm/memory/genCollectedHeap.cpp
++++ b/hotspot/src/share/vm/memory/genCollectedHeap.cpp
+@@ -778,7 +778,7 @@ bool GenCollectedHeap::supports_inline_contig_alloc() const {
+   return _gens[0]->supports_inline_contig_alloc();
+ }
+ 
+-HeapWord** GenCollectedHeap::top_addr() const {
++HeapWord*volatile* GenCollectedHeap::top_addr() const {
+   return _gens[0]->top_addr();
+ }
+ 
+diff --git a/hotspot/src/share/vm/memory/genCollectedHeap.hpp b/hotspot/src/share/vm/memory/genCollectedHeap.hpp
+index 416ae87415..6d0dd591c3 100644
+--- a/hotspot/src/share/vm/memory/genCollectedHeap.hpp
++++ b/hotspot/src/share/vm/memory/genCollectedHeap.hpp
+@@ -162,7 +162,7 @@ public:
+   // We may support a shared contiguous allocation area, if the youngest
+   // generation does.
+   bool supports_inline_contig_alloc() const;
+-  HeapWord** top_addr() const;
++  HeapWord*volatile* top_addr() const;
+   HeapWord** end_addr() const;
+ 
+   // Does this heap support heap inspection? (+PrintClassHistogram)
+diff --git a/hotspot/src/share/vm/memory/generation.hpp b/hotspot/src/share/vm/memory/generation.hpp
+index 63dccb70fb..47c26c83dc 100644
+--- a/hotspot/src/share/vm/memory/generation.hpp
++++ b/hotspot/src/share/vm/memory/generation.hpp
+@@ -290,7 +290,7 @@ class Generation: public CHeapObj<mtGC> {
+   // These functions return the addresses of the fields that define the
+   // boundaries of the contiguous allocation area.  (These fields should be
+   // physicall near to one another.)
+-  virtual HeapWord** top_addr() const { return NULL; }
++  virtual HeapWord*volatile* top_addr() const { return NULL; }
+   virtual HeapWord** end_addr() const { return NULL; }
+ 
+   // Thread-local allocation buffers
+diff --git a/hotspot/src/share/vm/runtime/vmStructs.cpp b/hotspot/src/share/vm/runtime/vmStructs.cpp
+index 7935f8cb47..a498e01563 100644
+--- a/hotspot/src/share/vm/runtime/vmStructs.cpp
++++ b/hotspot/src/share/vm/runtime/vmStructs.cpp
+@@ -2926,6 +2926,7 @@ VMStructEntry VMStructs::localHotSpotVMStructs[] = {
+ 
+ #if INCLUDE_ALL_GCS
+   VM_STRUCTS_PARALLELGC(GENERATE_NONSTATIC_VM_STRUCT_ENTRY,
++                        GENERATE_NONSTATIC_VM_STRUCT_ENTRY,
+                         GENERATE_STATIC_VM_STRUCT_ENTRY)
+ 
+   VM_STRUCTS_CMS(GENERATE_NONSTATIC_VM_STRUCT_ENTRY,
+@@ -3097,6 +3098,7 @@ VMStructs::init() {
+ 
+ #if INCLUDE_ALL_GCS
+   VM_STRUCTS_PARALLELGC(CHECK_NONSTATIC_VM_STRUCT_ENTRY,
++             CHECK_VOLATILE_NONSTATIC_VM_STRUCT_ENTRY,
+              CHECK_STATIC_VM_STRUCT_ENTRY);
+ 
+   VM_STRUCTS_CMS(CHECK_NONSTATIC_VM_STRUCT_ENTRY,
+@@ -3223,6 +3225,7 @@ VMStructs::init() {
+                         CHECK_NO_OP));
+ #if INCLUDE_ALL_GCS
+   debug_only(VM_STRUCTS_PARALLELGC(ENSURE_FIELD_TYPE_PRESENT,
++                                   ENSURE_FIELD_TYPE_PRESENT,
+                                    ENSURE_FIELD_TYPE_PRESENT));
+   debug_only(VM_STRUCTS_CMS(ENSURE_FIELD_TYPE_PRESENT,
+                             ENSURE_FIELD_TYPE_PRESENT,
+-- 
+2.12.3
+

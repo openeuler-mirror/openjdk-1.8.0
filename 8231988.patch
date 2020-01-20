@@ -1,0 +1,32 @@
+From d73c61c26fd00e3cb8daa24fa254b756c48309ca Mon Sep 17 00:00:00 2001
+From: wanghuang <wanghuang3@huawei.com>
+Date: Sun, 29 Sep 2019 15:57:24 +0000
+Subject: [PATCH] 8231988: Unexpected test result caused by C2 IdealLoopTree::do_remove_empty_loop
+
+Summary: Unexpected test result caused by C2 IdealLoopTree::do_remove_empty_loop
+LLT:
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8231988
+---
+ hotspot/src/share/vm/opto/loopTransform.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/hotspot/src/share/vm/opto/loopTransform.cpp b/hotspot/src/share/vm/opto/loopTransform.cpp
+index caf7a9b758..c7bb19763c 100644
+--- a/hotspot/src/share/vm/opto/loopTransform.cpp
++++ b/hotspot/src/share/vm/opto/loopTransform.cpp
+@@ -2215,6 +2215,12 @@ bool IdealLoopTree::policy_do_remove_empty_loop( PhaseIdealLoop *phase ) {
+     // We also need to replace the original limit to collapse loop exit.
+     Node* cmp = cl->loopexit()->cmp_node();
+     assert(cl->limit() == cmp->in(2), "sanity");
++    if (cmp->outcnt() > 1) { //we have more than one BoolNode here
++      cmp = cmp->clone();
++      cmp = phase->_igvn.register_new_node_with_optimizer(cmp);
++      BoolNode *bl = cl->loopexit()->in(CountedLoopEndNode::TestValue)->as_Bool();
++      phase->_igvn.replace_input_of(bl, 1, cmp); // put BoolNode on worklist
++    }
+     phase->_igvn._worklist.push(cmp->in(2)); // put limit on worklist
+     phase->_igvn.replace_input_of(cmp, 2, exact_limit); // put cmp on worklist
+   }
+-- 
+2.12.3
+

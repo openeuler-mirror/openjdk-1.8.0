@@ -1,0 +1,44 @@
+From 8e390a2cdfff1138f3ba6e694395cd8790aa1603 Mon Sep 17 00:00:00 2001
+From: guoge <guoge1@huawei.com>
+Date: Fri, 19 Apr 2019 17:33:26 +0000
+Subject: [PATCH] AARCH64 fix itable stub code size limit
+
+---
+ hotspot/src/cpu/aarch64/vm/vtableStubs_aarch64.cpp | 12 +++++++++---
+ hotspot/src/share/vm/code/codeCache.cpp            |  2 ++
+ 2 files changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/hotspot/src/cpu/aarch64/vm/vtableStubs_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/vtableStubs_aarch64.cpp
+index d8d1ec11ba..645b690dae 100644
+--- a/hotspot/src/cpu/aarch64/vm/vtableStubs_aarch64.cpp
++++ b/hotspot/src/cpu/aarch64/vm/vtableStubs_aarch64.cpp
+@@ -130,6 +130,10 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
+   // returned by pd_code_size_limit!
+   const int code_length = VtableStub::pd_code_size_limit(false);
+   VtableStub* s = new(code_length) VtableStub(false, itable_index);
++  // Can be NULL if there is no free space in the code cache.
++  if (s == NULL) {
++    return NULL;
++  }
+   ResourceMark rm;
+   CodeBuffer cb(s->entry_point(), code_length);
+   MacroAssembler* masm = new MacroAssembler(&cb);
+@@ -222,10 +226,12 @@ int VtableStub::pd_code_size_limit(bool is_vtable_stub) {
+   if (CountCompiledCalls)
+     size += 6 * 4;
+   // FIXME: vtable stubs only need 36 bytes
+-  if (is_vtable_stub)
++  if (is_vtable_stub) {
+     size += 52;
+-  else
+-    size += 176;
++  } else {
++    // itable code size limit, see issue
++    size += 192;
++  }
+   return size;
+ 
+   // In order to tune these parameters, run the JVM with VM options
+-- 
+2.19.0
+

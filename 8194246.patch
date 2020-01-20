@@ -1,0 +1,57 @@
+From 86d65f4258c2c47751ae42281e84b6ba36712a08 Mon Sep 17 00:00:00 2001
+From: hexuejin <hexuejin2@huawei.com>
+Date: Tue, 9 Jul 2019 10:41:26 +0000
+Subject: [PATCH] Backport of JDK-8194246
+
+summary: JVM crashes when calling getStackTrace if stack contains a method that is a member of a very large class
+LLT:
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8194246
+---
+ hotspot/src/share/vm/classfile/javaClasses.cpp | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/hotspot/src/share/vm/classfile/javaClasses.cpp b/hotspot/src/share/vm/classfile/javaClasses.cpp
+index ff65cb97e2..a9b40d235e 100644
+--- a/hotspot/src/share/vm/classfile/javaClasses.cpp
++++ b/hotspot/src/share/vm/classfile/javaClasses.cpp
+@@ -1434,9 +1434,9 @@ class BacktraceBuilder: public StackObj {
+       method = mhandle();
+     }
+ 
+-    _methods->short_at_put(_index, method->orig_method_idnum());
++    _methods->ushort_at_put(_index, method->orig_method_idnum());
+     _bcis->int_at_put(_index, merge_bci_and_version(bci, method->constants()->version()));
+-    _cprefs->short_at_put(_index, method->name_index());
++    _cprefs->ushort_at_put(_index, method->name_index());
+ 
+     // We need to save the mirrors in the backtrace to keep the class
+     // from being unloaded while we still have this stack trace.
+@@ -1553,10 +1553,10 @@ void java_lang_Throwable::print_stack_trace(oop throwable, outputStream* st) {
+         Handle mirror(THREAD, mirrors->obj_at(index));
+         // NULL mirror means end of stack trace
+         if (mirror.is_null()) goto handle_cause;
+-        int method = methods->short_at(index);
++        int method = methods->ushort_at(index);
+         int version = version_at(bcis->int_at(index));
+         int bci = bci_at(bcis->int_at(index));
+-        int cpref = cprefs->short_at(index);
++        int cpref = cprefs->ushort_at(index);
+         print_stack_element(st, mirror, method, version, bci, cpref);
+       }
+       result = objArrayHandle(THREAD, objArrayOop(result->obj_at(trace_next_offset)));
+@@ -1849,10 +1849,10 @@ oop java_lang_Throwable::get_stack_trace_element(oop throwable, int index, TRAPS
+ 
+   assert(methods != NULL && bcis != NULL && mirrors != NULL, "sanity check");
+ 
+-  int method = methods->short_at(chunk_index);
++  int method = methods->ushort_at(chunk_index);
+   int version = version_at(bcis->int_at(chunk_index));
+   int bci = bci_at(bcis->int_at(chunk_index));
+-  int cpref = cprefs->short_at(chunk_index);
++  int cpref = cprefs->ushort_at(chunk_index);
+   Handle mirror(THREAD, mirrors->obj_at(chunk_index));
+ 
+   // Chunk can be partial full
+-- 
+2.19.0-rc1
+

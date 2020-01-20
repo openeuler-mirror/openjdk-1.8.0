@@ -1,0 +1,29 @@
+From 27de742e21eda38d2aff89d07364ec8f961f8e34 Mon Sep 17 00:00:00 2001
+From: hexuejin <hexuejin2@huawei.com>
+Date: Tue, 25 Jun 2019 21:09:31 +0000
+Subject: [PATCH] Backport of JDK-8182036
+
+summary: Load from initializing arraycopy uses wrong memory state
+LLT:
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8182036
+---
+ hotspot/src/share/vm/opto/library_call.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/hotspot/src/share/vm/opto/library_call.cpp b/hotspot/src/share/vm/opto/library_call.cpp
+index 4379f8359c..ea11a13e70 100644
+--- a/hotspot/src/share/vm/opto/library_call.cpp
++++ b/hotspot/src/share/vm/opto/library_call.cpp
+@@ -5723,7 +5723,8 @@ LibraryCallKit::generate_block_arraycopy(const TypePtr* adr_type,
+         ((src_off ^ dest_off) & (BytesPerLong-1)) == 0) {
+       Node* sptr = basic_plus_adr(src,  src_off);
+       Node* dptr = basic_plus_adr(dest, dest_off);
+-      Node* sval = make_load(control(), sptr, TypeInt::INT, T_INT, adr_type, MemNode::unordered);
++      const TypePtr* s_adr_type = _gvn.type(sptr)->is_ptr();
++      Node* sval = make_load(control(), sptr, TypeInt::INT, T_INT, s_adr_type, MemNode::unordered);
+       store_to_memory(control(), dptr, sval, T_INT, adr_type, MemNode::unordered);
+       src_off += BytesPerInt;
+       dest_off += BytesPerInt;
+-- 
+2.12.3
+

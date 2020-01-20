@@ -1,0 +1,180 @@
+From be0206e834bab370da41cf9ec9e6b9be710e1987 Mon Sep 17 00:00:00 2001
+From: guoge <guoge1@huawei.com>
+Date: Fri, 19 Apr 2019 17:40:19 +0000
+Subject: [PATCH] 8148754: C2 loop unrolling fails due to unexpected graph shape
+
+Summary: C2 loop unrolling fails due to unexpected graph shape
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8148754
+---
+ hotspot/src/share/vm/opto/loopTransform.cpp | 44 ++++++++-------------
+ hotspot/src/share/vm/opto/loopnode.cpp      | 36 +++++++++++++++++
+ hotspot/src/share/vm/opto/loopnode.hpp      |  3 ++
+ hotspot/src/share/vm/opto/superword.cpp     | 18 ++++-----
+ 4 files changed, 64 insertions(+), 37 deletions(-)
+
+diff --git a/hotspot/src/share/vm/opto/loopTransform.cpp b/hotspot/src/share/vm/opto/loopTransform.cpp
+index 2edc6f8e4..3148e5cae 100644
+--- a/hotspot/src/share/vm/opto/loopTransform.cpp
++++ b/hotspot/src/share/vm/opto/loopTransform.cpp
+@@ -1226,21 +1226,14 @@ void PhaseIdealLoop::do_unroll( IdealLoopTree *loop, Node_List &old_new, bool ad
+ 
+   Node *opaq = NULL;
+   if (adjust_min_trip) {       // If not maximally unrolling, need adjustment
+-    // Search for zero-trip guard.
+-    assert( loop_head->is_main_loop(), "" );
+-    assert( ctrl->Opcode() == Op_IfTrue || ctrl->Opcode() == Op_IfFalse, "" );
+-    Node *iff = ctrl->in(0);
+-    assert( iff->Opcode() == Op_If, "" );
+-    Node *bol = iff->in(1);
+-    assert( bol->Opcode() == Op_Bool, "" );
+-    Node *cmp = bol->in(1);
+-    assert( cmp->Opcode() == Op_CmpI, "" );
+-    opaq = cmp->in(2);
+-    // Occasionally it's possible for a zero-trip guard Opaque1 node to be
+-    // optimized away and then another round of loop opts attempted.
+-    // We can not optimize this particular loop in that case.
+-    if (opaq->Opcode() != Op_Opaque1)
+-      return; // Cannot find zero-trip guard!  Bail out!
++    // Check the shape of the graph at the loop entry. If an inappropriate
++    // graph shape is encountered, the compiler bails out loop unrolling;
++    // compilation of the method will still succeed.
++    if (!is_canonical_main_loop_entry(loop_head)) {
++      return;
++    }
++    // get a not shared opaque' node for Zero-trip test
++    opaq = ctrl->in(0)->in(1)->in(1)->in(2);
+     // Zero-trip test uses an 'opaque' node which is not shared.
+     assert(opaq->outcnt() == 1 && opaq->in(1) == limit, "");
+   }
+@@ -1810,7 +1803,6 @@ void PhaseIdealLoop::do_range_check( IdealLoopTree *loop, Node_List &old_new ) {
+ #endif
+   assert(RangeCheckElimination, "");
+   CountedLoopNode *cl = loop->_head->as_CountedLoop();
+-  assert(cl->is_main_loop(), "");
+ 
+   // protect against stride not being a constant
+   if (!cl->stride_is_con())
+@@ -1822,20 +1814,18 @@ void PhaseIdealLoop::do_range_check( IdealLoopTree *loop, Node_List &old_new ) {
+   // to not ever trip end tests
+   Node *main_limit = cl->limit();
+ 
++  // Check graph shape. Cannot optimize a loop if zero-trip
++  // Opaque1 node is optimized away and then another round
++  // of loop opts attempted.
++  if (!is_canonical_main_loop_entry(cl)) {
++    return;
++  }
++
+   // Need to find the main-loop zero-trip guard
+   Node *ctrl  = cl->in(LoopNode::EntryControl);
+-  assert(ctrl->Opcode() == Op_IfTrue || ctrl->Opcode() == Op_IfFalse, "");
+   Node *iffm = ctrl->in(0);
+-  assert(iffm->Opcode() == Op_If, "");
+-  Node *bolzm = iffm->in(1);
+-  assert(bolzm->Opcode() == Op_Bool, "");
+-  Node *cmpzm = bolzm->in(1);
+-  assert(cmpzm->is_Cmp(), "");
+-  Node *opqzm = cmpzm->in(2);
+-  // Can not optimize a loop if zero-trip Opaque1 node is optimized
+-  // away and then another round of loop opts attempted.
+-  if (opqzm->Opcode() != Op_Opaque1)
+-    return;
++  // get the zero-trip Opaque1 node for testing the main limits
++  Node *opqzm = iffm->in(1)->in(1)->in(2);
+   assert(opqzm->in(1) == main_limit, "do not understand situation");
+ 
+   // Find the pre-loop limit; we will expand it's iterations to
+diff --git a/hotspot/src/share/vm/opto/loopnode.cpp b/hotspot/src/share/vm/opto/loopnode.cpp
+index ce0a7393d..ef845ca93 100644
+--- a/hotspot/src/share/vm/opto/loopnode.cpp
++++ b/hotspot/src/share/vm/opto/loopnode.cpp
+@@ -3278,6 +3278,42 @@ Node* PhaseIdealLoop::compute_lca_of_uses(Node* n, Node* early, bool verify) {
+   return LCA;
+ }
+ 
++// Check the shape of the graph at the loop entry. In some cases,
++// the shape of the graph does not match the shape outlined below.
++// That is caused by the Opaque1 node "protecting" the shape of
++// the graph being removed by, for example, the IGVN performed
++// in PhaseIdealLoop::build_and_optimize().
++//
++// After the Opaque1 node has been removed, optimizations (e.g., split-if,
++// loop unswitching, and IGVN, or a combination of them) can freely change
++// the graph's shape. As a result, the graph shape outlined below cannot
++// be guaranteed anymore.
++bool PhaseIdealLoop::is_canonical_main_loop_entry(CountedLoopNode* cl) {
++  assert(cl->is_main_loop(), "check should be applied to main loops");
++  Node* ctrl = cl->in(LoopNode::EntryControl);
++  if (ctrl == NULL || (!ctrl->is_IfTrue() && !ctrl->is_IfFalse())) {
++    return false;
++  }
++  Node* iffm = ctrl->in(0);
++  if (iffm == NULL || !iffm->is_If()) {
++    return false;
++  }
++  Node* bolzm = iffm->in(1);
++  if (bolzm == NULL || !bolzm->is_Bool()) {
++    return false;
++  }
++  Node* cmpzm = bolzm->in(1);
++  if (cmpzm == NULL || !cmpzm->is_Cmp()) {
++    return false;
++  }
++  // get the compare node, if null or not return false
++  Node* opqzm = cmpzm->in(2);
++  if (opqzm == NULL || opqzm->Opcode() != Op_Opaque1) {
++    return false;
++  }
++  return true;
++}
++
+ //------------------------------get_late_ctrl----------------------------------
+ // Compute latest legal control.
+ Node *PhaseIdealLoop::get_late_ctrl( Node *n, Node *early ) {
+diff --git a/hotspot/src/share/vm/opto/loopnode.hpp b/hotspot/src/share/vm/opto/loopnode.hpp
+index aba285205..24926d047 100644
+--- a/hotspot/src/share/vm/opto/loopnode.hpp
++++ b/hotspot/src/share/vm/opto/loopnode.hpp
+@@ -620,6 +620,9 @@ private:
+   bool cast_incr_before_loop(Node* incr, Node* ctrl, Node* loop);
+ 
+ public:
++
++  static bool is_canonical_main_loop_entry(CountedLoopNode* cl);
++
+   bool has_node( Node* n ) const {
+     guarantee(n != NULL, "No Node.");
+     return _nodes[n->_idx] != NULL;
+diff --git a/hotspot/src/share/vm/opto/superword.cpp b/hotspot/src/share/vm/opto/superword.cpp
+index 543ffc035..53878000f 100644
+--- a/hotspot/src/share/vm/opto/superword.cpp
++++ b/hotspot/src/share/vm/opto/superword.cpp
+@@ -2208,15 +2208,18 @@ void SuperWord::align_initial_loop_index(MemNode* align_to_ref) {
+ //----------------------------get_pre_loop_end---------------------------
+ // Find pre loop end from main loop.  Returns null if none.
+ CountedLoopEndNode* SuperWord::get_pre_loop_end(CountedLoopNode *cl) {
+-  Node *ctrl = cl->in(LoopNode::EntryControl);
+-  if (!ctrl->is_IfTrue() && !ctrl->is_IfFalse()) return NULL;
+-  Node *iffm = ctrl->in(0);
+-  if (!iffm->is_If()) return NULL;
+-  Node *p_f = iffm->in(0);
++  // The loop cannot be optimized if the graph shape at
++  // the loop entry is inappropriate.
++  if (!PhaseIdealLoop::is_canonical_main_loop_entry(cl)) {
++    return NULL;
++  }
++
++  Node* p_f = cl->in(LoopNode::EntryControl)->in(0)->in(0);
+   if (!p_f->is_IfFalse()) return NULL;
+   if (!p_f->in(0)->is_CountedLoopEnd()) return NULL;
+-  CountedLoopEndNode *pre_end = p_f->in(0)->as_CountedLoopEnd();
+-  if (!pre_end->loopnode()->is_pre_loop()) return NULL;
++  CountedLoopEndNode* pre_end = p_f->in(0)->as_CountedLoopEnd();
++  CountedLoopNode* loop_node = pre_end->loopnode();
++  if (loop_node == NULL || !loop_node->is_pre_loop()) return NULL;
+   return pre_end;
+ }
+ 
+-- 
+2.19.0
+

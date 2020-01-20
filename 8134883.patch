@@ -1,0 +1,189 @@
+From d58ebe4882c0dfcb2f185e948c5c838f2d867e6b Mon Sep 17 00:00:00 2001
+From: songyaofei <songyaofei2@huawei.com>
+Date: Wed, 12 Jun 2019 20:43:23 +0000
+Subject: [PATCH] fix-fastdebug-jdk-crash-when-running-a-jtreg-case
+ 
+Summary: The problem happens when c1’s loop optimizations encounter a non natural loop for which one entry is an exception handler.Backport the patch from openjdk9
+LLT:
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8134883
+
+---
+ hotspot/src/share/vm/c1/c1_IR.cpp             |  7 +-
+ .../TestRangeCheckExceptionHandlerLoop.jasm   | 89 +++++++++++++++++++
+ ...estRangeCheckExceptionHandlerLoopMain.java | 41 +++++++++
+ 3 files changed, 134 insertions(+), 3 deletions(-)
+ create mode 100644 hotspot/test/compiler/rangechecks/TestRangeCheckExceptionHandlerLoop.jasm
+ create mode 100644 hotspot/test/compiler/rangechecks/TestRangeCheckExceptionHandlerLoopMain.java
+
+diff --git a/hotspot/src/share/vm/c1/c1_IR.cpp b/hotspot/src/share/vm/c1/c1_IR.cpp
+index 0984098764..b500d5cf79 100644
+--- a/hotspot/src/share/vm/c1/c1_IR.cpp
++++ b/hotspot/src/share/vm/c1/c1_IR.cpp
+@@ -578,11 +578,8 @@ void ComputeLinearScanOrder::count_edges(BlockBegin* cur, BlockBegin* parent) {
+     assert(is_visited(cur), "block must be visisted when block is active");
+     assert(parent != NULL, "must have parent");
+ 
+-    cur->set(BlockBegin::linear_scan_loop_header_flag);
+     cur->set(BlockBegin::backward_branch_target_flag);
+ 
+-    parent->set(BlockBegin::linear_scan_loop_end_flag);
+-
+     // When a loop header is also the start of an exception handler, then the backward branch is
+     // an exception edge. Because such edges are usually critical edges which cannot be split, the
+     // loop must be excluded here from processing.
+@@ -591,6 +588,10 @@ void ComputeLinearScanOrder::count_edges(BlockBegin* cur, BlockBegin* parent) {
+       _iterative_dominators = true;
+       return;
+     }
++
++    cur->set(BlockBegin::linear_scan_loop_header_flag);
++    parent->set(BlockBegin::linear_scan_loop_end_flag);
++
+     assert(parent->number_of_sux() == 1 && parent->sux_at(0) == cur,
+            "loop end blocks must have one successor (critical edges are split)");
+ 
+diff --git a/hotspot/test/compiler/rangechecks/TestRangeCheckExceptionHandlerLoop.jasm b/hotspot/test/compiler/rangechecks/TestRangeCheckExceptionHandlerLoop.jasm
+new file mode 100644
+index 0000000000..2befe6db09
+--- /dev/null
++++ b/hotspot/test/compiler/rangechecks/TestRangeCheckExceptionHandlerLoop.jasm
+@@ -0,0 +1,89 @@
++/*
++ * Copyright (c) 2015, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++super public class TestRangeCheckExceptionHandlerLoop
++	version 51:0
++{
++
++
++public Method "<init>":"()V"
++	stack 1 locals 1
++{
++		aload_0;
++		invokespecial	Method java/lang/Object."<init>":"()V";
++		return;
++}
++
++/* This method has an irreducible loop, with 2 entries, one is the exception handler
++
++    static void test(boolean flag, int[] array, Exception exception) throws Exception {
++        int i = 0;
++        if (flag) {
++            try {
++                throw exception;
++            } catch(Exception e) {
++                array[i] = 0;
++                i++;
++            }
++        }
++        if (i < 10) {
++            throw exception; // caught by exception handler above as well
++        }
++    }
++*/
++public static Method test:"(Z[ILjava/lang/Exception;)V"
++	throws java/lang/Exception
++	stack 3 locals 5
++{
++		iconst_0;
++		istore_3;
++		iload_0;
++		ifeq	L17;
++		try t0;
++		aload_2;
++		athrow;
++		endtry t0;
++		catch t0 java/lang/Exception;
++		catch t1 java/lang/Exception;
++		stack_frame_type full;
++		locals_map int, class "[I", class java/lang/Exception, int;
++		stack_map class java/lang/Exception;
++		astore	4;
++		aload_1;
++		iload_3;
++		iconst_0;
++		iastore;
++		iinc	3, 1;
++	L17:	stack_frame_type same;
++		iload_3;
++		bipush	10;
++		if_icmpge	L25;
++		try t1;
++		aload_2;
++		athrow;
++		endtry t1;
++	L25:	stack_frame_type same;
++		return;
++}
++} // end Class TestRangeCheckExceptionHandlerLoop
+diff --git a/hotspot/test/compiler/rangechecks/TestRangeCheckExceptionHandlerLoopMain.java b/hotspot/test/compiler/rangechecks/TestRangeCheckExceptionHandlerLoopMain.java
+new file mode 100644
+index 0000000000..32df890bc0
+--- /dev/null
++++ b/hotspot/test/compiler/rangechecks/TestRangeCheckExceptionHandlerLoopMain.java
+@@ -0,0 +1,41 @@
++/*
++ * Copyright (c) 2015, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @bug 8134883
++ * @summary C1's range check elimination breaks with a non-natural loop that an exception handler as one entry
++ * @compile TestRangeCheckExceptionHandlerLoop.jasm
++ * @run main/othervm -XX:-BackgroundCompilation -XX:-UseOnStackReplacement TestRangeCheckExceptionHandlerLoopMain
++ */
++
++public class TestRangeCheckExceptionHandlerLoopMain {
++    public static void main(String[] args) throws Exception {
++        Exception exception = new Exception();
++        int[] array = new int[10];
++        for (int i = 0; i < 20000; i++) {
++            TestRangeCheckExceptionHandlerLoop.test(false, array, exception);
++        }
++    }
++}
+-- 
+2.19.0
+

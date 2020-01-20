@@ -1,0 +1,46 @@
+From a0788fc8804ec901f1011a7a7a3264098a717223 Mon Sep 17 00:00:00 2001
+From: songyaofei <songyaofei2@huawei.com>
+Date: Tue, 16 Jul 2019 19:36:33 +0000
+Subject: [PATCH] Backport of JDK-8131600
+
+Summary: JVM crashes when doing heapdump and handling a signal at a same time
+LLT: none
+
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8131600
+---
+ hotspot/src/share/vm/prims/jvmtiTagMap.cpp   | 2 +-
+ hotspot/src/share/vm/services/heapDumper.cpp | 5 +++++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/hotspot/src/share/vm/prims/jvmtiTagMap.cpp b/hotspot/src/share/vm/prims/jvmtiTagMap.cpp
+index 90c95f417d..84fc25071b 100644
+--- a/hotspot/src/share/vm/prims/jvmtiTagMap.cpp
++++ b/hotspot/src/share/vm/prims/jvmtiTagMap.cpp
+@@ -2834,7 +2834,7 @@ inline bool VM_HeapWalkOperation::iterate_over_class(oop java_class) {
+   if (klass->oop_is_instance()) {
+     InstanceKlass* ik = InstanceKlass::cast(klass);
+ 
+-    // ignore the class if it's has been initialized yet
++    // Ignore the class if it hasn't been initialized yet
+     if (!ik->is_linked()) {
+       return true;
+     }
+diff --git a/hotspot/src/share/vm/services/heapDumper.cpp b/hotspot/src/share/vm/services/heapDumper.cpp
+index e5de80eaeb..9a1bb13ded 100644
+--- a/hotspot/src/share/vm/services/heapDumper.cpp
++++ b/hotspot/src/share/vm/services/heapDumper.cpp
+@@ -950,6 +950,11 @@ void DumperSupport::dump_class_and_array_classes(DumpWriter* writer, Klass* k) {
+     return;
+   }
+ 
++  // Ignore the class if it hasn't been initialized yet
++  if (!ik->is_linked()) {
++    return;
++  }
++
+   writer->write_u1(HPROF_GC_CLASS_DUMP);
+ 
+   // class ID
+-- 
+2.12.3
+

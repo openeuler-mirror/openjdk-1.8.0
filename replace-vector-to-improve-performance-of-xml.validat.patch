@@ -1,0 +1,450 @@
+From 6ee202c81902416a9ec5ec5a32c536d3294bd5e6 Mon Sep 17 00:00:00 2001
+From: guoge <guoge1@huawei.com>
+Date: Fri, 19 Apr 2019 17:23:48 +0000
+Subject: [PATCH] replace vector to improve performance of xml.validation
+
+---
+ .../internal/impl/dv/ValidatedInfo.java       |   5 +
+ .../internal/impl/dv/xs/XSSimpleTypeDecl.java | 148 ++++++++++--------
+ .../xerces/internal/impl/xpath/regex/Op.java  |  10 +-
+ .../impl/xpath/regex/RegularExpression.java   |   6 +-
+ 4 files changed, 97 insertions(+), 72 deletions(-)
+
+diff --git a/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/ValidatedInfo.java b/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/ValidatedInfo.java
+index e6b8f267a5..8d5d86772f 100644
+--- a/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/ValidatedInfo.java
++++ b/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/ValidatedInfo.java
+@@ -95,4 +95,9 @@ public class ValidatedInfo {
+         else
+             return actualValue.toString();
+     }
++
++    public Object getActualValue() {
++        return actualValue;
++    }
++
+ }
+diff --git a/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/xs/XSSimpleTypeDecl.java b/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/xs/XSSimpleTypeDecl.java
+index c9c913464e..98546f2d50 100644
+--- a/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/xs/XSSimpleTypeDecl.java
++++ b/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/xs/XSSimpleTypeDecl.java
+@@ -20,11 +20,6 @@
+ 
+ package com.sun.org.apache.xerces.internal.impl.dv.xs;
+ 
+-import java.util.AbstractList;
+-import java.util.Locale;
+-import java.util.StringTokenizer;
+-import java.util.Vector;
+-
+ import com.sun.org.apache.xerces.internal.impl.Constants;
+ import com.sun.org.apache.xerces.internal.impl.dv.DatatypeException;
+ import com.sun.org.apache.xerces.internal.impl.dv.InvalidDatatypeFacetException;
+@@ -52,6 +47,12 @@ import com.sun.org.apache.xerces.internal.xs.XSObjectList;
+ import com.sun.org.apache.xerces.internal.xs.XSSimpleTypeDefinition;
+ import com.sun.org.apache.xerces.internal.xs.XSTypeDefinition;
+ import com.sun.org.apache.xerces.internal.xs.datatypes.ObjectList;
++import java.math.BigInteger;
++import java.util.AbstractList;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Locale;
++import java.util.StringTokenizer;
+ import org.w3c.dom.TypeInfo;
+ 
+ /**
+@@ -266,11 +267,10 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+     private int fMaxLength = -1;
+     private int fTotalDigits = -1;
+     private int fFractionDigits = -1;
+-    private Vector fPattern;
+-    private Vector fPatternStr;
+-    private Vector fEnumeration;
+-    private short[] fEnumerationType;
+-    private ShortList[] fEnumerationItemType;   // used in case fenumerationType value is LIST or LISTOFUNION
++    private List<RegularExpression> fPattern;
++    private List<String> fPatternStr;
++    private ValidatedInfo[] fEnumeration;
++    private int fEnumerationSize;
+     private ShortList fEnumerationTypeList;
+     private ObjectList fEnumerationItemTypeList;
+     private StringList fLexicalPattern;
+@@ -388,8 +388,7 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+         fPattern = fBase.fPattern;
+         fPatternStr = fBase.fPatternStr;
+         fEnumeration = fBase.fEnumeration;
+-        fEnumerationType = fBase.fEnumerationType;
+-        fEnumerationItemType = fBase.fEnumerationItemType;
++        fEnumerationSize = fBase.fEnumerationSize;
+         fWhiteSpace = fBase.fWhiteSpace;
+         fMaxExclusive = fBase.fMaxExclusive;
+         fMaxInclusive = fBase.fMaxInclusive;
+@@ -509,8 +508,7 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+         fPattern = fBase.fPattern;
+         fPatternStr = fBase.fPatternStr;
+         fEnumeration = fBase.fEnumeration;
+-        fEnumerationType = fBase.fEnumerationType;
+-        fEnumerationItemType = fBase.fEnumerationItemType;
++        fEnumerationSize = fBase.fEnumerationSize;
+         fWhiteSpace = fBase.fWhiteSpace;
+         fMaxExclusive = fBase.fMaxExclusive;
+         fMaxInclusive = fBase.fMaxInclusive;
+@@ -846,10 +844,10 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+                     reportError("InvalidRegex", new Object[]{facets.pattern, e.getLocalizedMessage()});
+                 }
+                 if (regex != null) {
+-                    fPattern = new Vector();
+-                    fPattern.addElement(regex);
+-                    fPatternStr = new Vector();
+-                    fPatternStr.addElement(facets.pattern);
++                    fPattern = new ArrayList<>();
++                    fPattern.add(regex);
++                    fPatternStr = new ArrayList<>();
++                    fPatternStr.add(facets.pattern);
+                     fFacetsDefined |= FACET_PATTERN;
+                     if ((fixedFacet & FACET_PATTERN) != 0)
+                         fFixedFacet |= FACET_PATTERN;
+@@ -874,24 +872,22 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+             if ((allowedFacet & FACET_ENUMERATION) == 0) {
+                 reportError("cos-applicable-facets", new Object[]{"enumeration", fTypeName});
+             } else {
+-                fEnumeration = new Vector();
+-                Vector enumVals = facets.enumeration;
+-                fEnumerationType = new short[enumVals.size()];
+-                fEnumerationItemType = new ShortList[enumVals.size()];
+-                Vector enumNSDecls = facets.enumNSDecls;
++                List<String> enumVals = facets.enumeration;
++                int size = enumVals.size();
++                fEnumeration = new ValidatedInfo[size];
++                List<NamespaceContext> enumNSDecls = facets.enumNSDecls;
+                 ValidationContextImpl ctx = new ValidationContextImpl(context);
+                 enumerationAnnotations = facets.enumAnnotations;
+-                for (int i = 0; i < enumVals.size(); i++) {
++                fEnumerationSize = 0;
++                for (int i = 0; i < size; i++) {
+                     if (enumNSDecls != null)
+-                        ctx.setNSContext((NamespaceContext)enumNSDecls.elementAt(i));
++                        ctx.setNSContext(enumNSDecls.get(i));
+                     try {
+-                        ValidatedInfo info = getActualEnumValue((String)enumVals.elementAt(i), ctx, tempInfo);
++                        ValidatedInfo info = getActualEnumValue(enumVals.get(i), ctx, null);
+                         // check 4.3.5.c0 must: enumeration values from the value space of base
+-                        fEnumeration.addElement(info.actualValue);
+-                        fEnumerationType[i] = info.actualValueType;
+-                        fEnumerationItemType[i] = info.itemValueTypes;
++                        fEnumeration[fEnumerationSize++] = info;
+                     } catch (InvalidDatatypeValueException ide) {
+-                        reportError("enumeration-valid-restriction", new Object[]{enumVals.elementAt(i), this.getBaseType().getName()});
++                        reportError("enumeration-valid-restriction", new Object[]{enumVals.get(i), this.getBaseType().getName()});
+                     }
+                 }
+                 fFacetsDefined |= FACET_ENUMERATION;
+@@ -1454,8 +1450,8 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+             }
+             else {
+                 for (int i = fBase.fPattern.size()-1; i >= 0; --i) {
+-                    fPattern.addElement(fBase.fPattern.elementAt(i));
+-                    fPatternStr.addElement(fBase.fPatternStr.elementAt(i));
++                    fPattern.add(fBase.fPattern.get(i));
++                    fPatternStr.add(fBase.fPatternStr.get(i));
+                 }
+                 if (fBase.patternAnnotations != null) {
+                     if (patternAnnotations != null) {
+@@ -1479,6 +1475,7 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+         if ((fFacetsDefined & FACET_ENUMERATION) == 0 && (fBase.fFacetsDefined & FACET_ENUMERATION) != 0) {
+             fFacetsDefined |= FACET_ENUMERATION;
+             fEnumeration = fBase.fEnumeration;
++            fEnumerationSize = fBase.fEnumerationSize;
+             enumerationAnnotations = fBase.enumerationAnnotations;
+         }
+         // inherit maxExclusive
+@@ -1674,16 +1671,16 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+         //enumeration
+         if ( ((fFacetsDefined & FACET_ENUMERATION) != 0 ) ) {
+             boolean present = false;
+-            final int enumSize = fEnumeration.size();
++            final int enumSize = fEnumerationSize;
+             final short primitiveType1 = convertToPrimitiveKind(type);
+             for (int i = 0; i < enumSize; i++) {
+-                final short primitiveType2 = convertToPrimitiveKind(fEnumerationType[i]);
++                final short primitiveType2 = convertToPrimitiveKind(fEnumeration[i].actualValueType);
+                 if ((primitiveType1 == primitiveType2 ||
+                         primitiveType1 == XSConstants.ANYSIMPLETYPE_DT && primitiveType2 == XSConstants.STRING_DT ||
+                         primitiveType1 == XSConstants.STRING_DT && primitiveType2 == XSConstants.ANYSIMPLETYPE_DT)
+-                        && fEnumeration.elementAt(i).equals(ob)) {
++                        && fEnumeration[i].actualValue.equals(ob)) {
+                     if (primitiveType1 == XSConstants.LIST_DT || primitiveType1 == XSConstants.LISTOFUNION_DT) {
+-                        ShortList enumItemType = fEnumerationItemType[i];
++                        ShortList enumItemType = fEnumeration[i].itemValueTypes;
+                         final int typeList1Length = itemType != null ? itemType.getLength() : 0;
+                         final int typeList2Length = enumItemType != null ? enumItemType.getLength() : 0;
+                         if (typeList1Length == typeList2Length) {
+@@ -1712,8 +1709,10 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+                 }
+             }
+             if(!present){
++                StringBuffer sb = new StringBuffer();
++                appendEnumString(sb);
+                 throw new InvalidDatatypeValueException("cvc-enumeration-valid",
+-                        new Object [] {content, fEnumeration.toString()});
++                        new Object [] {content, sb.toString()});
+             }
+         }
+ 
+@@ -1836,11 +1835,12 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+             }
+             RegularExpression regex;
+             for (int idx = fPattern.size()-1; idx >= 0; idx--) {
+-                regex = (RegularExpression)fPattern.elementAt(idx);
++                regex = fPattern.get(idx);
+                 if (!regex.matches(nvalue)){
+                     throw new InvalidDatatypeValueException("cvc-pattern-valid",
+                             new Object[]{content,
+-                            fPatternStr.elementAt(idx),
++                            fPatternStr.get(idx),
++
+                             fTypeName});
+                 }
+             }
+@@ -1911,6 +1911,7 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+             validatedInfo.memberTypes = memberTypes;
+             validatedInfo.itemValueTypes = new ShortListImpl(itemTypes, itemTypes.length);
+             validatedInfo.normalizedValue = nvalue;
++            // Need to set it here or it will become the item type
+ 
+             return v;
+ 
+@@ -1930,6 +1931,7 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+                         fMemberTypes[i].checkFacets(validatedInfo);
+                     }
+                     validatedInfo.memberType = fMemberTypes[i];
++                    // Need to set it here or it will become the member type
+                     return aValue;
+                 } catch(InvalidDatatypeValueException invalidValue) {
+                 }
+@@ -1947,14 +1949,8 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+                 }
+                 typesBuffer.append(decl.fTypeName);
+                 if(decl.fEnumeration != null) {
+-                    Vector v = decl.fEnumeration;
+-                    typesBuffer.append(" : [");
+-                    for(int j = 0;j < v.size(); j++) {
+-                        if(j != 0)
+-                            typesBuffer.append(',');
+-                        typesBuffer.append(v.elementAt(j));
+-                    }
+-                    typesBuffer.append(']');
++                    typesBuffer.append(" : ");
++                    decl.appendEnumString(typesBuffer);
+                 }
+             }
+             throw new InvalidDatatypeValueException("cvc-datatype-valid.1.2.3",
+@@ -2246,10 +2242,10 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+         if (fLexicalEnumeration == null){
+             if (fEnumeration == null)
+                 return StringListImpl.EMPTY_LIST;
+-            int size = fEnumeration.size();
++            int size = fEnumerationSize;
+             String[] strs = new String[size];
+             for (int i = 0; i < size; i++)
+-                strs[i] = fEnumeration.elementAt(i).toString();
++                strs[i] = fEnumeration[i].actualValue.toString();
+             fLexicalEnumeration = new StringListImpl(strs, size);
+         }
+         return fLexicalEnumeration;
+@@ -2263,16 +2259,24 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+         if (fActualEnumeration == null) {
+             fActualEnumeration = new AbstractObjectList() {
+                 public int getLength() {
+-                    return (fEnumeration != null) ? fEnumeration.size() : 0;
++                    return (fEnumeration != null) ? fEnumerationSize : 0;
+                 }
+                 public boolean contains(Object item) {
+-                    return (fEnumeration != null && fEnumeration.contains(item));
++                    if (fEnumeration == null) {
++                        return false;
++                    }
++                    for (int i = 0; i < fEnumerationSize; i++) {
++                        if (fEnumeration[i].getActualValue().equals(item)) {
++                            return true;
++                        }
++                    }
++                    return false;
+                 }
+                 public Object item(int index) {
+                     if (index < 0 || index >= getLength()) {
+                         return null;
+                     }
+-                    return fEnumeration.elementAt(index);
++                    return fEnumeration[index].getActualValue();
+                 }
+             };
+         }
+@@ -2285,17 +2289,18 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+      */
+     public ObjectList getEnumerationItemTypeList() {
+         if (fEnumerationItemTypeList == null) {
+-            if(fEnumerationItemType == null)
++            if (fEnumeration == null) {
+                 return null;
++            }
+             fEnumerationItemTypeList = new AbstractObjectList() {
+                 public int getLength() {
+-                    return (fEnumerationItemType != null) ? fEnumerationItemType.length : 0;
++                    return (fEnumeration != null) ? fEnumerationSize : 0;
+                 }
+                 public boolean contains(Object item) {
+-                    if(fEnumerationItemType == null || !(item instanceof ShortList))
++                    if (fEnumeration == null || !(item instanceof ShortList))
+                         return false;
+-                    for(int i = 0;i < fEnumerationItemType.length; i++)
+-                        if(fEnumerationItemType[i] == item)
++                    for (int i = 0;i < fEnumerationSize; i++)
++                        if (fEnumeration[i].itemValueTypes == item)
+                             return true;
+                     return false;
+                 }
+@@ -2303,7 +2308,7 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+                     if (index < 0 || index >= getLength()) {
+                         return null;
+                     }
+-                    return fEnumerationItemType[index];
++                    return fEnumeration[index].itemValueTypes;
+                 }
+             };
+         }
+@@ -2312,10 +2317,14 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+ 
+     public ShortList getEnumerationTypeList() {
+         if (fEnumerationTypeList == null) {
+-            if (fEnumerationType == null) {
++            if (fEnumeration == null) {
+                 return ShortListImpl.EMPTY_LIST;
+             }
+-            fEnumerationTypeList = new ShortListImpl (fEnumerationType, fEnumerationType.length);
++            short[] list = new short[fEnumerationSize];
++            for (int i = 0; i < fEnumerationSize; i++) {
++                list[i] = fEnumeration[i].actualValueType;
++            }
++            fEnumerationTypeList = new ShortListImpl(list, fEnumerationSize);
+         }
+         return fEnumerationTypeList;
+     }
+@@ -2351,7 +2360,7 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+                 strs = new String[size];
+             }
+             for (int i = 0; i < size; i++)
+-                strs[i] = (String)fPatternStr.elementAt(i);
++                strs[i] = fPatternStr.get(i);
+             fLexicalPattern = new StringListImpl(strs, strs.length);
+         }
+         return fLexicalPattern;
+@@ -2596,7 +2605,7 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+                 ((ancestorNS == null && type.getNamespace() == null) ||
+                         (ancestorNS != null && ancestorNS.equals(type.getNamespace())))) &&   // compare with ancestor
+                         type != fAnySimpleType) {  // reached anySimpleType
+-            type = (XSTypeDefinition)type.getBaseType();
++            type = type.getBaseType();
+         }
+ 
+         return type != fAnySimpleType;
+@@ -2979,10 +2988,11 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+         fPattern = null;
+         fPatternStr = null;
+         fEnumeration = null;
+-        fEnumerationType = null;
+-        fEnumerationItemType = null;
+         fLexicalPattern = null;
+         fLexicalEnumeration = null;
++        fActualEnumeration = null;
++        fEnumerationTypeList = null;
++        fEnumerationItemTypeList = null;
+         fMaxInclusive = null;
+         fMaxExclusive = null;
+         fMinExclusive = null;
+@@ -3395,4 +3405,14 @@ public class XSSimpleTypeDecl implements XSSimpleType, TypeInfo {
+         return valueType;
+     }
+ 
++    private void appendEnumString(StringBuffer sb) {
++        sb.append('[');
++        for (int i = 0; i < fEnumerationSize; i++) {
++            if (i != 0) {
++                sb.append(", ");
++            }
++            sb.append(fEnumeration[i].actualValue);
++        }
++        sb.append(']');
++    }
+ } // class XSSimpleTypeDecl
+diff --git a/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/Op.java b/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/Op.java
+index 372242ff6e..ab6cdb8455 100644
+--- a/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/Op.java
++++ b/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/Op.java
+@@ -20,7 +20,7 @@
+ 
+ package com.sun.org.apache.xerces.internal.impl.xpath.regex;
+ 
+-import java.util.Vector;
++import java.util.ArrayList;
+ 
+ /**
+  * @xerces.internal
+@@ -170,19 +170,19 @@ class Op {
+ 
+     // ================================================================
+     static class UnionOp extends Op {
+-        Vector branches;
++        final ArrayList<Op> branches;
+         UnionOp(int type, int size) {
+             super(type);
+-            this.branches = new Vector(size);
++            this.branches = new ArrayList<>(size);
+         }
+         void addElement(Op op) {
+-            this.branches.addElement(op);
++            this.branches.add(op);
+         }
+         int size() {
+             return this.branches.size();
+         }
+         Op elementAt(int index) {
+-            return (Op)this.branches.elementAt(index);
++            return this.branches.get(index);
+         }
+     }
+ 
+diff --git a/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/RegularExpression.java b/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/RegularExpression.java
+index fa488d64ad..913740fe0d 100644
+--- a/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/RegularExpression.java
++++ b/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/RegularExpression.java
+@@ -22,7 +22,7 @@ package com.sun.org.apache.xerces.internal.impl.xpath.regex;
+ 
+ import java.text.CharacterIterator;
+ import java.util.Locale;
+-import java.util.Stack;
++import java.util.LinkedList;
+ 
+ import com.sun.org.apache.xerces.internal.util.IntStack;
+ 
+@@ -1044,7 +1044,7 @@ public class RegularExpression implements java.io.Serializable {
+      */
+     private int match(Context con, Op op, int offset, int dx, int opts) {
+         final ExpressionTarget target = con.target;
+-        final Stack opStack = new Stack();
++        final LinkedList<Op> opStack = new LinkedList<>();
+         final IntStack dataStack = new IntStack();
+         final boolean isSetIgnoreCase = isSet(opts, IGNORE_CASE);
+         int retValue = -1;
+@@ -1323,7 +1323,7 @@ public class RegularExpression implements java.io.Serializable {
+                     return retValue;
+                 }
+ 
+-                op = (Op) opStack.pop();
++                op = opStack.pop();
+                 offset = dataStack.pop();
+ 
+                 switch (op.type) {
+-- 
+2.19.0
+

@@ -1,0 +1,234 @@
+From 0350ff861595f4d3b8d903533def704ac319dd45 Mon Sep 17 00:00:00 2001
+From: hexuejin <hexuejin2@huawei.com>
+Date: Sat, 29 Jun 2019 12:05:00 +0000
+Subject: [PATCH] Backport of JDK-8166253
+
+summary: (ch) FileLock object can get GC'd and result in unexpected release of file lock
+LLT: jdk/test/java/nio/channels/FileLock/FileLockGC.java
+
+bug link: https://bugs.openjdk.java.net/browse/JDK-8166253
+---
+ .../classes/sun/nio/ch/FileLockTable.java     |  13 +-
+ .../nio/channels/FileLock/FileLockGC.java     | 143 ++++++++++++++++++
+ 2 files changed, 155 insertions(+), 1 deletion(-)
+ create mode 100644 jdk/test/java/nio/channels/FileLock/FileLockGC.java
+
+diff --git a/jdk/src/share/classes/sun/nio/ch/FileLockTable.java b/jdk/src/share/classes/sun/nio/ch/FileLockTable.java
+index e77e1c4cec..b0351e5668 100644
+--- a/jdk/src/share/classes/sun/nio/ch/FileLockTable.java
++++ b/jdk/src/share/classes/sun/nio/ch/FileLockTable.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2005, 2009, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2005, 2018, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -115,9 +115,13 @@ class SharedFileLockTable extends FileLockTable {
+     // File key for the file that this channel is connected to
+     private final FileKey fileKey;
+ 
++    // Locks obtained for this channel
++    private final Set<FileLock> locks;
++
+     SharedFileLockTable(Channel channel, FileDescriptor fd) throws IOException {
+         this.channel = channel;
+         this.fileKey = FileKey.create(fd);
++        this.locks = new HashSet<FileLock>();
+     }
+ 
+     @Override
+@@ -135,6 +139,7 @@ class SharedFileLockTable extends FileLockTable {
+                     if (prev == null) {
+                         // we successfully created the key so we add the file lock
+                         list.add(new FileLockReference(fl, queue, fileKey));
++                        locks.add(fl);
+                         break;
+                     }
+                 }
+@@ -151,6 +156,7 @@ class SharedFileLockTable extends FileLockTable {
+                 if (list == current) {
+                     checkList(list, fl.position(), fl.size());
+                     list.add(new FileLockReference(fl, queue, fileKey));
++                    locks.add(fl);
+                     break;
+                 }
+                 list = current;
+@@ -187,6 +193,7 @@ class SharedFileLockTable extends FileLockTable {
+                     assert (lock != null) && (lock.acquiredBy() == channel);
+                     ref.clear();
+                     list.remove(index);
++                    locks.remove(fl);
+                     break;
+                 }
+                 index++;
+@@ -220,6 +227,8 @@ class SharedFileLockTable extends FileLockTable {
+ 
+                 // once the lock list is empty we remove it from the map
+                 removeKeyIfEmpty(fileKey, list);
++
++                locks.clear();
+             }
+         }
+         return result;
+@@ -238,6 +247,8 @@ class SharedFileLockTable extends FileLockTable {
+                 if (lock == fromLock) {
+                     ref.clear();
+                     list.set(index, new FileLockReference(toLock, queue, fileKey));
++                    locks.remove(fromLock);
++                    locks.add(toLock);
+                     break;
+                 }
+             }
+diff --git a/jdk/test/java/nio/channels/FileLock/FileLockGC.java b/jdk/test/java/nio/channels/FileLock/FileLockGC.java
+new file mode 100644
+index 0000000000..fb66186884
+--- /dev/null
++++ b/jdk/test/java/nio/channels/FileLock/FileLockGC.java
+@@ -0,0 +1,143 @@
++/*
++ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++
++import java.io.File;
++import java.io.IOException;
++import java.io.RandomAccessFile;
++import java.lang.ref.Reference;
++import java.lang.ref.WeakReference;
++import java.nio.channels.FileLock;
++import java.nio.channels.OverlappingFileLockException;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import jdk.test.lib.util.FileUtils;
++
++/*
++ * @test
++ * @bug 8166253
++ * @summary Verify that OverlappingFileLockException is thrown when expected.
++ * @library .. /test/lib
++ * @build jdk.test.lib.util.FileUtils
++ * @run main/othervm FileLockGC
++ */
++public class FileLockGC {
++    public enum TestType {
++        NO_GC_NO_RELEASE(true),
++        // A hypothetical 'GC_THEN_RELEASE' case is infeasible
++        RELEASE(false),
++        RELEASE_THEN_GC(false),
++        GC(true);
++
++        private final boolean exceptionExpected;
++
++        TestType(boolean exceptionExpected) {
++            this.exceptionExpected = exceptionExpected;
++        }
++
++        boolean exceptionExpected() {
++            return exceptionExpected;
++        }
++    }
++
++    public static void main(String[] args) throws Exception {
++        final File f = new File(System.getProperty("test.dir", ".")
++            + File.separator + "junk.txt");
++        final Path p = f.toPath();
++        int failures = 0;
++
++        for (TestType t : TestType.values()) {
++            try {
++                if (!testFileLockGC(f, t)) {
++                    failures++;
++                }
++            } finally {
++                FileUtils.deleteFileIfExistsWithRetry(p);
++            }
++        }
++
++        if (failures != 0) {
++            throw new RuntimeException("Test had " + failures + " failure(s)");
++        }
++    }
++
++    private static boolean testFileLockGC(File f, TestType type)
++        throws InterruptedException, IOException {
++        System.out.printf("Test %s starting%n", type.toString());
++
++        final RandomAccessFile raf1 = new RandomAccessFile(f, "rw");
++
++        FileLock lock1 = raf1.getChannel().tryLock();
++        WeakReference<FileLock> ref1 = new WeakReference(lock1);
++
++        switch (type) {
++            case GC:
++                lock1 = null;
++                System.gc();
++                break;
++            case RELEASE:
++                lock1.release();
++                break;
++            case RELEASE_THEN_GC:
++                lock1.release();
++                lock1 = null;
++                System.gc();
++                break;
++            default: // NO_GC_NO_RELEASE
++                // lock1 is neither collected nor released
++                break;
++        }
++
++        final RandomAccessFile raf2 = new RandomAccessFile(f, "rw");
++
++        boolean success = true;
++        FileLock lock2 = null;
++        try {
++            lock2 = raf2.getChannel().tryLock();
++            if (type.exceptionExpected()) {
++                System.err.printf
++                    ("No expected OverlappingFileLockException for test %s%n",
++                    type.toString());
++                success = false;
++            }
++        } catch (OverlappingFileLockException ofe) {
++            if (!type.exceptionExpected()) {
++                System.err.printf
++                    ("Unexpected OverlappingFileLockException for test %s%n",
++                    type.toString());
++                success = false;
++            }
++        } finally {
++            if (lock1 != null) {
++                lock1.release();
++            }
++            if (lock2 != null) {
++                lock2.release();
++            }
++            raf2.close();
++            raf1.close();
++            System.out.printf("Test %s finished%n", type.toString());
++        }
++
++        return success;
++    }
++}
+-- 
+2.19.0-rc1
+

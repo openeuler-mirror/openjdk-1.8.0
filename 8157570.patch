@@ -1,0 +1,70 @@
+From 58fcf0eb2ce3e74334ef124116a6e8f429ee9ae4 Mon Sep 17 00:00:00 2001
+From: hexuejin <hexuejin2@huawei.com>
+Date: Thu, 27 Jun 2019 11:04:38 +0000
+Subject: [PATCH] Backport of JDK-8157570
+
+summary: sun.rmi.transport.GC retains a strong reference to the context class loader
+LLT:
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8157570
+---
+ jdk/src/share/classes/sun/misc/GC.java | 26 +++++++++++---------------
+ 1 file changed, 11 insertions(+), 15 deletions(-)
+
+diff --git a/jdk/src/share/classes/sun/misc/GC.java b/jdk/src/share/classes/sun/misc/GC.java
+index c77bf1d055..eb92617c19 100644
+--- a/jdk/src/share/classes/sun/misc/GC.java
++++ b/jdk/src/share/classes/sun/misc/GC.java
+@@ -29,6 +29,7 @@ import java.security.AccessController;
+ import java.security.PrivilegedAction;
+ import java.util.SortedSet;
+ import java.util.TreeSet;
++import sun.misc.InnocuousThread;
+ 
+ 
+ /**
+@@ -83,8 +84,9 @@ public class GC {
+     public static native long maxObjectInspectionAge();
+ 
+ 
+-    private static class Daemon extends Thread {
++    private static class Daemon implements Runnable {
+ 
++        @Override
+         public void run() {
+             for (;;) {
+                 long l;
+@@ -122,23 +124,17 @@ public class GC {
+             }
+         }
+ 
+-        private Daemon(ThreadGroup tg) {
+-            super(tg, "GC Daemon");
+-        }
+-
+-        /* Create a new daemon thread in the root thread group */
++        /* Create a new daemon thread */
+         public static void create() {
+             PrivilegedAction<Void> pa = new PrivilegedAction<Void>() {
+                 public Void run() {
+-                    ThreadGroup tg = Thread.currentThread().getThreadGroup();
+-                    for (ThreadGroup tgn = tg;
+-                         tgn != null;
+-                         tg = tgn, tgn = tg.getParent());
+-                    Daemon d = new Daemon(tg);
+-                    d.setDaemon(true);
+-                    d.setPriority(Thread.MIN_PRIORITY + 1);
+-                    d.start();
+-                    GC.daemon = d;
++                    Thread t = InnocuousThread.newSystemThread("RMI GC Daemon",
++                                                               new Daemon());
++                    assert t.getContextClassLoader() == null;
++                    t.setDaemon(true);
++                    t.setPriority(Thread.MIN_PRIORITY + 1);
++                    t.start();
++                    GC.daemon = t;
+                     return null;
+                 }};
+             AccessController.doPrivileged(pa);
+-- 
+2.19.0
+

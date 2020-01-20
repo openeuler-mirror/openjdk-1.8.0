@@ -1,0 +1,36 @@
+From a0559370c5b6ca2a080b673da7198ae366aa34bd Mon Sep 17 00:00:00 2001
+From: jitao <jitao8@huawei.com>
+Date: Fri, 19 Apr 2019 17:34:30 +0000
+Subject: [PATCH] 8221658: aarch64: add necessary predicate for ubfx patterns
+
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8221658
+
+---
+ hotspot/src/cpu/aarch64/vm/aarch64.ad | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hotspot/src/cpu/aarch64/vm/aarch64.ad b/hotspot/src/cpu/aarch64/vm/aarch64.ad
+index d779915db..a82629edd 100644
+--- a/hotspot/src/cpu/aarch64/vm/aarch64.ad
++++ b/hotspot/src/cpu/aarch64/vm/aarch64.ad
+@@ -10777,7 +10777,7 @@ instruct ubfxwI(iRegINoSp dst, iRegIorL2I src, immI rshift, immI_bitmask mask)
+     long mask = $mask$$constant;
+     int width = exact_log2(mask+1);
+     __ ubfxw(as_Register($dst$$reg),
+-            as_Register($src$$reg), rshift, width);
++            as_Register($src$$reg), $rshift$$constant & 31, width);
+   %}
+   ins_pipe(ialu_reg_shift);
+ %}
+@@ -10792,7 +10792,7 @@ instruct ubfxL(iRegLNoSp dst, iRegL src, immI rshift, immL_bitmask mask)
+     long mask = $mask$$constant;
+     int width = exact_log2(mask+1);
+     __ ubfx(as_Register($dst$$reg),
+-            as_Register($src$$reg), rshift, width);
++            as_Register($src$$reg), $rshift$$constant & 63, width);
+   %}
+   ins_pipe(ialu_reg_shift);
+ %}
+-- 
+2.19.0
+

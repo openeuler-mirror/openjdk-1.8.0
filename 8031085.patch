@@ -1,0 +1,187 @@
+From 727421f7f1abdcc90ac203fa03b279090a208cd7 Mon Sep 17 00:00:00 2001
+From: hedongbo <hedongbo@huawei.com>
+Date: Fri, 18 Oct 2019 12:06:46 +0000
+Subject: [PATCH] backport of JDK-8031085
+
+Summary: <class DateTimeFormatterBuilder.java>: DateTimeFormatter won't parse dates with custom format "yyyyMMddHHmmssSSS"
+LLT: jdk/test/java/time/tck/java/time/format/TCKDateTimeFormatterBuilder.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8031085
+---
+ .../java/time/format/DateTimeFormatterBuilder.java | 79 ++++++++++++++++++----
+ .../time/format/TCKDateTimeFormatterBuilder.java   | 20 +++++-
+ 2 files changed, 86 insertions(+), 13 deletions(-)
+
+diff --git a/jdk/src/share/classes/java/time/format/DateTimeFormatterBuilder.java b/jdk/src/share/classes/java/time/format/DateTimeFormatterBuilder.java
+index 7e0698dfce..d57a167302 100644
+--- a/jdk/src/share/classes/java/time/format/DateTimeFormatterBuilder.java
++++ b/jdk/src/share/classes/java/time/format/DateTimeFormatterBuilder.java
+@@ -664,8 +664,11 @@ public final class DateTimeFormatterBuilder {
+      * No rounding occurs due to the maximum width - digits are simply dropped.
+      * <p>
+      * When parsing in strict mode, the number of parsed digits must be between
+-     * the minimum and maximum width. When parsing in lenient mode, the minimum
+-     * width is considered to be zero and the maximum is nine.
++     * the minimum and maximum width. In strict mode, if the minimum and maximum widths
++     * are equal and there is no decimal point then the parser will
++     * participate in adjacent value parsing, see
++     * {@link appendValue(java.time.temporal.TemporalField, int)}. When parsing in lenient mode,
++     * the minimum width is considered to be zero and the maximum is nine.
+      * <p>
+      * If the value cannot be obtained then an exception will be thrown.
+      * If the value is negative an exception will be thrown.
+@@ -684,7 +687,12 @@ public final class DateTimeFormatterBuilder {
+      */
+     public DateTimeFormatterBuilder appendFraction(
+             TemporalField field, int minWidth, int maxWidth, boolean decimalPoint) {
+-        appendInternal(new FractionPrinterParser(field, minWidth, maxWidth, decimalPoint));
++        if (minWidth == maxWidth && decimalPoint == false) {
++            // adjacent parsing
++            appendValue(new FractionPrinterParser(field, minWidth, maxWidth, decimalPoint));
++        } else {
++            appendInternal(new FractionPrinterParser(field, minWidth, maxWidth, decimalPoint));
++        }
+         return this;
+     }
+ 
+@@ -2907,10 +2915,7 @@ public final class DateTimeFormatterBuilder {
+     /**
+      * Prints and parses a numeric date-time field with optional padding.
+      */
+-    static final class FractionPrinterParser implements DateTimePrinterParser {
+-        private final TemporalField field;
+-        private final int minWidth;
+-        private final int maxWidth;
++    static final class FractionPrinterParser extends NumberPrinterParser {
+         private final boolean decimalPoint;
+ 
+         /**
+@@ -2922,6 +2927,7 @@ public final class DateTimeFormatterBuilder {
+          * @param decimalPoint  whether to output the localized decimal point symbol
+          */
+         FractionPrinterParser(TemporalField field, int minWidth, int maxWidth, boolean decimalPoint) {
++            this(field, minWidth, maxWidth, decimalPoint, 0);
+             Objects.requireNonNull(field, "field");
+             if (field.range().isFixed() == false) {
+                 throw new IllegalArgumentException("Field must have a fixed set of values: " + field);
+@@ -2936,12 +2942,61 @@ public final class DateTimeFormatterBuilder {
+                 throw new IllegalArgumentException("Maximum width must exceed or equal the minimum width but " +
+                         maxWidth + " < " + minWidth);
+             }
+-            this.field = field;
+-            this.minWidth = minWidth;
+-            this.maxWidth = maxWidth;
++        }
++
++        /**
++         * Constructor.
++         *
++         * @param field  the field to output, not null
++         * @param minWidth  the minimum width to output, from 0 to 9
++         * @param maxWidth  the maximum width to output, from 0 to 9
++         * @param decimalPoint  whether to output the localized decimal point symbol
++         * @param subsequentWidth the subsequentWidth for this instance
++         */
++        FractionPrinterParser(TemporalField field, int minWidth, int maxWidth, boolean decimalPoint, int subsequentWidth) {
++            super(field, minWidth, maxWidth, SignStyle.NOT_NEGATIVE, subsequentWidth);
+             this.decimalPoint = decimalPoint;
+         }
+ 
++        /**
++         * Returns a new instance with fixed width flag set.
++         *
++         * @return a new updated printer-parser, not null
++         */
++        @Override
++        FractionPrinterParser withFixedWidth() {
++            if (subsequentWidth == -1) {
++                return this;
++            }
++            return new FractionPrinterParser(field, minWidth, maxWidth, decimalPoint, -1);
++        }
++
++        /**
++         * Returns a new instance with an updated subsequent width.
++         *
++         * @param subsequentWidth  the width of subsequent non-negative numbers, 0 or greater
++         * @return a new updated printer-parser, not null
++         */
++        @Override
++        FractionPrinterParser withSubsequentWidth(int subsequentWidth) {
++            return new FractionPrinterParser(field, minWidth, maxWidth, decimalPoint, this.subsequentWidth + subsequentWidth);
++        }
++
++        /**
++         * For FractionPrinterPrinterParser, the width is fixed if context is sttrict,
++         * minWidth equal to maxWidth and decimalpoint is absent.
++         * @param context the context
++         * @return if the field is fixed width
++         * @see DateTimeFormatterBuilder#appendValueFraction(java.time.temporal.TemporalField, int, int, boolean)
++         */
++        @Override
++        boolean isFixedWidth(DateTimeParseContext context) {
++            if (context.isStrict() && minWidth == maxWidth && decimalPoint == false) {
++                return true;
++            }
++            return false;
++        }
++
+         @Override
+         public boolean format(DateTimePrintContext context, StringBuilder buf) {
+             Long value = context.getValue(field);
+@@ -2974,8 +3029,8 @@ public final class DateTimeFormatterBuilder {
+ 
+         @Override
+         public int parse(DateTimeParseContext context, CharSequence text, int position) {
+-            int effectiveMin = (context.isStrict() ? minWidth : 0);
+-            int effectiveMax = (context.isStrict() ? maxWidth : 9);
++            int effectiveMin = (context.isStrict() || isFixedWidth(context) ? minWidth : 0);
++            int effectiveMax = (context.isStrict() || isFixedWidth(context) ? maxWidth : 9);
+             int length = text.length();
+             if (position == length) {
+                 // valid if whole field is optional, invalid if minimum width
+diff --git a/jdk/test/java/time/tck/java/time/format/TCKDateTimeFormatterBuilder.java b/jdk/test/java/time/tck/java/time/format/TCKDateTimeFormatterBuilder.java
+index c5a017c911..f689cf6512 100644
+--- a/jdk/test/java/time/tck/java/time/format/TCKDateTimeFormatterBuilder.java
++++ b/jdk/test/java/time/tck/java/time/format/TCKDateTimeFormatterBuilder.java
+@@ -69,6 +69,7 @@ import static org.testng.Assert.assertEquals;
+ 
+ import java.text.ParsePosition;
+ import java.time.LocalDate;
++import java.time.LocalDateTime;
+ import java.time.YearMonth;
+ import java.time.ZoneOffset;
+ import java.time.format.DateTimeFormatter;
+@@ -868,7 +869,7 @@ public class TCKDateTimeFormatterBuilder {
+ 
+     @Test
+     public void test_adjacent_lenient_fractionFollows_0digit() throws Exception {
+-        // succeeds because hour/min are fixed width
++        // succeeds because hour, min and fraction of seconds are fixed width
+         DateTimeFormatter f = builder.parseLenient().appendValue(HOUR_OF_DAY, 2).appendValue(MINUTE_OF_HOUR, 2).appendFraction(NANO_OF_SECOND, 3, 3, false).toFormatter(Locale.UK);
+         ParsePosition pp = new ParsePosition(0);
+         TemporalAccessor parsed = f.parseUnresolved("1230", pp);
+@@ -878,4 +879,21 @@ public class TCKDateTimeFormatterBuilder {
+         assertEquals(parsed.getLong(MINUTE_OF_HOUR), 30L);
+     }
+ 
++    @DataProvider(name="adjacentFractionParseData")
++    Object[][] data_adjacent_fraction_parse() {
++        return new Object[][] {
++            {"20130812214600025", "yyyyMMddHHmmssSSS", LocalDateTime.of(2013, 8, 12, 21, 46, 00, 25000000)},
++            {"201308122146000256", "yyyyMMddHHmmssSSSS", LocalDateTime.of(2013, 8, 12, 21, 46, 00, 25600000)},
++        };
++    }
++
++    @Test(dataProvider = "adjacentFractionParseData")
++    public void test_adjacent_fraction(String input, String pattern, LocalDateTime expected) {
++        DateTimeFormatter dtf = DateTimeFormatter.ofPattern(pattern);
++        LocalDateTime actual = LocalDateTime.parse(input, dtf);
++        assertEquals(actual, expected);
++    }
++
++
++
+ }
+-- 
+2.12.3
+
