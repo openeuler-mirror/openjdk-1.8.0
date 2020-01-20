@@ -1,0 +1,436 @@
+From 213dd3425bd0681a0ad4ed3c5f004898be645d86 Mon Sep 17 00:00:00 2001
+From: wangshuai <wangshuai94@huawei.com>
+Date: Thu, 15 Aug 2019 11:15:18 +0000
+Subject: [PATCH]  Backport of JDK-8158946 JDK-8165808 JDK-8166583 JDK-8166862
+
+summary: Add release barriers when allocating objects with concurrent collection && CMS needs klass_or_null_acquire
+LLT:
+
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8158946 https://bugs.openjdk.java.net/browse/JDK-8165808 https://bugs.openjdk.java.net/browse/JDK-8166583 https://bugs.openjdk.java.net/browse/JDK-8166862
+---
+ hotspot/src/share/vm/classfile/javaClasses.cpp     |  6 ++-
+ .../compactibleFreeListSpace.cpp                   | 23 ++-------
+ .../concurrentMarkSweepGeneration.cpp              | 16 +++----
+ .../src/share/vm/gc_interface/collectedHeap.cpp    | 16 +++++++
+ .../src/share/vm/gc_interface/collectedHeap.hpp    |  6 +--
+ .../share/vm/gc_interface/collectedHeap.inline.hpp | 54 ++++++++++++----------
+ hotspot/src/share/vm/oops/instanceMirrorKlass.cpp  |  7 ++-
+ hotspot/src/share/vm/oops/oop.hpp                  |  2 +
+ hotspot/src/share/vm/oops/oop.inline.hpp           | 38 ++++++++++++---
+ 9 files changed, 104 insertions(+), 64 deletions(-)
+
+diff --git a/hotspot/src/share/vm/classfile/javaClasses.cpp b/hotspot/src/share/vm/classfile/javaClasses.cpp
+index a9b40d235e..cd28c758d0 100644
+--- a/hotspot/src/share/vm/classfile/javaClasses.cpp
++++ b/hotspot/src/share/vm/classfile/javaClasses.cpp
+@@ -649,10 +649,14 @@ void java_lang_Class::create_mirror(KlassHandle k, Handle class_loader,
+ 
+ int  java_lang_Class::oop_size(oop java_class) {
+   assert(_oop_size_offset != 0, "must be set");
+-  return java_class->int_field(_oop_size_offset);
++  int size = java_class->int_field(_oop_size_offset);
++  assert(size > 0, "Oop size must be greater than zero");
++  return size;
++
+ }
+ void java_lang_Class::set_oop_size(oop java_class, int size) {
+   assert(_oop_size_offset != 0, "must be set");
++  assert(size > 0, "Oop size must be greater than zero");
+   java_class->int_field_put_raw(_oop_size_offset, size);
+ }
+ int  java_lang_Class::static_oop_field_count(oop java_class) {
+diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
+index e5a3a11069..2de68f7aeb 100644
+--- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
++++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
+@@ -984,18 +984,13 @@ size_t CompactibleFreeListSpace::block_size(const HeapWord* p) const {
+         return res;
+       }
+     } else {
+-      // must read from what 'p' points to in each loop.
+-      Klass* k = ((volatile oopDesc*)p)->klass_or_null();
++      // Ensure klass read before size.
++      Klass* k = oop(p)->klass_or_null_acquire();
+       if (k != NULL) {
+         assert(k->is_klass(), "Should really be klass oop.");
+         oop o = (oop)p;
+         assert(o->is_oop(true /* ignore mark word */), "Should be an oop.");
+ 
+-        // Bugfix for systems with weak memory model (PPC64/IA64).
+-        // The object o may be an array. Acquire to make sure that the array
+-        // size (third word) is consistent.
+-        OrderAccess::acquire();
+-
+         size_t res = o->size_given_klass(k);
+         res = adjustObjectSize(res);
+         assert(res != 0, "Block size should not be 0");
+@@ -1039,21 +1034,13 @@ const {
+         return res;
+       }
+     } else {
+-      // must read from what 'p' points to in each loop.
+-      Klass* k = ((volatile oopDesc*)p)->klass_or_null();
+-      // We trust the size of any object that has a non-NULL
+-      // klass and (for those in the perm gen) is parsable
+-      // -- irrespective of its conc_safe-ty.
++      // Ensure klass read before size.
++      Klass* k = oop(p)->klass_or_null_acquire();
+       if (k != NULL) {
+         assert(k->is_klass(), "Should really be klass oop.");
+         oop o = (oop)p;
+         assert(o->is_oop(), "Should be an oop");
+ 
+-        // Bugfix for systems with weak memory model (PPC64/IA64).
+-        // The object o may be an array. Acquire to make sure that the array
+-        // size (third word) is consistent.
+-        OrderAccess::acquire();
+-
+         size_t res = o->size_given_klass(k);
+         res = adjustObjectSize(res);
+         assert(res != 0, "Block size should not be 0");
+@@ -1101,7 +1088,7 @@ bool CompactibleFreeListSpace::block_is_obj(const HeapWord* p) const {
+   // assert(CollectedHeap::use_parallel_gc_threads() || _bt.block_start(p) == p,
+   //        "Should be a block boundary");
+   if (FreeChunk::indicatesFreeChunk(p)) return false;
+-  Klass* k = oop(p)->klass_or_null();
++  Klass* k = oop(p)->klass_or_null_acquire();
+   if (k != NULL) {
+     // Ignore mark word because it may have been used to
+     // chain together promoted objects (the last one
+diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
+index 2d7791138c..e3fdb6cf89 100644
+--- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
++++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
+@@ -6715,7 +6715,7 @@ size_t CMSCollector::block_size_if_printezis_bits(HeapWord* addr) const {
+ HeapWord* CMSCollector::next_card_start_after_block(HeapWord* addr) const {
+   size_t sz = 0;
+   oop p = (oop)addr;
+-  if (p->klass_or_null() != NULL) {
++  if (p->klass_or_null_acquire() != NULL) {
+     sz = CompactibleFreeListSpace::adjustObjectSize(p->size());
+   } else {
+     sz = block_size_using_printezis_bits(addr);
+@@ -7173,7 +7173,7 @@ size_t ScanMarkedObjectsAgainCarefullyClosure::do_object_careful_m(
+   }
+   if (_bitMap->isMarked(addr)) {
+     // it's marked; is it potentially uninitialized?
+-    if (p->klass_or_null() != NULL) {
++    if (p->klass_or_null_acquire() != NULL) {
+         // an initialized object; ignore mark word in verification below
+         // since we are running concurrent with mutators
+         assert(p->is_oop(true), "should be an oop");
+@@ -7214,7 +7214,7 @@ size_t ScanMarkedObjectsAgainCarefullyClosure::do_object_careful_m(
+     }
+   } else {
+     // Either a not yet marked object or an uninitialized object
+-    if (p->klass_or_null() == NULL) {
++    if (p->klass_or_null_acquire() == NULL) {
+       // An uninitialized object, skip to the next card, since
+       // we may not be able to read its P-bits yet.
+       assert(size == 0, "Initial value");
+@@ -7425,7 +7425,7 @@ bool MarkFromRootsClosure::do_bit(size_t offset) {
+     assert(_skipBits == 0, "tautology");
+     _skipBits = 2;  // skip next two marked bits ("Printezis-marks")
+     oop p = oop(addr);
+-    if (p->klass_or_null() == NULL) {
++    if (p->klass_or_null_acquire() == NULL) {
+       DEBUG_ONLY(if (!_verifying) {)
+         // We re-dirty the cards on which this object lies and increase
+         // the _threshold so that we'll come back to scan this object
+@@ -7445,7 +7445,7 @@ bool MarkFromRootsClosure::do_bit(size_t offset) {
+           if (_threshold < end_card_addr) {
+             _threshold = end_card_addr;
+           }
+-          if (p->klass_or_null() != NULL) {
++          if (p->klass_or_null_acquire() != NULL) {
+             // Redirty the range of cards...
+             _mut->mark_range(redirty_range);
+           } // ...else the setting of klass will dirty the card anyway.
+@@ -7596,7 +7596,7 @@ bool Par_MarkFromRootsClosure::do_bit(size_t offset) {
+     assert(_skip_bits == 0, "tautology");
+     _skip_bits = 2;  // skip next two marked bits ("Printezis-marks")
+     oop p = oop(addr);
+-    if (p->klass_or_null() == NULL) {
++    if (p->klass_or_null_acquire() == NULL) {
+       // in the case of Clean-on-Enter optimization, redirty card
+       // and avoid clearing card by increasing  the threshold.
+       return true;
+@@ -8583,7 +8583,7 @@ size_t SweepClosure::do_live_chunk(FreeChunk* fc) {
+            "alignment problem");
+ 
+ #ifdef ASSERT
+-      if (oop(addr)->klass_or_null() != NULL) {
++      if (oop(addr)->klass_or_null_acquire() != NULL) {
+         // Ignore mark word because we are running concurrent with mutators
+         assert(oop(addr)->is_oop(true), "live block should be an oop");
+         assert(size ==
+@@ -8594,7 +8594,7 @@ size_t SweepClosure::do_live_chunk(FreeChunk* fc) {
+ 
+   } else {
+     // This should be an initialized object that's alive.
+-    assert(oop(addr)->klass_or_null() != NULL,
++    assert(oop(addr)->klass_or_null_acquire() != NULL,
+            "Should be an initialized object");
+     // Ignore mark word because we are running concurrent with mutators
+     assert(oop(addr)->is_oop(true), "live block should be an oop");
+diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.cpp b/hotspot/src/share/vm/gc_interface/collectedHeap.cpp
+index 4f5e93bbe2..90207a8a4d 100644
+--- a/hotspot/src/share/vm/gc_interface/collectedHeap.cpp
++++ b/hotspot/src/share/vm/gc_interface/collectedHeap.cpp
+@@ -305,6 +305,22 @@ HeapWord* CollectedHeap::allocate_from_tlab_slow(KlassHandle klass, Thread* thre
+   return Universe::heap()->tlab_post_allocation_setup(obj);
+ }
+ 
++void CollectedHeap::post_allocation_setup_class(KlassHandle klass,
++                                                HeapWord* obj_ptr,
++                                                int size) {
++  // Set oop_size field before setting the _klass field because a
++  // non-NULL _klass field indicates that the object is parsable by
++  // concurrent GC.
++  oop new_cls = (oop)obj_ptr;
++  assert(size > 0, "oop_size must be positive.");
++  java_lang_Class::set_oop_size(new_cls, size);
++  post_allocation_setup_common(klass, obj_ptr);
++  assert(Universe::is_bootstrapping() ||
++         !new_cls->is_array(), "must not be an array");
++  // notify jvmti and dtrace
++  post_allocation_notify(klass, new_cls, size);
++}
++
+ void CollectedHeap::flush_deferred_store_barrier(JavaThread* thread) {
+   MemRegion deferred = thread->deferred_card_mark();
+   if (!deferred.is_empty()) {
+diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp b/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
+index 03956b036b..48fd7e7c0a 100644
+--- a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
++++ b/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
+@@ -157,6 +157,8 @@ class CollectedHeap : public CHeapObj<mtInternal> {
+   inline static void post_allocation_setup_array(KlassHandle klass,
+                                                  HeapWord* obj, int length);
+ 
++  static void post_allocation_setup_class(KlassHandle klass, HeapWord* obj, int size);
++
+   // Clears an allocated object.
+   inline static void init_obj(HeapWord* obj, size_t size);
+ 
+@@ -323,9 +325,7 @@ class CollectedHeap : public CHeapObj<mtInternal> {
+   inline static oop obj_allocate(KlassHandle klass, int size, TRAPS);
+   inline static oop array_allocate(KlassHandle klass, int size, int length, TRAPS);
+   inline static oop array_allocate_nozero(KlassHandle klass, int size, int length, TRAPS);
+-
+-  inline static void post_allocation_install_obj_klass(KlassHandle klass,
+-                                                       oop obj);
++  inline static oop class_allocate(KlassHandle klass, int size, TRAPS);
+ 
+   virtual uint oop_extra_words();
+ 
+diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp b/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp
+index 9f3b885a9e..17e02c8f90 100644
+--- a/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp
++++ b/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp
+@@ -39,14 +39,22 @@
+ // Inline allocation implementations.
+ 
+ void CollectedHeap::post_allocation_setup_common(KlassHandle klass,
+-                                                 HeapWord* obj) {
+-  post_allocation_setup_no_klass_install(klass, obj);
+-  post_allocation_install_obj_klass(klass, oop(obj));
++                                                 HeapWord* obj_ptr) {
++  post_allocation_setup_no_klass_install(klass, obj_ptr);
++  oop obj = (oop)obj_ptr;
++#if ! INCLUDE_ALL_GCS
++  obj->set_klass(klass());
++#else
++  // Need a release store to ensure array/class length, mark word, and
++  // object zeroing are visible before setting the klass non-NULL, for
++  // concurrent collectors.
++  obj->release_set_klass(klass());
++#endif
+ }
+ 
+ void CollectedHeap::post_allocation_setup_no_klass_install(KlassHandle klass,
+-                                                           HeapWord* objPtr) {
+-  oop obj = (oop)objPtr;
++                                                           HeapWord* obj_ptr) {
++  oop obj = (oop)obj_ptr;
+ 
+   assert(obj != NULL, "NULL object pointer");
+   if (UseBiasedLocking && (klass() != NULL)) {
+@@ -57,18 +65,6 @@ void CollectedHeap::post_allocation_setup_no_klass_install(KlassHandle klass,
+   }
+ }
+ 
+-void CollectedHeap::post_allocation_install_obj_klass(KlassHandle klass,
+-                                                   oop obj) {
+-  // These asserts are kind of complicated because of klassKlass
+-  // and the beginning of the world.
+-  assert(klass() != NULL || !Universe::is_fully_initialized(), "NULL klass");
+-  assert(klass() == NULL || klass()->is_klass(), "not a klass");
+-  assert(obj != NULL, "NULL object pointer");
+-  obj->set_klass(klass());
+-  assert(!Universe::is_fully_initialized() || obj->klass() != NULL,
+-         "missing klass");
+-}
+-
+ // Support for jvmti and dtrace
+ inline void post_allocation_notify(KlassHandle klass, oop obj, int size) {
+   // support low memory notifications (no-op if not enabled)
+@@ -96,15 +92,15 @@ void CollectedHeap::post_allocation_setup_obj(KlassHandle klass,
+ }
+ 
+ void CollectedHeap::post_allocation_setup_array(KlassHandle klass,
+-                                                HeapWord* obj,
++                                                HeapWord* obj_ptr,
+                                                 int length) {
+-  // Set array length before setting the _klass field
+-  // in post_allocation_setup_common() because the klass field
+-  // indicates that the object is parsable by concurrent GC.
++  // Set array length before setting the _klass field because a
++  // non-NULL klass field indicates that the object is parsable by
++  // concurrent GC.
+   assert(length >= 0, "length should be non-negative");
+-  ((arrayOop)obj)->set_length(length);
+-  post_allocation_setup_common(klass, obj);
+-  oop new_obj = (oop)obj;
++  ((arrayOop)obj_ptr)->set_length(length);
++  post_allocation_setup_common(klass, obj_ptr);
++  oop new_obj = (oop)obj_ptr;
+   assert(new_obj->is_array(), "must be an array");
+   // notify jvmti and dtrace (must be after length is set for dtrace)
+   post_allocation_notify(klass, new_obj, new_obj->size());
+@@ -208,6 +204,16 @@ oop CollectedHeap::obj_allocate(KlassHandle klass, int size, TRAPS) {
+   return (oop)obj;
+ }
+ 
++oop CollectedHeap::class_allocate(KlassHandle klass, int size, TRAPS) {
++  debug_only(check_for_valid_allocation_state());
++  assert(!Universe::heap()->is_gc_active(), "Allocation during gc not allowed");
++  assert(size >= 0, "int won't convert to size_t");
++  HeapWord* obj = common_mem_allocate_init(klass, size, CHECK_NULL);
++  post_allocation_setup_class(klass, obj, size); // set oop_size
++  NOT_PRODUCT(Universe::heap()->check_for_bad_heap_word_value(obj, size));
++  return (oop)obj;
++}
++
+ oop CollectedHeap::array_allocate(KlassHandle klass,
+                                   int size,
+                                   int length,
+diff --git a/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp b/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp
+index 5b4c7d0fd2..73da78e5a8 100644
+--- a/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp
++++ b/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp
+@@ -363,13 +363,12 @@ instanceOop InstanceMirrorKlass::allocate_instance(KlassHandle k, TRAPS) {
+   // Query before forming handle.
+   int size = instance_size(k);
+   KlassHandle h_k(THREAD, this);
+-  instanceOop i = (instanceOop)CollectedHeap::obj_allocate(h_k, size, CHECK_NULL);
++
++  assert(size > 0, "total object size must be positive");
+ 
+   // Since mirrors can be variable sized because of the static fields, store
+   // the size in the mirror itself.
+-  java_lang_Class::set_oop_size(i, size);
+-
+-  return i;
++  return (instanceOop)CollectedHeap::class_allocate(h_k, size, CHECK_NULL);
+ }
+ 
+ int InstanceMirrorKlass::oop_size(oop obj) const {
+diff --git a/hotspot/src/share/vm/oops/oop.hpp b/hotspot/src/share/vm/oops/oop.hpp
+index 1643ba9f55..c8d1f99183 100644
+--- a/hotspot/src/share/vm/oops/oop.hpp
++++ b/hotspot/src/share/vm/oops/oop.hpp
+@@ -104,10 +104,12 @@ class oopDesc {
+ 
+   Klass* klass() const;
+   Klass* klass_or_null() const volatile;
++  inline Klass* klass_or_null_acquire() const volatile;
+   Klass** klass_addr();
+   narrowKlass* compressed_klass_addr();
+ 
+   void set_klass(Klass* k);
++  inline void release_set_klass(Klass* k);
+ 
+   // For klass field compression
+   int klass_gap() const;
+diff --git a/hotspot/src/share/vm/oops/oop.inline.hpp b/hotspot/src/share/vm/oops/oop.inline.hpp
+index 535a7a8953..5d47e3f4dc 100644
+--- a/hotspot/src/share/vm/oops/oop.inline.hpp
++++ b/hotspot/src/share/vm/oops/oop.inline.hpp
+@@ -97,7 +97,6 @@ inline Klass* oopDesc::klass() const {
+ }
+ 
+ inline Klass* oopDesc::klass_or_null() const volatile {
+-  // can be NULL in CMS
+   if (UseCompressedClassPointers) {
+     return Klass::decode_klass(_metadata._compressed_klass);
+   } else {
+@@ -110,6 +109,17 @@ inline int oopDesc::klass_gap_offset_in_bytes() {
+   return oopDesc::klass_offset_in_bytes() + sizeof(narrowKlass);
+ }
+ 
++Klass* oopDesc::klass_or_null_acquire() const volatile {
++  if (UseCompressedClassPointers) {
++    // Workaround for non-const load_acquire parameter.
++    const volatile narrowKlass* addr = &_metadata._compressed_klass;
++    volatile narrowKlass* xaddr = const_cast<volatile narrowKlass*>(addr);
++    return Klass::decode_klass(OrderAccess::load_acquire(xaddr));
++  } else {
++    return (Klass*)OrderAccess::load_ptr_acquire(&_metadata._klass);
++  }
++}
++
+ inline Klass** oopDesc::klass_addr() {
+   // Only used internally and with CMS and will not work with
+   // UseCompressedOops
+@@ -122,10 +132,14 @@ inline narrowKlass* oopDesc::compressed_klass_addr() {
+   return &_metadata._compressed_klass;
+ }
+ 
++#define CHECK_SET_KLASS(k)                                                \
++  do {                                                                    \
++    assert(Universe::is_bootstrapping() || k != NULL, "NULL Klass");      \
++    assert(Universe::is_bootstrapping() || k->is_klass(), "not a Klass"); \
++  } while (0)
++
+ inline void oopDesc::set_klass(Klass* k) {
+-  // since klasses are promoted no store check is needed
+-  assert(Universe::is_bootstrapping() || k != NULL, "must be a real Klass*");
+-  assert(Universe::is_bootstrapping() || k->is_klass(), "not a Klass*");
++  CHECK_SET_KLASS(k);
+   if (UseCompressedClassPointers) {
+     *compressed_klass_addr() = Klass::encode_klass_not_null(k);
+   } else {
+@@ -133,6 +147,18 @@ inline void oopDesc::set_klass(Klass* k) {
+   }
+ }
+ 
++void oopDesc::release_set_klass(Klass* k) {
++  CHECK_SET_KLASS(k);
++  if (UseCompressedClassPointers) {
++    OrderAccess::release_store(compressed_klass_addr(),
++                               Klass::encode_klass_not_null(k));
++  } else {
++    OrderAccess::release_store_ptr(klass_addr(), k);
++  }
++}
++
++#undef CHECK_SET_KLASS
++
+ inline int oopDesc::klass_gap() const {
+   return *(int*)(((intptr_t)this) + klass_gap_offset_in_bytes());
+ }
+@@ -805,8 +831,8 @@ inline int oopDesc::size_given_klass(Klass* klass)  {
+     }
+   }
+ 
+-  assert(s % MinObjAlignment == 0, "alignment check");
+-  assert(s > 0, "Bad size calculated");
++  assert(s % MinObjAlignment == 0, "Oop size is not properly aligned");
++  assert(s > 0, "Oop size must be greater than zero");
+   return s;
+ }
+ 
+-- 
+2.12.3
+

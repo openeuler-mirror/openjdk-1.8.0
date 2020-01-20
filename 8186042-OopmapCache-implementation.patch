@@ -1,0 +1,412 @@
+From c673dc6b67a6f44bafb279b02c0f8616704636ea Mon Sep 17 00:00:00 2001
+From: zhanggaofeng <zhanggaofeng9@huawei.com>
+Date: Sun, 7 Jul 2019 19:16:39 +0000
+Subject: [PATCH] Backport of JDK-8186042 for OopmapCache implementation
+
+Summary: Backport of JDK-8186042 for OopmapCache implementation
+LLT:
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8186042
+---
+ .../shared/vmGCOperations.cpp                 |   6 +-
+ .../src/share/vm/interpreter/oopMapCache.cpp  | 154 +++++++++++-------
+ .../src/share/vm/interpreter/oopMapCache.hpp  |  11 +-
+ hotspot/src/share/vm/oops/method.cpp          |  26 +--
+ hotspot/src/share/vm/runtime/memprofiler.cpp  |   2 +-
+ hotspot/src/share/vm/runtime/vframe.cpp       |   8 +-
+ 6 files changed, 113 insertions(+), 94 deletions(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.cpp b/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.cpp
+index 972099b9cb..e50d9cf023 100644
+--- a/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.cpp
++++ b/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.cpp
+@@ -40,6 +40,7 @@
+ #if INCLUDE_ALL_GCS
+ #include "gc_implementation/g1/g1CollectedHeap.inline.hpp"
+ #endif // INCLUDE_ALL_GCS
++#include "interpreter/oopMapCache.hpp"
+ 
+ #ifndef USDT2
+ HS_DTRACE_PROBE_DECL1(hotspot, gc__begin, bool);
+@@ -134,7 +135,10 @@ bool VM_GC_Operation::doit_prologue() {
+ 
+ void VM_GC_Operation::doit_epilogue() {
+   assert(Thread::current()->is_Java_thread(), "just checking");
+-  // Release the Heap_lock first.
++  // Clean up old interpreter OopMap entries that were replaced
++  // during the GC thread root traversal.
++  OopMapCache::cleanup_old_entries();
++  // Release the Heap_lock.
+   SharedHeap* sh = SharedHeap::heap();
+   if (sh != NULL) sh->_thread_holds_heap_lock_for_gc = false;
+   Heap_lock->unlock();
+diff --git a/hotspot/src/share/vm/interpreter/oopMapCache.cpp b/hotspot/src/share/vm/interpreter/oopMapCache.cpp
+index f696bcb259..160522912f 100644
+--- a/hotspot/src/share/vm/interpreter/oopMapCache.cpp
++++ b/hotspot/src/share/vm/interpreter/oopMapCache.cpp
+@@ -30,6 +30,7 @@
+ #include "prims/jvmtiRedefineClassesTrace.hpp"
+ #include "runtime/handles.inline.hpp"
+ #include "runtime/signature.hpp"
++#include "runtime/atomic.inline.hpp"
+ 
+ PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
+ 
+@@ -39,6 +40,9 @@ class OopMapCacheEntry: private InterpreterOopMap {
+   friend class OopMapCache;
+   friend class VerifyClosure;
+ 
++ private:
++  OopMapCacheEntry* _next;
++
+  protected:
+   // Initialization
+   void fill(methodHandle method, int bci);
+@@ -56,8 +60,9 @@ class OopMapCacheEntry: private InterpreterOopMap {
+ 
+  public:
+   OopMapCacheEntry() : InterpreterOopMap() {
++    _next = NULL;
+ #ifdef ASSERT
+-     _resource_allocate_bit_mask = false;
++    _resource_allocate_bit_mask = false;
+ #endif
+   }
+ };
+@@ -424,16 +429,6 @@ void OopMapCacheEntry::flush() {
+ 
+ // Implementation of OopMapCache
+ 
+-#ifndef PRODUCT
+-
+-static size_t _total_memory_usage = 0;
+-
+-size_t OopMapCache::memory_usage() {
+-  return _total_memory_usage;
+-}
+-
+-#endif
+-
+ void InterpreterOopMap::resource_copy(OopMapCacheEntry* from) {
+   assert(_resource_allocate_bit_mask,
+     "Should not resource allocate the _bit_mask");
+@@ -474,15 +469,11 @@ inline unsigned int OopMapCache::hash_value_for(methodHandle method, int bci) co
+          ^ ((unsigned int) method->size_of_parameters() << 6);
+ }
+ 
++OopMapCacheEntry* volatile OopMapCache::_old_entries = NULL;
+ 
+-OopMapCache::OopMapCache() :
+-  _mut(Mutex::leaf, "An OopMapCache lock", true)
+-{
+-  _array  = NEW_C_HEAP_ARRAY(OopMapCacheEntry, _size, mtClass);
+-  // Cannot call flush for initialization, since flush
+-  // will check if memory should be deallocated
+-  for(int i = 0; i < _size; i++) _array[i].initialize();
+-  NOT_PRODUCT(_total_memory_usage += sizeof(OopMapCache) + (sizeof(OopMapCacheEntry) * _size);)
++OopMapCache::OopMapCache() {
++  _array  = NEW_C_HEAP_ARRAY(OopMapCacheEntry*, _size, mtClass);
++  for(int i = 0; i < _size; i++) _array[i] = NULL;
+ }
+ 
+ 
+@@ -491,44 +482,59 @@ OopMapCache::~OopMapCache() {
+   // Deallocate oop maps that are allocated out-of-line
+   flush();
+   // Deallocate array
+-  NOT_PRODUCT(_total_memory_usage -= sizeof(OopMapCache) + (sizeof(OopMapCacheEntry) * _size);)
+-  FREE_C_HEAP_ARRAY(OopMapCacheEntry, _array, mtClass);
++  FREE_C_HEAP_ARRAY(OopMapCacheEntry*, _array, mtClass);
+ }
+ 
+ OopMapCacheEntry* OopMapCache::entry_at(int i) const {
+-  return &_array[i % _size];
++  return (OopMapCacheEntry*)OrderAccess::load_ptr_acquire(&(_array[i % _size]));
+ }
+ 
++bool OopMapCache::put_at(int i, OopMapCacheEntry* entry, OopMapCacheEntry* old) {
++  return Atomic::cmpxchg_ptr(entry, &_array[i % _size], old) == old;
++ }
+ void OopMapCache::flush() {
+-  for (int i = 0; i < _size; i++) _array[i].flush();
++  for (int i = 0; i < _size; i++) {
++    OopMapCacheEntry* entry = _array[i];
++    if (entry != NULL) {
++      _array[i] = NULL;  // no barrier, only called in OopMapCache destructor
++      entry->flush();
++      FREE_C_HEAP_OBJ(entry, mtClass);
++    }
++  }
+ }
+ 
++
+ void OopMapCache::flush_obsolete_entries() {
+-  for (int i = 0; i < _size; i++)
+-    if (!_array[i].is_empty() && _array[i].method()->is_old()) {
++  assert(SafepointSynchronize::is_at_safepoint(), "called by RedefineClasses in a safepoint");
++  for (int i = 0; i < _size; i++) {
++    OopMapCacheEntry* entry = _array[i];
++    if (entry != NULL && !entry->is_empty() && entry->method()->is_old()) {
+       // Cache entry is occupied by an old redefined method and we don't want
+       // to pin it down so flush the entry.
++
+       RC_TRACE(0x08000000, ("flush: %s(%s): cached entry @%d",
+-        _array[i].method()->name()->as_C_string(),
+-        _array[i].method()->signature()->as_C_string(), i));
+-
+-      _array[i].flush();
++        entry->method()->name()->as_C_string(),
++        entry->method()->signature()->as_C_string(), i));
++
++      _array[i] = NULL;
++      entry->flush();
++      FREE_C_HEAP_OBJ(entry, mtClass);
+     }
++  }
+ }
+ 
+ void OopMapCache::lookup(methodHandle method,
+                          int bci,
+-                         InterpreterOopMap* entry_for) const {
+-  MutexLocker x(&_mut);
+-
+-  OopMapCacheEntry* entry = NULL;
++                         InterpreterOopMap* entry_for){
++  assert(SafepointSynchronize::is_at_safepoint(), "called by GC in a safepoint");
+   int probe = hash_value_for(method, bci);
++  int i;
++  OopMapCacheEntry* entry = NULL;
+ 
+   // Search hashtable for match
+-  int i;
+   for(i = 0; i < _probe_depth; i++) {
+     entry = entry_at(probe + i);
+-    if (entry->match(method, bci)) {
++    if (entry != NULL && !entry->is_empty() && entry->match(method, bci)) {
+       entry_for->resource_copy(entry);
+       assert(!entry_for->is_empty(), "A non-empty oop map should be returned");
+       return;
+@@ -543,26 +549,31 @@ void OopMapCache::lookup(methodHandle method,
+   }
+ 
+   // Entry is not in hashtable.
+-  // Compute entry and return it
++  // Compute entry
++
++  OopMapCacheEntry* tmp = NEW_C_HEAP_OBJ(OopMapCacheEntry, mtClass);
++  tmp->initialize();
++  tmp->fill(method, bci);
++  entry_for->resource_copy(tmp);
+ 
+   if (method->should_not_be_cached()) {
+     // It is either not safe or not a good idea to cache this Method*
+     // at this time. We give the caller of lookup() a copy of the
+     // interesting info via parameter entry_for, but we don't add it to
+     // the cache. See the gory details in Method*.cpp.
+-    compute_one_oop_map(method, bci, entry_for);
++    FREE_C_HEAP_OBJ(tmp, mtClass);
+     return;
+   }
+ 
+   // First search for an empty slot
+   for(i = 0; i < _probe_depth; i++) {
+-    entry  = entry_at(probe + i);
+-    if (entry->is_empty()) {
+-      entry->fill(method, bci);
+-      entry_for->resource_copy(entry);
+-      assert(!entry_for->is_empty(), "A non-empty oop map should be returned");
+-      return;
+-    }
++    entry = entry_at(probe + i);
++    if (entry == NULL) {
++      if(put_at(probe + i, tmp, NULL)) {
++        assert(!entry_for->is_empty(), "A non-empty oop map should be returned");
++        return;
++       }
++     }
+   }
+ 
+   if (TraceOopMapGeneration) {
+@@ -571,30 +582,51 @@ void OopMapCache::lookup(methodHandle method,
+   }
+ 
+   // No empty slot (uncommon case). Use (some approximation of a) LRU algorithm
+-  //entry_at(probe + _probe_depth - 1)->flush();
+-  //for(i = _probe_depth - 1; i > 0; i--) {
+-  //  // Coping entry[i] = entry[i-1];
+-  //  OopMapCacheEntry *to   = entry_at(probe + i);
+-  //  OopMapCacheEntry *from = entry_at(probe + i - 1);
+-  //  to->copy(from);
+-  // }
+-
+-  assert(method->is_method(), "gaga");
++  // where the first entry in the collision array is replaced with the new one.
++  OopMapCacheEntry* old = entry_at(probe + 0);
++  if (put_at(probe + 0, tmp, old)) {
++    enqueue_for_cleanup(old);
++  } else {
++    enqueue_for_cleanup(tmp);
++  }
++
++  assert(!entry_for->is_empty(), "A non-empty oop map should be returned");
+ 
+-  entry = entry_at(probe + 0);
+-  entry->fill(method, bci);
++  return;
++}
+ 
+-  // Copy the  newly cached entry to input parameter
+-  entry_for->resource_copy(entry);
++void OopMapCache::enqueue_for_cleanup(OopMapCacheEntry* entry) {
++  bool success = false;
++  OopMapCacheEntry* head;
++  do {
++    head = _old_entries;
++    entry->_next = head;
++    success = Atomic::cmpxchg_ptr((intptr_t*)entry, (intptr_t*)&_old_entries, (intptr_t*)head) == (intptr_t*)head;
++  } while (!success);
+ 
+   if (TraceOopMapGeneration) {
+     ResourceMark rm;
+-    tty->print("Done with ");
+-    method->print_value(); tty->cr();
++    tty->print_cr("enqueue %s at bci %d for cleanup",
++                          entry->method()->name_and_sig_as_C_string(), entry->bci());
+   }
+-  assert(!entry_for->is_empty(), "A non-empty oop map should be returned");
++}
+ 
+-  return;
++// This is called after GC threads are done and nothing is accessing the old_entries
++// list, so no synchronization needed.
++void OopMapCache::cleanup_old_entries() {
++  OopMapCacheEntry* entry = _old_entries;
++  _old_entries = NULL;
++  while (entry != NULL) {
++    if (TraceOopMapGeneration) {
++      ResourceMark rm;
++      tty->print_cr("cleanup entry %s at bci %d",
++                          entry->method()->name_and_sig_as_C_string(), entry->bci());
++    }
++    OopMapCacheEntry* next = entry->_next;
++    entry->flush();
++    FREE_C_HEAP_OBJ(entry, mtClass);
++    entry = next;
++  }
+ }
+ 
+ void OopMapCache::compute_one_oop_map(methodHandle method, int bci, InterpreterOopMap* entry) {
+diff --git a/hotspot/src/share/vm/interpreter/oopMapCache.hpp b/hotspot/src/share/vm/interpreter/oopMapCache.hpp
+index 99fbe81681..ecbe4340aa 100644
+--- a/hotspot/src/share/vm/interpreter/oopMapCache.hpp
++++ b/hotspot/src/share/vm/interpreter/oopMapCache.hpp
+@@ -147,17 +147,19 @@ class InterpreterOopMap: ResourceObj {
+ };
+ 
+ class OopMapCache : public CHeapObj<mtClass> {
++  static OopMapCacheEntry* volatile _old_entries;
+  private:
+   enum { _size        = 32,     // Use fixed size for now
+          _probe_depth = 3       // probe depth in case of collisions
+   };
+ 
+-  OopMapCacheEntry* _array;
++  OopMapCacheEntry* volatile * _array;
+ 
+   unsigned int hash_value_for(methodHandle method, int bci) const;
+   OopMapCacheEntry* entry_at(int i) const;
+ 
+-  mutable Mutex _mut;
++  bool put_at(int i, OopMapCacheEntry* entry, OopMapCacheEntry* old);
++  static void enqueue_for_cleanup(OopMapCacheEntry* entry);
+ 
+   void flush();
+ 
+@@ -170,13 +172,12 @@ class OopMapCache : public CHeapObj<mtClass> {
+ 
+   // Returns the oopMap for (method, bci) in parameter "entry".
+   // Returns false if an oop map was not found.
+-  void lookup(methodHandle method, int bci, InterpreterOopMap* entry) const;
++  void lookup(methodHandle method, int bci, InterpreterOopMap* entry);
+ 
+   // Compute an oop map without updating the cache or grabbing any locks (for debugging)
+   static void compute_one_oop_map(methodHandle method, int bci, InterpreterOopMap* entry);
+ 
+-  // Returns total no. of bytes allocated as part of OopMapCache's
+-  static size_t memory_usage()                     PRODUCT_RETURN0;
++  static void cleanup_old_entries();
+ };
+ 
+ #endif // SHARE_VM_INTERPRETER_OOPMAPCACHE_HPP
+diff --git a/hotspot/src/share/vm/oops/method.cpp b/hotspot/src/share/vm/oops/method.cpp
+index ec36a59e07..8cfe06e9af 100644
+--- a/hotspot/src/share/vm/oops/method.cpp
++++ b/hotspot/src/share/vm/oops/method.cpp
+@@ -216,26 +216,14 @@ int Method::fast_exception_handler_bci_for(methodHandle mh, KlassHandle ex_klass
+ }
+ 
+ void Method::mask_for(int bci, InterpreterOopMap* mask) {
+-
+-  Thread* myThread    = Thread::current();
+-  methodHandle h_this(myThread, this);
+-#ifdef ASSERT
+-  bool has_capability = myThread->is_VM_thread() ||
+-                        myThread->is_ConcurrentGC_thread() ||
+-                        myThread->is_GC_task_thread();
+-
+-  if (!has_capability) {
+-    if (!VerifyStack && !VerifyLastFrame) {
+-      // verify stack calls this outside VM thread
+-      warning("oopmap should only be accessed by the "
+-              "VM, GC task or CMS threads (or during debugging)");
+-      InterpreterOopMap local_mask;
+-      method_holder()->mask_for(h_this, bci, &local_mask);
+-      local_mask.print();
+-    }
++  methodHandle h_this(Thread::current(), this);
++  // Only GC uses the OopMapCache during thread stack root scanning
++  // any other uses generate an oopmap but do not save it in the cache.
++  if (Universe::heap()->is_gc_active()) {
++    method_holder()->mask_for(h_this, bci, mask);
++  } else {
++    OopMapCache::compute_one_oop_map(h_this, bci, mask);
+   }
+-#endif
+-  method_holder()->mask_for(h_this, bci, mask);
+   return;
+ }
+ 
+diff --git a/hotspot/src/share/vm/runtime/memprofiler.cpp b/hotspot/src/share/vm/runtime/memprofiler.cpp
+index c1cfb60bd6..ddb22601fa 100644
+--- a/hotspot/src/share/vm/runtime/memprofiler.cpp
++++ b/hotspot/src/share/vm/runtime/memprofiler.cpp
+@@ -129,7 +129,7 @@ void MemProfiler::do_trace() {
+   fprintf(_log_fp, UINTX_FORMAT_W(6) "," UINTX_FORMAT_W(6) "," UINTX_FORMAT_W(6) "\n",
+           handles_memory_usage / K,
+           resource_memory_usage / K,
+-          OopMapCache::memory_usage() / K);
++          0L);
+   fflush(_log_fp);
+ }
+ 
+diff --git a/hotspot/src/share/vm/runtime/vframe.cpp b/hotspot/src/share/vm/runtime/vframe.cpp
+index d98eb145ca..dfa02c55a5 100644
+--- a/hotspot/src/share/vm/runtime/vframe.cpp
++++ b/hotspot/src/share/vm/runtime/vframe.cpp
+@@ -365,13 +365,7 @@ StackValueCollection* interpretedVFrame::expressions() const {
+ StackValueCollection* interpretedVFrame::stack_data(bool expressions) const {
+ 
+   InterpreterOopMap oop_mask;
+-  // oopmap for current bci
+-  if (TraceDeoptimization && Verbose) {
+-    methodHandle m_h(Thread::current(), method());
+-    OopMapCache::compute_one_oop_map(m_h, bci(), &oop_mask);
+-  } else {
+-    method()->mask_for(bci(), &oop_mask);
+-  }
++  method()->mask_for(bci(), &oop_mask);
+ 
+   const int mask_len = oop_mask.number_of_entries();
+ 
+-- 
+2.19.0-rc1
+

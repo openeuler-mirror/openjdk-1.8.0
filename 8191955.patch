@@ -1,0 +1,37 @@
+From 70641d56fb22355a85ad142700ae721a6a293908 Mon Sep 17 00:00:00 2001
+From: hexuejin <hexuejin2@huawei.com>
+Date: Tue, 25 Jun 2019 10:40:42 +0000
+Subject: [PATCH] Backport of JDK-8191955
+
+summary: incorrect prefetch distance causes an internal error
+LLT:
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8191955
+---
+ hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
+index f64e356558..ebdfeadf57 100644
+--- a/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
++++ b/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
+@@ -144,6 +144,17 @@ void VM_Version::get_processor_features() {
+     if (PrefetchCopyIntervalInBytes >= 32768)
+       PrefetchCopyIntervalInBytes = 32760;
+   }
++
++  if (AllocatePrefetchDistance !=-1 && (AllocatePrefetchDistance & 7)) {
++    warning("AllocatePrefetchDistance must be multiple of 8");
++    AllocatePrefetchDistance &= ~7;
++  }
++
++  if (AllocatePrefetchStepSize & 7) {
++    warning("AllocatePrefetchStepSize must be multiple of 8");
++    AllocatePrefetchStepSize &= ~7;
++  }
++
+   FLAG_SET_DEFAULT(UseSSE42Intrinsics, true);
+ 
+   unsigned long auxv = getauxval(AT_HWCAP);
+-- 
+2.19.0-rc1
+

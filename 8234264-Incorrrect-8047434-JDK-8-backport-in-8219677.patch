@@ -1,0 +1,38 @@
+From 8af05a28e8856fb9a05e87e9199b1c9c21ab1c17 Mon Sep 17 00:00:00 2001
+From: zhanggaofeng <zhanggaofeng9@huawei.com>
+Date: Thu, 14 Nov 2019 14:26:22 +0000
+Subject: [PATCH] 8234264: Incorrect 8047434 JDK 8 backport in 8219677
+
+Summary: Runtime: community backport from JDK12 to JDK8 about this issue is not correctly implemented.
+LLT: NA
+Patch Type: backport
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8234264
+---
+ hotspot/src/share/vm/utilities/vmError.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hotspot/src/share/vm/utilities/vmError.cpp b/hotspot/src/share/vm/utilities/vmError.cpp
+index ef3bb5cee5..49b978a025 100644
+--- a/hotspot/src/share/vm/utilities/vmError.cpp
++++ b/hotspot/src/share/vm/utilities/vmError.cpp
+@@ -1060,7 +1060,7 @@ void VMError::report_and_die() {
+       out.print_raw   (cmd);
+       out.print_raw_cr("\" ...");
+ 
+-      if (os::fork_and_exec(cmd, true) < 0) {
++      if (os::fork_and_exec(cmd) < 0) {
+         out.print_cr("os::fork_and_exec failed: %s (%d)", strerror(errno), errno);
+       }
+     }
+@@ -1147,7 +1147,7 @@ void VM_ReportJavaOutOfMemory::doit() {
+ #endif
+     tty->print_cr("\"%s\"...", cmd);
+ 
+-    if (os::fork_and_exec(cmd) < 0) {
++    if (os::fork_and_exec(cmd, true) < 0) {
+       tty->print_cr("os::fork_and_exec failed: %s (%d)", strerror(errno), errno);
+     }
+   }
+-- 
+2.12.3
+

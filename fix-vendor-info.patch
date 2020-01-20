@@ -1,0 +1,52 @@
+From f2833457ae8419c099bf167693c602911413257c Mon Sep 17 00:00:00 2001
+From: sunjianye <sunjianye@huawei.com>
+Date: Sat, 25 May 2019 10:36:33 +0000
+Subject: [PATCH] modify vendor to Huawei Technologies Co., LTD
+
+---
+ hotspot/src/share/vm/runtime/vm_version.cpp | 7 +------
+ jdk/src/share/native/java/lang/System.c     | 6 +++---
+ 2 files changed, 4 insertions(+), 9 deletions(-)
+
+diff --git a/hotspot/src/share/vm/runtime/vm_version.cpp b/hotspot/src/share/vm/runtime/vm_version.cpp
+index c7d34aac64..fa721facea 100644
+--- a/hotspot/src/share/vm/runtime/vm_version.cpp
++++ b/hotspot/src/share/vm/runtime/vm_version.cpp
+@@ -142,12 +142,7 @@ const char* Abstract_VM_Version::vm_name() {
+ 
+ 
+ const char* Abstract_VM_Version::vm_vendor() {
+-#ifdef VENDOR
+-  return VENDOR;
+-#else
+-  return JDK_Version::is_gte_jdk17x_version() ?
+-    "Oracle Corporation" : "Sun Microsystems Inc.";
+-#endif
++  return "openEuler";
+ }
+ 
+ 
+diff --git a/jdk/src/share/native/java/lang/System.c b/jdk/src/share/native/java/lang/System.c
+index ff80b0abdd..758cfabb39 100644
+--- a/jdk/src/share/native/java/lang/System.c
++++ b/jdk/src/share/native/java/lang/System.c
+@@ -110,13 +110,13 @@ Java_java_lang_System_identityHashCode(JNIEnv *env, jobject this, jobject x)
+ 
+ /* Third party may overwrite these values. */
+ #ifndef VENDOR
+-#define VENDOR "Oracle Corporation"
++#define VENDOR "openEuler"
+ #endif
+ #ifndef VENDOR_URL
+-#define VENDOR_URL "http://java.oracle.com/"
++#define VENDOR_URL "https://openeuler.org/"
+ #endif
+ #ifndef VENDOR_URL_BUG
+-#define VENDOR_URL_BUG "http://bugreport.sun.com/bugreport/"
++#define VENDOR_URL_BUG "https://gitee.com/openeuler/"
+ #endif
+ 
+ #define JAVA_MAX_SUPPORTED_VERSION 52
+-- 
+2.19.0
+

@@ -1,0 +1,268 @@
+From 09d4f8a17aff883e7937c048a2da6bcf3feb7894 Mon Sep 17 00:00:00 2001
+From: wangshuai <wangshuai94@huawei.com>
+Date: Thu, 5 Sep 2019 21:45:57 +0000
+Subject: [PATCH]
+
+Summary: The timezone of HongKong is different from that of other cities in China.
+LLT: Local passed the jcstress and JTREG
+Bug url:
+
+---
+ jdk/src/share/classes/sun/util/resources/TimeZoneNames.java          | 4 ++--
+ jdk/src/share/classes/sun/util/resources/de/TimeZoneNames_de.java    | 4 ++--
+ jdk/src/share/classes/sun/util/resources/es/TimeZoneNames_es.java    | 4 ++--
+ jdk/src/share/classes/sun/util/resources/fr/TimeZoneNames_fr.java    | 4 ++--
+ jdk/src/share/classes/sun/util/resources/it/TimeZoneNames_it.java    | 4 ++--
+ jdk/src/share/classes/sun/util/resources/ja/TimeZoneNames_ja.java    | 4 ++--
+ jdk/src/share/classes/sun/util/resources/ko/TimeZoneNames_ko.java    | 4 ++--
+ jdk/src/share/classes/sun/util/resources/pt/TimeZoneNames_pt_BR.java | 4 ++--
+ jdk/src/share/classes/sun/util/resources/sv/TimeZoneNames_sv.java    | 4 ++--
+ jdk/src/share/classes/sun/util/resources/zh/TimeZoneNames_zh_CN.java | 4 ++--
+ jdk/src/share/classes/sun/util/resources/zh/TimeZoneNames_zh_TW.java | 4 ++--
+ 11 files changed, 22 insertions(+), 22 deletions(-)
+
+diff --git a/jdk/src/share/classes/sun/util/resources/TimeZoneNames.java b/jdk/src/share/classes/sun/util/resources/TimeZoneNames.java
+index 2c4b56da7e..27526e3928 100644
+--- a/jdk/src/share/classes/sun/util/resources/TimeZoneNames.java
++++ b/jdk/src/share/classes/sun/util/resources/TimeZoneNames.java
+@@ -634,7 +634,7 @@ public final class TimeZoneNames extends TimeZoneNamesBundle {
+             {"Asia/Harbin", CTT},
+             {"Asia/Hebron", EET},
+             {"Asia/Ho_Chi_Minh", ICT},
+-            {"Asia/Hong_Kong", HKT},
++            {"Asia/Hong_Kong", CTT},
+             {"Asia/Hovd", new String[] {"Hovd Time", "HOVT",
+                                         "Hovd Summer Time", "HOVST",
+                                         "Hovd Time", "HOVT"}},
+@@ -864,7 +864,7 @@ public final class TimeZoneNames extends TimeZoneNamesBundle {
+             {"GB", GMTBST},
+             {"GB-Eire", GMTBST},
+             {"Greenwich", GMT},
+-            {"Hongkong", HKT},
++            {"Hongkong", CTT},
+             {"Iceland", GMT},
+             {"Iran", IRT},
+             {"IST", IST},
+diff --git a/jdk/src/share/classes/sun/util/resources/de/TimeZoneNames_de.java b/jdk/src/share/classes/sun/util/resources/de/TimeZoneNames_de.java
+index e258618c9d..b8e3dde8ea 100644
+--- a/jdk/src/share/classes/sun/util/resources/de/TimeZoneNames_de.java
++++ b/jdk/src/share/classes/sun/util/resources/de/TimeZoneNames_de.java
+@@ -635,7 +635,7 @@ public final class TimeZoneNames_de extends TimeZoneNamesBundle {
+             {"Asia/Harbin", CTT},
+             {"Asia/Hebron", EET},
+             {"Asia/Ho_Chi_Minh", ICT},
+-            {"Asia/Hong_Kong", HKT},
++            {"Asia/Hong_Kong", CTT},
+             {"Asia/Hovd", new String[] {"Hovd Zeit", "HOVT",
+                                         "Hovd Sommerzeit", "HOVST",
+                                         "Hovd Zeit", "HOVT"}},
+@@ -862,7 +862,7 @@ public final class TimeZoneNames_de extends TimeZoneNamesBundle {
+             {"GB", GMTBST},
+             {"GB-Eire", GMTBST},
+             {"Greenwich", GMT},
+-            {"Hongkong", HKT},
++            {"Hongkong", CTT},
+             {"Iceland", GMT},
+             {"Iran", IRT},
+             {"IST", IST},
+diff --git a/jdk/src/share/classes/sun/util/resources/es/TimeZoneNames_es.java b/jdk/src/share/classes/sun/util/resources/es/TimeZoneNames_es.java
+index ea8887e139..93b24d893e 100644
+--- a/jdk/src/share/classes/sun/util/resources/es/TimeZoneNames_es.java
++++ b/jdk/src/share/classes/sun/util/resources/es/TimeZoneNames_es.java
+@@ -635,7 +635,7 @@ public final class TimeZoneNames_es extends TimeZoneNamesBundle {
+             {"Asia/Harbin", CTT},
+             {"Asia/Hebron", EET},
+             {"Asia/Ho_Chi_Minh", ICT},
+-            {"Asia/Hong_Kong", HKT},
++            {"Asia/Hong_Kong", CTT},
+             {"Asia/Hovd", new String[] {"Hora de Hovd", "HOVT",
+                                         "Hora de verano de Hovd", "HOVST",
+                                         "Hora de Hovd", "HOVT"}},
+@@ -862,7 +862,7 @@ public final class TimeZoneNames_es extends TimeZoneNamesBundle {
+             {"GB", GMTBST},
+             {"GB-Eire", GMTBST},
+             {"Greenwich", GMT},
+-            {"Hongkong", HKT},
++            {"Hongkong", CTT},
+             {"Iceland", GMT},
+             {"Iran", IRT},
+             {"IST", IST},
+diff --git a/jdk/src/share/classes/sun/util/resources/fr/TimeZoneNames_fr.java b/jdk/src/share/classes/sun/util/resources/fr/TimeZoneNames_fr.java
+index 58891022d3..f443a028d1 100644
+--- a/jdk/src/share/classes/sun/util/resources/fr/TimeZoneNames_fr.java
++++ b/jdk/src/share/classes/sun/util/resources/fr/TimeZoneNames_fr.java
+@@ -635,7 +635,7 @@ public final class TimeZoneNames_fr extends TimeZoneNamesBundle {
+             {"Asia/Harbin", CTT},
+             {"Asia/Hebron", EET},
+             {"Asia/Ho_Chi_Minh", ICT},
+-            {"Asia/Hong_Kong", HKT},
++            {"Asia/Hong_Kong", CTT},
+             {"Asia/Hovd", new String[] {"Heure de Hovd", "HOVT",
+                                         "Heure d'\u00e9t\u00e9 de Hovd", "HOVST",
+                                         "Heure de Hovd", "HOVT"}},
+@@ -862,7 +862,7 @@ public final class TimeZoneNames_fr extends TimeZoneNamesBundle {
+             {"GB", GMTBST},
+             {"GB-Eire", GMTBST},
+             {"Greenwich", GMT},
+-            {"Hongkong", HKT},
++            {"Hongkong", CTT},
+             {"Iceland", GMT},
+             {"Iran", IRT},
+             {"IST", IST},
+diff --git a/jdk/src/share/classes/sun/util/resources/it/TimeZoneNames_it.java b/jdk/src/share/classes/sun/util/resources/it/TimeZoneNames_it.java
+index 53ab4a6d73..fecfc9474e 100644
+--- a/jdk/src/share/classes/sun/util/resources/it/TimeZoneNames_it.java
++++ b/jdk/src/share/classes/sun/util/resources/it/TimeZoneNames_it.java
+@@ -635,7 +635,7 @@ public final class TimeZoneNames_it extends TimeZoneNamesBundle {
+             {"Asia/Harbin", CTT},
+             {"Asia/Hebron", EET},
+             {"Asia/Ho_Chi_Minh", ICT},
+-            {"Asia/Hong_Kong", HKT},
++            {"Asia/Hong_Kong", CTT},
+             {"Asia/Hovd", new String[] {"Ora di Hovd", "HOVT",
+                                         "Ora estiva di Hovd", "HOVST",
+                                         "Ora di Hovd", "HOVT"}},
+@@ -862,7 +862,7 @@ public final class TimeZoneNames_it extends TimeZoneNamesBundle {
+             {"GB", GMTBST},
+             {"GB-Eire", GMTBST},
+             {"Greenwich", GMT},
+-            {"Hongkong", HKT},
++            {"Hongkong", CTT},
+             {"Iceland", GMT},
+             {"Iran", IRT},
+             {"IST", IST},
+diff --git a/jdk/src/share/classes/sun/util/resources/ja/TimeZoneNames_ja.java b/jdk/src/share/classes/sun/util/resources/ja/TimeZoneNames_ja.java
+index 8bec0d7db0..7af8ffc042 100644
+--- a/jdk/src/share/classes/sun/util/resources/ja/TimeZoneNames_ja.java
++++ b/jdk/src/share/classes/sun/util/resources/ja/TimeZoneNames_ja.java
+@@ -635,7 +635,7 @@ public final class TimeZoneNames_ja extends TimeZoneNamesBundle {
+             {"Asia/Harbin", CTT},
+             {"Asia/Hebron", EET},
+             {"Asia/Ho_Chi_Minh", ICT},
+-            {"Asia/Hong_Kong", HKT},
++            {"Asia/Hong_Kong", CTT},
+             {"Asia/Hovd", new String[] {"\u30db\u30d6\u30c9\u6642\u9593", "HOVT",
+                                         "\u30db\u30d6\u30c9\u590f\u6642\u9593", "HOVST",
+                                         "\u30DB\u30D6\u30C9\u6642\u9593", "HOVT"}},
+@@ -862,7 +862,7 @@ public final class TimeZoneNames_ja extends TimeZoneNamesBundle {
+             {"GB", GMTBST},
+             {"GB-Eire", GMTBST},
+             {"Greenwich", GMT},
+-            {"Hongkong", HKT},
++            {"Hongkong", CTT},
+             {"Iceland", GMT},
+             {"Iran", IRT},
+             {"IST", IST},
+diff --git a/jdk/src/share/classes/sun/util/resources/ko/TimeZoneNames_ko.java b/jdk/src/share/classes/sun/util/resources/ko/TimeZoneNames_ko.java
+index 7c72073b73..d8b90b4d3e 100644
+--- a/jdk/src/share/classes/sun/util/resources/ko/TimeZoneNames_ko.java
++++ b/jdk/src/share/classes/sun/util/resources/ko/TimeZoneNames_ko.java
+@@ -635,7 +635,7 @@ public final class TimeZoneNames_ko extends TimeZoneNamesBundle {
+             {"Asia/Harbin", CTT},
+             {"Asia/Hebron", EET},
+             {"Asia/Ho_Chi_Minh", ICT},
+-            {"Asia/Hong_Kong", HKT},
++            {"Asia/Hong_Kong", CTT},
+             {"Asia/Hovd", new String[] {"Hovd \uc2dc\uac04", "HOVT",
+                                         "Hovd \uc77c\uad11\uc808\uc57d\uc2dc\uac04", "HOVST",
+                                         "\uD638\uBE0C\uB4DC \uD45C\uC900\uC2DC", "HOVT"}},
+@@ -862,7 +862,7 @@ public final class TimeZoneNames_ko extends TimeZoneNamesBundle {
+             {"GB", GMTBST},
+             {"GB-Eire", GMTBST},
+             {"Greenwich", GMT},
+-            {"Hongkong", HKT},
++            {"Hongkong", CTT},
+             {"Iceland", GMT},
+             {"Iran", IRT},
+             {"IST", IST},
+diff --git a/jdk/src/share/classes/sun/util/resources/pt/TimeZoneNames_pt_BR.java b/jdk/src/share/classes/sun/util/resources/pt/TimeZoneNames_pt_BR.java
+index c65dfa5da7..a202fec6b9 100644
+--- a/jdk/src/share/classes/sun/util/resources/pt/TimeZoneNames_pt_BR.java
++++ b/jdk/src/share/classes/sun/util/resources/pt/TimeZoneNames_pt_BR.java
+@@ -635,7 +635,7 @@ public final class TimeZoneNames_pt_BR extends TimeZoneNamesBundle {
+             {"Asia/Harbin", CTT},
+             {"Asia/Hebron", EET},
+             {"Asia/Ho_Chi_Minh", ICT},
+-            {"Asia/Hong_Kong", HKT},
++            {"Asia/Hong_Kong", CTT},
+             {"Asia/Hovd", new String[] {"Fuso hor\u00e1rio de Hovd", "HOVT",
+                                         "Fuso hor\u00e1rio de ver\u00e3o de Hovd", "HOVST",
+                                         "Hor\u00E1rio de Hovd", "HOVT"}},
+@@ -862,7 +862,7 @@ public final class TimeZoneNames_pt_BR extends TimeZoneNamesBundle {
+             {"GB", GMTBST},
+             {"GB-Eire", GMTBST},
+             {"Greenwich", GMT},
+-            {"Hongkong", HKT},
++            {"Hongkong", CTT},
+             {"Iceland", GMT},
+             {"Iran", IRT},
+             {"IST", IST},
+diff --git a/jdk/src/share/classes/sun/util/resources/sv/TimeZoneNames_sv.java b/jdk/src/share/classes/sun/util/resources/sv/TimeZoneNames_sv.java
+index 6ce81e8011..dcaaf6ddeb 100644
+--- a/jdk/src/share/classes/sun/util/resources/sv/TimeZoneNames_sv.java
++++ b/jdk/src/share/classes/sun/util/resources/sv/TimeZoneNames_sv.java
+@@ -635,7 +635,7 @@ public final class TimeZoneNames_sv extends TimeZoneNamesBundle {
+             {"Asia/Harbin", CTT},
+             {"Asia/Hebron", EET},
+             {"Asia/Ho_Chi_Minh", ICT},
+-            {"Asia/Hong_Kong", HKT},
++            {"Asia/Hong_Kong", CTT},
+             {"Asia/Hovd", new String[] {"Hovd, normaltid", "HOVT",
+                                         "Hovd, sommartid", "HOVST",
+                                         "Hovd-tid", "HOVT"}},
+@@ -862,7 +862,7 @@ public final class TimeZoneNames_sv extends TimeZoneNamesBundle {
+             {"GB", GMTBST},
+             {"GB-Eire", GMTBST},
+             {"Greenwich", GMT},
+-            {"Hongkong", HKT},
++            {"Hongkong", CTT},
+             {"Iceland", GMT},
+             {"Iran", IRT},
+             {"IST", IST},
+diff --git a/jdk/src/share/classes/sun/util/resources/zh/TimeZoneNames_zh_CN.java b/jdk/src/share/classes/sun/util/resources/zh/TimeZoneNames_zh_CN.java
+index 3e81b6b42c..9360808ca5 100644
+--- a/jdk/src/share/classes/sun/util/resources/zh/TimeZoneNames_zh_CN.java
++++ b/jdk/src/share/classes/sun/util/resources/zh/TimeZoneNames_zh_CN.java
+@@ -635,7 +635,7 @@ public final class TimeZoneNames_zh_CN extends TimeZoneNamesBundle {
+             {"Asia/Harbin", CTT},
+             {"Asia/Hebron", EET},
+             {"Asia/Ho_Chi_Minh", ICT},
+-            {"Asia/Hong_Kong", HKT},
++            {"Asia/Hong_Kong", CTT},
+             {"Asia/Hovd", new String[] {"\u79d1\u5e03\u591a\u65f6\u95f4", "HOVT",
+                                         "\u79d1\u5e03\u591a\u590f\u4ee4\u65f6", "HOVST",
+                                         "\u79D1\u5E03\u591A\u65F6\u95F4", "HOVT"}},
+@@ -862,7 +862,7 @@ public final class TimeZoneNames_zh_CN extends TimeZoneNamesBundle {
+             {"GB", GMTBST},
+             {"GB-Eire", GMTBST},
+             {"Greenwich", GMT},
+-            {"Hongkong", HKT},
++            {"Hongkong", CTT},
+             {"Iceland", GMT},
+             {"Iran", IRT},
+             {"IST", IST},
+diff --git a/jdk/src/share/classes/sun/util/resources/zh/TimeZoneNames_zh_TW.java b/jdk/src/share/classes/sun/util/resources/zh/TimeZoneNames_zh_TW.java
+index 0233a53f4f..1bfcee78d5 100644
+--- a/jdk/src/share/classes/sun/util/resources/zh/TimeZoneNames_zh_TW.java
++++ b/jdk/src/share/classes/sun/util/resources/zh/TimeZoneNames_zh_TW.java
+@@ -635,7 +635,7 @@ public final class TimeZoneNames_zh_TW extends TimeZoneNamesBundle {
+             {"Asia/Harbin", CTT},
+             {"Asia/Hebron", EET},
+             {"Asia/Ho_Chi_Minh", ICT},
+-            {"Asia/Hong_Kong", HKT},
++            {"Asia/Hong_Kong", CTT},
+             {"Asia/Hovd", new String[] {"\u4faf\u5fb7 (Hovd) \u6642\u9593", "HOVT",
+                                         "\u4faf\u5fb7 (Hovd) \u590f\u4ee4\u6642\u9593", "HOVST",
+                                         "\u4FAF\u5FB7 (Hovd) \u6642\u9593", "HOVT"}},
+@@ -864,7 +864,7 @@ public final class TimeZoneNames_zh_TW extends TimeZoneNamesBundle {
+             {"GB", GMTBST},
+             {"GB-Eire", GMTBST},
+             {"Greenwich", GMT},
+-            {"Hongkong", HKT},
++            {"Hongkong", CTT},
+             {"Iceland", GMT},
+             {"Iran", IRT},
+             {"IST", IST},
+-- 
+2.12.3
+

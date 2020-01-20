@@ -1,0 +1,214 @@
+From f9f94ca5422ae79bf4ed90f41b7698febc6bed24 Mon Sep 17 00:00:00 2001
+From: zhangli <zhangli152@huawei.com>
+Date: Fri, 12 Jul 2019 15:26:27 +0000
+Subject: [PATCH] Backport of JDK-8203699: java/lang/invoke/SpecialInterfaceCall fails with SIGILL on aarch64
+
+summary: Get super_klass value into r0 to make check in VerifyMethodHandles success
+LLT: jdk/test/java/lang/invoke/lookup/TestDefenderMethodLookup.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8203699
+
+---
+ .../src/cpu/aarch64/vm/macroAssembler_aarch64.cpp  |   6 +-
+ .../invoke/lookup/TestDefenderMethodLookup.java    | 167 +++++++++++++++++++++
+ 2 files changed, 172 insertions(+), 1 deletion(-)
+ create mode 100644 jdk/test/java/lang/invoke/lookup/TestDefenderMethodLookup.java
+
+diff --git a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
+index 42b732f37a..4659d628db 100644
+--- a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
++++ b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
+@@ -1208,7 +1208,6 @@ void MacroAssembler::check_klass_subtype_slow_path(Register sub_klass,
+   assert(sub_klass != r0, "killed reg"); // killed by mov(r0, super)
+   assert(sub_klass != r2, "killed reg"); // killed by lea(r2, &pst_counter)
+ 
+-  // Get super_klass value into r0 (even if it was in r5 or r2).
+   RegSet pushed_registers;
+   if (!IS_A_TEMP(r2))    pushed_registers += r2;
+   if (!IS_A_TEMP(r5))    pushed_registers += r5;
+@@ -1219,6 +1218,11 @@ void MacroAssembler::check_klass_subtype_slow_path(Register sub_klass,
+ 
+   push(pushed_registers, sp);
+ 
++  // Get super_klass value into r0 (even if it was in r5 or r2)
++  if (super_klass != r0) {
++    mov(r0, super_klass);
++  }
++
+ #ifndef PRODUCT
+   mov(rscratch2, (address)&SharedRuntime::_partial_subtype_ctr);
+   Address pst_counter_addr(rscratch2);
+diff --git a/jdk/test/java/lang/invoke/lookup/TestDefenderMethodLookup.java b/jdk/test/java/lang/invoke/lookup/TestDefenderMethodLookup.java
+new file mode 100644
+index 0000000000..1d0ade9fe4
+--- /dev/null
++++ b/jdk/test/java/lang/invoke/lookup/TestDefenderMethodLookup.java
+@@ -0,0 +1,166 @@
++/*
++ * @test
++ * @author zhangli
++ * @bug 8203699
++ * @summary see https://code.huawei.com/HuaweiJDK/JVM-team/JVM/issues/1368
++ * @run testng/othervm test.java.lang.invoke.lookup.TestDefenderMethodLookup
++ */
++
++package test.java.lang.invoke.lookup;
++
++import org.testng.annotations.Test;
++import org.testng.Assert;
++import java.lang.invoke.*;
++import java.lang.invoke.MethodHandle;
++import java.lang.invoke.MethodHandles;
++import java.lang.invoke.MethodHandles.Lookup;
++
++//@Test(groups = { "level.sanity" })
++public class TestDefenderMethodLookup {
++	/**
++	 * Get a <b>SPECIAL</b> MethodHandle for the method "test()V" in the <b>DIRECT</b> super interface DefenderInterface. The method
++	 * has a default implementation in DefenderInterface and does <b>NOT</b> have an implementation in the class.
++	 * Invoke the MethodHandle, and assert that the DefenderInterface.test was invoked (should return "default").
++	 *
++	 * @throws Throwable No exceptions is expected. Any exception should be treated as an error.
++	 */
++	@Test
++	public void testDirectSuperInterface() throws Throwable {
++		DefenderInterface impl = new DefenderInterface() {
++			public MethodHandle run() throws Throwable {
++				Lookup l = DefenderInterface.lookup();
++				Class<? extends DefenderInterface> defc = this.getClass();
++				Class<DefenderInterface> target = DefenderInterface.class;
++				MethodType mt = MethodType.methodType(String.class);
++				return l.findSpecial(defc, "test", mt, target);
++			}
++		};
++		MethodHandle mh = impl.run();
++		String result = (String)mh.invoke(impl);
++		Assert.assertEquals("default", result);
++	}
++
++	/**
++	 * Same as <b>testDirectSuperInterface</b>, but with the findSpecial arguments <b>target</b> and <b>defc</b> switched.
++	 *
++	 * @throws Throwable No exceptions is expected. Any exception should be treated as an error.
++	 */
++	@Test
++	public void testDirectSuperInterfaceSwitchedTargetDefc() throws Throwable {
++		DefenderInterface impl = new DefenderInterface() {
++			public MethodHandle run() throws Throwable {
++				Lookup l = MethodHandles.lookup();
++				Class<? extends DefenderInterface> defc = this.getClass();
++				Class<DefenderInterface> target = DefenderInterface.class;
++				MethodType mt = MethodType.methodType(String.class);
++				// Switched target and defc
++				return l.findSpecial(target, "test", mt, defc);
++			}
++		};
++		MethodHandle mh = impl.run();
++		String result = (String)mh.invoke(impl);
++		Assert.assertEquals("default", result);
++	}
++
++	/**
++	 * Get a <b>SPECIAL</b> MethodHandle for the method "test()V" in the <b>DIRECT</b> super interface DefenderInterface. The method
++	 * has a default implementation in DefenderInterface and does <b>ALSO</b> have an implementation in the class.
++	 * Invoke the MethodHandle, and assert that the DefenderInterface.test was invoked (should return "default").
++	 *
++	 * @throws Throwable No exceptions is expected. Any exception should be treated as an error.
++	 */
++	@Test
++	public void testDirectSuperInterfaceWithOverride() throws Throwable {
++		DefenderInterface impl = new DefenderInterface() {
++			@Test
++			@Override
++			public String test() {
++				return "impl";
++			}
++
++			public MethodHandle run() throws Throwable {
++				Lookup l = DefenderInterface.lookup();
++				Class<? extends DefenderInterface> defc = DefenderInterface.class;
++				Class<DefenderInterface> target = DefenderInterface.class;
++				MethodType mt = MethodType.methodType(String.class);
++				return l.findSpecial(defc, "test", mt, target);
++			}
++		};
++		MethodHandle mh = impl.run();
++		String result = (String)mh.invoke(impl);
++		Assert.assertEquals("default", result);
++	}
++
++	/**
++	 * Same as <b>testDirectSuperInterfaceWithOverride</b>, but with the findSpecial arguments <b>target</b> and <b>defc</b> switched.
++	 *
++	 * @throws Throwable No exceptions is expected. Any exception should be treated as an error.
++	 */
++	@Test
++	public void testDirectSuperInterfaceWithOverrideSwitchedTargetDefc() throws Throwable {
++		DefenderInterface impl = new DefenderInterface() {
++			@Override
++			public String test() {
++				return "impl";
++			}
++
++			public MethodHandle run() throws Throwable {
++				Lookup l = MethodHandles.lookup();
++				Class<? extends DefenderInterface> defc = this.getClass();
++				Class<DefenderInterface> target = DefenderInterface.class;
++				MethodType mt = MethodType.methodType(String.class);
++				// Switched target and defc
++				return l.findSpecial(target, "test", mt, defc);
++			}
++		};
++		MethodHandle mh = impl.run();
++		String result = (String)mh.invoke(impl);
++		Assert.assertEquals("default", result);
++	}
++
++	/**
++	 * <b>NEGATIVE</b><br />
++	 * Try to get a <b>SPECIAL</b> MethodHandle for the method "test()V" in the <b>INDIRECT</b> super interface DefenderInterface
++	 * (through the interface <b>DefenderSubInterface</b>).
++	 *
++	 * @throws Throwable Expected exceptions are caught. Any other exception should be treated as an error.
++	 */
++	@Test
++	public void testIndirectSuperInterface() throws Throwable {
++		DefenderSubInterface impl = new DefenderSubInterface() {
++			public MethodHandle run() throws Throwable {
++				Lookup l = DefenderSubInterface.lookup();
++				Class<? extends DefenderInterface> defc = this.getClass();
++				Class<DefenderInterface> target = DefenderInterface.class;
++				MethodType mt = MethodType.methodType(String.class);
++				return l.findSpecial(defc, "test", mt, target);
++			}
++		};
++		try {
++			impl.run();
++			Assert.fail("Successfully created supersend MethodHandle to INDIRECT super interface. Should fail with IllegalAccessException.");
++		} catch (IllegalAccessException e) {}
++	}
++}
++
++interface DefenderInterface {
++        public default String test() {
++                return "default";
++        }
++
++        public static Lookup lookup() {
++                return MethodHandles.lookup();
++        }
++
++        public MethodHandle run() throws Throwable;
++}
++
++interface DefenderSubInterface extends DefenderInterface {
++        public default String test() {
++                return "subDefault";
++        }
++
++        public static Lookup lookup() {
++                return MethodHandles.lookup();
++        }
++}
+-- 
+2.12.3
+
