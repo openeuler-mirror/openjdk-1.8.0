@@ -696,12 +696,6 @@ exit 0
 %license %{buildoutputdir -- %{?1}}/images/%{jdkimage}/jre/LICENSE
 }
 
-%define files_accessibility() %{expand:
-%{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libatk-wrapper.so
-%{_jvmdir}/%{jredir -- %{?1}}/lib/ext/java-atk-wrapper.jar
-%{_jvmdir}/%{jredir -- %{?1}}/lib/accessibility.properties
-}
-
 # not-duplicated requires/provides/obsoletes for normal/debug packages
 %define java_rpo() %{expand:
 Requires: fontconfig%{?_isa}
@@ -823,23 +817,12 @@ Provides: java-%{javaver}-src%{?1} = %{epoch}:%{version}-%{release}
 Provides: java-%{javaver}-%{origin}-src%{?1} = %{epoch}:%{version}-%{release}
 }
 
-%define java_accessibility_rpo() %{expand:
-Requires: java-atk-wrapper%{?_isa}
-Requires: %{name}%{?1}%{?_isa} = %{epoch}:%{version}-%{release}
-OrderWithRequires: %{name}-headless%{?1}%{?_isa} = %{epoch}:%{version}-%{release}
-
-Provides: java-accessibility = %{epoch}:%{version}-%{release}
-Provides: java-%{javaver}-accessibility = %{epoch}:%{version}-%{release}
-Provides: java-%{javaver}-%{origin}-accessibility = %{epoch}:%{version}-%{release}
-
-}
-
 # Prevent brp-java-repack-jars from being run
 %global __jar_repack 0
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1.h1
+Release: 1.h2
 Epoch:	 1
 Summary: %{origin_nice} Runtime Environment %{majorver}
 Group:   Development/Languages
@@ -1129,34 +1112,6 @@ BuildArch: noarch
 
 %description javadoc-zip-slowdebug
 The %{origin_nice} %{majorver} API documentation compressed in single archive %{for_debug}.
-%endif
-
-
-%if %{include_normal_build}
-%package accessibility
-Summary: %{origin_nice} %{majorver} accessibility connector
-
-%{java_accessibility_rpo %{nil}}
-
-%description accessibility
-Enables accessibility support in %{origin_nice} %{majorver} by using java-atk-wrapper. This allows
-compatible at-spi2 based accessibility programs to work for AWT and Swing-based
-programs.
-
-Please note, the java-atk-wrapper is still in beta, and %{origin_nice} %{majorver} itself is still
-being tuned to be working with accessibility features. There are known issues
-with accessibility on, so please do not install this package unless you really
-need to.
-%endif
-
-%if %{include_debug_build}
-%package accessibility-slowdebug
-Summary: %{origin_nice} %{majorver} accessibility connector %{for_debug}
-
-%{java_accessibility_rpo -- %{debug_suffix_unquoted}}
-
-%description accessibility-slowdebug
-See normal java-%{version}-openjdk-accessibility description.
 %endif
 
 %prep
@@ -1499,21 +1454,6 @@ find $RPM_BUILD_ROOT%{_jvmdir}/%{sdkdir -- $suffix}/demo \
   | sed 's|^|%doc |' \
   >> %{name}-demo.files"$suffix"
 
-# Create links which leads to separately installed java-atk-bridge and allow configuration
-# links points to java-atk-wrapper - an dependence
-  pushd $RPM_BUILD_ROOT/%{_jvmdir}/%{jredir -- $suffix}/lib/%{archinstall}
-    ln -s %{_libdir}/java-atk-wrapper/libatk-wrapper.so.0 libatk-wrapper.so
-  popd
-  pushd $RPM_BUILD_ROOT/%{_jvmdir}/%{jredir -- $suffix}/lib/ext
-     ln -s %{_libdir}/java-atk-wrapper/java-atk-wrapper.jar  java-atk-wrapper.jar
-  popd
-  pushd $RPM_BUILD_ROOT/%{_jvmdir}/%{jredir -- $suffix}/lib/
-    echo "#Config file to  enable java-atk-wrapper" > accessibility.properties
-    echo "" >> accessibility.properties
-    echo "assistive_technologies=org.GNOME.Accessibility.AtkWrapper" >> accessibility.properties
-    echo "" >> accessibility.properties
-  popd
-
 # stabilize permissions
 find $RPM_BUILD_ROOT/%{_jvmdir}/%{sdkdir -- $suffix}/ -name "*.so" -exec chmod 755 {} \; ; 
 find $RPM_BUILD_ROOT/%{_jvmdir}/%{sdkdir -- $suffix}/ -type d -exec chmod 755 {} \; ; 
@@ -1676,11 +1616,11 @@ require "copy_jdk_configs.lua"
 # same for debug variant
 %files javadoc-zip
 %{files_javadoc_zip %{nil}}
-
-%files accessibility
-%{files_accessibility %{nil}}
 %endif
 
 %changelog
+* Tue Jan 21 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.232-b09.2
+- remove accessibility
+
 * Sat Dec 14 2019 guoge <guoge1@huawei.com> - 1:1.8.0.232-b09.1
 - Initial build from OpenJDK aarch64-shenandoah-8u232-b09
