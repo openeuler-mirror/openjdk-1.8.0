@@ -525,6 +525,7 @@ exit 0
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libjava.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libjava_crw_demo.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libjdwp.so
+%{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libjpeg.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libjsdt.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libjsig.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libjsound.so
@@ -822,7 +823,7 @@ Provides: java-%{javaver}-%{origin}-src%{?1} = %{epoch}:%{version}-%{release}
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1.h2
+Release: 1.h3
 Epoch:	 1
 Summary: %{origin_nice} Runtime Environment %{majorver}
 Group:   Development/Languages
@@ -1619,6 +1620,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Mar 12 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.232-b09.3
+- add libjpeg.so in jre
+
 * Tue Jan 21 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.232-b09.2
 - remove accessibility
 
