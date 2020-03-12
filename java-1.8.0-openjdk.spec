@@ -823,7 +823,7 @@ Provides: java-%{javaver}-%{origin}-src%{?1} = %{epoch}:%{version}-%{release}
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1.h3
+Release: 1.h4
 Epoch:	 1
 Summary: %{origin_nice} Runtime Environment %{majorver}
 Group:   Development/Languages
@@ -915,6 +915,7 @@ Patch67: 8165860-WorkGroup-classes-are-missing-volatile-speci.patch
 Patch68: 8194154-System-property-user.dir-should-not-be-chang.patch
 Patch70: 8164948.patch
 Patch71: 8154313.patch
+Patch72: inline-optimize-for-aarch64.patch
 
 BuildRequires: autoconf
 BuildRequires: automake
@@ -1198,6 +1199,7 @@ pushd %{top_level_dir_name}
 %patch68 -p1
 %patch70 -p1
 %patch71 -p1
+%patch72 -p1
 
 popd
 
@@ -1620,6 +1622,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Mar 12 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.232-b09.4
+- add inline optimize for aarch64
+
 * Tue Mar 12 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.232-b09.3
 - add libjpeg.so in jre
 
