@@ -167,7 +167,7 @@
 # note, following three variables are sedded from update_sources if used correctly. Hardcode them rather there.
 %global shenandoah_project	aarch64-port
 %global shenandoah_repo		jdk8u-shenandoah
-%global shenandoah_revision    	aarch64-shenandoah-jdk8u232-b09
+%global shenandoah_revision    	aarch64-shenandoah-jdk8u242-b08
 # Define old aarch64/jdk8u tree variables for compatibility
 %global project         %{shenandoah_project}
 %global repo            %{shenandoah_repo}
@@ -190,7 +190,7 @@
 # images stub
 %global jdkimage       j2sdk-image
 # output dir stub
-%define buildoutputdir() %{expand:aarch64-shenandoah-jdk8u232-b09/build/jdk8.build%{?1}}
+%define buildoutputdir() %{expand:aarch64-shenandoah-jdk8u242-b08/build/jdk8.build%{?1}}
 # we can copy the javadoc to not arched dir, or make it not noarch
 %define uniquejavadocdir()    %{expand:%{fullversion}%{?1}}
 # main id and dir of this jdk
@@ -424,24 +424,6 @@ exit 0
 
 %define postun_javadoc() %{expand:
   alternatives --remove javadocdir %{_javadocdir}/%{uniquejavadocdir -- %{?1}}/api
-exit 0
-}
-
-%define post_javadoc_zip() %{expand:
-
-PRIORITY=%{priority}
-if [ "%{?1}" == %{debug_suffix} ]; then
-  let PRIORITY=PRIORITY-1
-fi
-
-alternatives \\
-  --install %{_javadocdir}/java-zip javadoczip %{_javadocdir}/%{uniquejavadocdir -- %{?1}}.zip \\
-  $PRIORITY  --family %{name}
-exit 0
-}
-
-%define postun_javadoc_zip() %{expand:
-  alternatives --remove javadoczip %{_javadocdir}/%{uniquejavadocdir -- %{?1}}.zip
 exit 0
 }
 
@@ -691,12 +673,6 @@ exit 0
 %license %{buildoutputdir -- %{?1}}/images/%{jdkimage}/jre/LICENSE
 }
 
-%define files_javadoc_zip() %{expand:
-%defattr(-,root,root,-)
-%doc %{_javadocdir}/%{uniquejavadocdir -- %{?1}}.zip
-%license %{buildoutputdir -- %{?1}}/images/%{jdkimage}/jre/LICENSE
-}
-
 # not-duplicated requires/provides/obsoletes for normal/debug packages
 %define java_rpo() %{expand:
 Requires: fontconfig%{?_isa}
@@ -823,7 +799,7 @@ Provides: java-%{javaver}-%{origin}-src%{?1} = %{epoch}:%{version}-%{release}
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1.h4
+Release: 1.h5
 Epoch:	 1
 Summary: %{origin_nice} Runtime Environment %{majorver}
 Group:   Development/Languages
@@ -861,8 +837,6 @@ Source13: TestCryptoLevel.java
 Source14: TestECDSA.java
 
 Patch1:	 8160300.patch
-Patch2:	 8202076.patch
-Patch7:	 delete-read-write-barriers-in-ShenandoahGC.patch
 Patch8:	 replace-vector-to-improve-performance-of-xml.validat.patch
 Patch9:	 AARCH64-fix-itable-stub-code-size-limit.patch
 Patch10: 8221658.patch
@@ -898,24 +872,31 @@ Patch48: 8158946-JDK-8165808-JDK-8166583-JDK-.patch
 Patch49: 8146792.patch
 Patch50: 8047212.patch
 Patch51: add-with-company-name-option.patch
-Patch52: set_HongKong_timezone_to_CTT.patch
-Patch53: 8229169.patch
-Patch54: X500Name-implemation-change-to-avoid-OOM.patch
-Patch55: 8231988.patch
 Patch56: 8160369.patch
 Patch57: 8031085.patch
 Patch58: Reduce-the-probability-of-the-crash-related-to-ciObj.patch
-Patch60: 8233839-aarch64-missing-memory-barrier-in-NewObjectA.patch
-Patch61: 8231584-Deadlock-with-ClassLoader.findLibrary-and-Sy.patch
 Patch62: 8165857-CMS-_overflow_list-is-missing-volatile-speci.patch
 Patch63: 8033552-Fix-missing-missing-volatile-specifiers-in-C.patch
-Patch64: 8182397-race-in-field-updates.patch
 Patch65: 8234264-Incorrrect-8047434-JDK-8-backport-in-8219677.patch
 Patch67: 8165860-WorkGroup-classes-are-missing-volatile-speci.patch
 Patch68: 8194154-System-property-user.dir-should-not-be-chang.patch
 Patch70: 8164948.patch
-Patch71: 8154313.patch
 Patch72: inline-optimize-for-aarch64.patch
+
+# 8u242
+Patch73: PS-GC-adding-acquire_size-method-for-PSParallelCompa.patch
+Patch74: 8191915-java.lang.Math.multiplyExact-not-throw-an-ex.patch
+Patch75: Add-ability-to-configure-third-port-for-remote-JMX.patch
+Patch76: 8203196-C1-emits-incorrect-code-due-to-integer-overf.patch
+Patch77: 8190332-PngReader-throws-NegativeArraySizeException-.patch
+Patch78: 8171410-aarch64-long-multiplyExact-shifts-by-31-inst.patch
+Patch79: 8193255-Root-Certificates-should-be-stored-in-text-f.patch
+Patch80: 8227662-freetype-seeks-to-index-at-the-end-of-the-fo.patch
+Patch81: fix-incorrect-offset-for-oop-field-with-weak-memory-.patch
+Patch82: prohibition-of-irreducible-loop-in-mergers.patch
+Patch83: 8204947-Port-ShenandoahTaskTerminator-to-mainline-an.patch
+Patch84: 8205921-Optimizing-best-of-2-work-stealing-queue-sel.patch
+Patch85: 8139041-Redundant-DMB-instructions.patch
 
 BuildRequires: autoconf
 BuildRequires: automake
@@ -1077,19 +1058,6 @@ BuildArch: noarch
 The %{origin_nice} %{majorver} API documentation.
 %endif
 
-%if %{include_normal_build}
-%package javadoc-zip
-Summary: %{origin_nice} %{majorver} API documentation compressed in single archive
-Group:   Documentation
-Requires: javapackages-filesystem
-BuildArch: noarch
-
-%{java_javadoc_rpo %{nil}}
-
-%description javadoc-zip
-The %{origin_nice} %{majorver} API documentation compressed in single archive.
-%endif
-
 %if %{include_debug_build}
 %package javadoc-slowdebug
 Summary: %{origin_nice} %{majorver} API documentation %{for_debug}
@@ -1101,19 +1069,6 @@ BuildArch: noarch
 
 %description javadoc-slowdebug
 The %{origin_nice} %{majorver} API documentation %{for_debug}.
-%endif
-
-%if %{include_debug_build}
-%package javadoc-zip-slowdebug
-Summary: %{origin_nice} %{majorver} API documentation compressed in single archive %{for_debug}
-Group:   Documentation
-Requires: javapackages-filesystem
-BuildArch: noarch
-
-%{java_javadoc_rpo -- %{debug_suffix_unquoted}}
-
-%description javadoc-zip-slowdebug
-The %{origin_nice} %{majorver} API documentation compressed in single archive %{for_debug}.
 %endif
 
 %prep
@@ -1145,8 +1100,6 @@ pushd %{top_level_dir_name}
 # OpenJDK patches
 
 %patch1  -p1
-%patch2  -p1
-%patch7  -p1
 %patch8  -p1
 %patch9  -p1
 %patch10 -p1
@@ -1182,24 +1135,29 @@ pushd %{top_level_dir_name}
 %patch49 -p1
 %patch50 -p1
 %patch51 -p1
-%patch52 -p1
-%patch53 -p1
-%patch54 -p1
-%patch55 -p1
 %patch56 -p1
 %patch57 -p1
 %patch58 -p1
-%patch60 -p1
-%patch61 -p1
 %patch62 -p1
 %patch63 -p1
-%patch64 -p1
 %patch65 -p1
 %patch67 -p1
 %patch68 -p1
 %patch70 -p1
-%patch71 -p1
 %patch72 -p1
+%patch73 -p1
+%patch74 -p1
+%patch75 -p1
+%patch76 -p1
+%patch77 -p1
+%patch78 -p1
+%patch79 -p1
+%patch80 -p1
+%patch81 -p1
+%patch82 -p1
+%patch83 -p1
+%patch84 -p1
+%patch85 -p1
 
 popd
 
@@ -1265,8 +1223,6 @@ make \
     LOG=trace \
     SCTP_WERROR= \
     %{targets} || ( pwd; find $top_dir_abs_path -name "hs_err_pid*.log" | xargs cat && false )
-
-make zip-docs
 
 # the build (erroneously) removes read permissions from some jars
 # this is a regression in OpenJDK 7 (our compiler):
@@ -1435,11 +1391,6 @@ popd
 # Install Javadoc documentation
 install -d -m 755 $RPM_BUILD_ROOT%{_javadocdir}
 cp -a %{buildoutputdir -- $suffix}/docs $RPM_BUILD_ROOT%{_javadocdir}/%{uniquejavadocdir -- $suffix}
-built_doc_archive=`echo "jdk-%{javaver}_%{updatever}$suffix-%{buildver}-docs.zip" | sed  s/slowdebug/debug/`
-cp -a %{buildoutputdir -- $suffix}/bundles/$built_doc_archive  $RPM_BUILD_ROOT%{_javadocdir}/%{uniquejavadocdir -- $suffix}.zip
-
-# FIXME: remove SONAME entries from demo DSOs. See
-# https://bugzilla.redhat.com/show_bug.cgi?id=436497
 
 # Find non-documentation demo files.
 find $RPM_BUILD_ROOT%{_jvmdir}/%{sdkdir -- $suffix}/demo \
@@ -1540,11 +1491,6 @@ require "copy_jdk_configs.lua"
 %postun javadoc
 %{postun_javadoc %{nil}}
 
-%post javadoc-zip
-%{post_javadoc_zip %{nil}}
-
-%postun javadoc-zip
-%{postun_javadoc_zip %{nil}}
 %endif
 
 %if %{include_debug_build}
@@ -1578,11 +1524,6 @@ require "copy_jdk_configs.lua"
 %postun javadoc-slowdebug
 %{postun_javadoc -- %{debug_suffix_unquoted}}
 
-%post javadoc-zip-slowdebug
-%{post_javadoc_zip -- %{debug_suffix_unquoted}}
-
-%postun javadoc-zip-slowdebug
-%{postun_javadoc_zip -- %{debug_suffix_unquoted}}
 %endif
 
 %if %{include_normal_build}
@@ -1597,8 +1538,6 @@ require "copy_jdk_configs.lua"
 
 %if %{include_normal_build}
 %files headless
-# important note, see https://bugzilla.redhat.com/show_bug.cgi?id=1038092 for whole issue
-# all config/noreplace files (and more) have to be declared in pretrans. See pretrans
 %{files_jre_headless %{nil}}
 
 %files devel
@@ -1613,15 +1552,12 @@ require "copy_jdk_configs.lua"
 %files javadoc
 %{files_javadoc %{nil}}
 
-# this puts huge file to /usr/share
-# unluckily ti is really a documentation file
-# and unluckily it really is architecture-dependent, as eg. aot and grail are now x86_64 only
-# same for debug variant
-%files javadoc-zip
-%{files_javadoc_zip %{nil}}
 %endif
 
 %changelog
+* Tue Mar 20 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.242-b08.5
+- upgrade openjdk to jdk8u242-b08
+
 * Tue Mar 12 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.232-b09.4
 - add inline optimize for aarch64
 

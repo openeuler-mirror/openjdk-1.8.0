@@ -6,7 +6,6 @@ Subject: [PATCH] Reduce the probability of the crash related to
 
 Summary: <interpreter>: add load acquire barriers when profiling klass
 LLT:
-Patch Type: huawei
 Bug url:
 ---
  hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp | 10 ++++++++++

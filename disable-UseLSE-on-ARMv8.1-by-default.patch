@@ -6,7 +6,6 @@ Subject: [PATCH] disable UseLSE on ARMv8.1 by default
 Summary: <UseLSE>: disable UseLSE by default and set UseLSE to
 experimental
 LLT: java -XX:+UnlockExperimentalVMOptions -XX:+PrintFlagsFinal
-Patch Type: huawei
 Bug url: NA
 ---
  .../hotspot/src/cpu/aarch64/vm/globals_aarch64.hpp             | 2 +-

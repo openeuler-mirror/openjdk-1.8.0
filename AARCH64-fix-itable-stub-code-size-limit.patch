@@ -33,7 +33,7 @@ index d8d1ec11ba..645b690dae 100644
 -  else
 -    size += 176;
 +  } else {
-+    // itable code size limit, see issue
++    // itable code size limit
 +    size += 192;
 +  }
    return size;
