@@ -1,0 +1,68 @@
+From b3b4fb064edf3a9537e5580dfaec69761b49f717 Mon Sep 17 00:00:00 2001
+From: hedongbo <hedongbo@huawei.com>
+Date: Mon, 6 Jan 2020 15:49:40 +0000
+Subject: [PATCH] Add ability to configure third port for remote JMX
+
+Summary: <jmx>:<Add ability to configure third port for remote JMX>
+LLT: NA
+Bug url: NA
+---
+ .../sun/management/AgentConfigurationError.java       |  2 ++
+ .../sun/management/jmxremote/ConnectorBootstrap.java  | 19 ++++++++++++++++++-
+ 2 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/jdk/src/share/classes/sun/management/AgentConfigurationError.java b/jdk/src/share/classes/sun/management/AgentConfigurationError.java
+index 56c4301611..d3d67ff313 100644
+--- a/jdk/src/share/classes/sun/management/AgentConfigurationError.java
++++ b/jdk/src/share/classes/sun/management/AgentConfigurationError.java
+@@ -55,6 +55,8 @@ public class AgentConfigurationError extends Error {
+         "agent.err.invalid.jmxremote.port";
+     public static final String INVALID_JMXREMOTE_RMI_PORT =
+         "agent.err.invalid.jmxremote.rmi.port";
++    public static final String INVALID_JMXLOCAL_PORT =
++        "agent.err.invalid.jmxlocal.port";
+     public static final String PASSWORD_FILE_NOT_SET =
+         "agent.err.password.file.notset";
+     public static final String PASSWORD_FILE_NOT_READABLE =
+diff --git a/jdk/src/share/classes/sun/management/jmxremote/ConnectorBootstrap.java b/jdk/src/share/classes/sun/management/jmxremote/ConnectorBootstrap.java
+index 56287edbd0..0a82c65d10 100644
+--- a/jdk/src/share/classes/sun/management/jmxremote/ConnectorBootstrap.java
++++ b/jdk/src/share/classes/sun/management/jmxremote/ConnectorBootstrap.java
+@@ -117,6 +117,8 @@ public final class ConnectorBootstrap {
+                 "com.sun.management.jmxremote.host";
+         public static final String RMI_PORT =
+                 "com.sun.management.jmxremote.rmi.port";
++        public static final String LOCAL_PORT =
++                "com.sun.management.jmxlocal.port";
+         public static final String CONFIG_FILE_NAME =
+                 "com.sun.management.config.file";
+         public static final String USE_LOCAL_ONLY =
+@@ -530,9 +532,24 @@ public final class ConnectorBootstrap {
+             localhost = "127.0.0.1";
+         }
+ 
++        // User can specify a port to be used to start Local Connector Server,
++        // if port is not specified random one will be allocated.
++        int localPort = 0;
++        String localPortStr = System.getProperty(PropertyNames.LOCAL_PORT);
++        try {
++            if (localPortStr != null) {
++               localPort = Integer.parseInt(localPortStr);
++            }
++        } catch (NumberFormatException x) {
++            throw new AgentConfigurationError(INVALID_JMXLOCAL_PORT, x, localPortStr);
++        }
++        if (localPort < 0) {
++            throw new AgentConfigurationError(INVALID_JMXLOCAL_PORT, localPortStr);
++        }
++
+         MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+         try {
+-            JMXServiceURL url = new JMXServiceURL("rmi", localhost, 0);
++            JMXServiceURL url = new JMXServiceURL("rmi", localhost, localPort);
+             // Do we accept connections from local interfaces only?
+             Properties props = Agent.getManagementProperties();
+             if (props ==  null) {
+-- 
+2.12.3
+

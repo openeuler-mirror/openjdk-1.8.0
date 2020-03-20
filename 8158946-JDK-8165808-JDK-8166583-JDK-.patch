@@ -8,22 +8,22 @@ LLT:
 
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8158946 https://bugs.openjdk.java.net/browse/JDK-8165808 https://bugs.openjdk.java.net/browse/JDK-8166583 https://bugs.openjdk.java.net/browse/JDK-8166862
 ---
- hotspot/src/share/vm/classfile/javaClasses.cpp     |  6 ++-
- .../compactibleFreeListSpace.cpp                   | 23 ++-------
- .../concurrentMarkSweepGeneration.cpp              | 16 +++----
- .../src/share/vm/gc_interface/collectedHeap.cpp    | 16 +++++++
- .../src/share/vm/gc_interface/collectedHeap.hpp    |  6 +--
- .../share/vm/gc_interface/collectedHeap.inline.hpp | 54 ++++++++++++----------
- hotspot/src/share/vm/oops/instanceMirrorKlass.cpp  |  7 ++-
- hotspot/src/share/vm/oops/oop.hpp                  |  2 +
- hotspot/src/share/vm/oops/oop.inline.hpp           | 38 ++++++++++++---
- 9 files changed, 104 insertions(+), 64 deletions(-)
+ .../src/share/vm/classfile/javaClasses.cpp    |  5 +-
+ .../compactibleFreeListSpace.cpp              | 23 ++------
+ .../concurrentMarkSweepGeneration.cpp         | 16 +++---
+ .../share/vm/gc_interface/collectedHeap.cpp   | 16 ++++++
+ .../share/vm/gc_interface/collectedHeap.hpp   |  6 +--
+ .../vm/gc_interface/collectedHeap.inline.hpp  | 54 ++++++++++---------
+ .../src/share/vm/oops/instanceMirrorKlass.cpp |  7 ++-
+ hotspot/src/share/vm/oops/oop.hpp             |  2 +
+ hotspot/src/share/vm/oops/oop.inline.hpp      | 38 ++++++++++---
+ 9 files changed, 103 insertions(+), 64 deletions(-)
 
 diff --git a/hotspot/src/share/vm/classfile/javaClasses.cpp b/hotspot/src/share/vm/classfile/javaClasses.cpp
-index a9b40d235e..cd28c758d0 100644
+index 1bad10334..719db22b7 100644
 --- a/hotspot/src/share/vm/classfile/javaClasses.cpp
 +++ b/hotspot/src/share/vm/classfile/javaClasses.cpp
-@@ -649,10 +649,14 @@ void java_lang_Class::create_mirror(KlassHandle k, Handle class_loader,
+@@ -651,10 +651,13 @@ void java_lang_Class::create_mirror(KlassHandle k, Handle class_loader,
  
  int  java_lang_Class::oop_size(oop java_class) {
    assert(_oop_size_offset != 0, "must be set");
@@ -31,16 +31,15 @@ index a9b40d235e..cd28c758d0 100644
 +  int size = java_class->int_field(_oop_size_offset);
 +  assert(size > 0, "Oop size must be greater than zero");
 +  return size;
-+
  }
  void java_lang_Class::set_oop_size(oop java_class, int size) {
    assert(_oop_size_offset != 0, "must be set");
 +  assert(size > 0, "Oop size must be greater than zero");
-   java_class->int_field_put_raw(_oop_size_offset, size);
+   java_class->int_field_put(_oop_size_offset, size);
  }
  int  java_lang_Class::static_oop_field_count(oop java_class) {
 diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
-index e5a3a11069..2de68f7aeb 100644
+index e5a3a1106..2de68f7ae 100644
 --- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
 @@ -984,18 +984,13 @@ size_t CompactibleFreeListSpace::block_size(const HeapWord* p) const {
@@ -98,7 +97,7 @@ index e5a3a11069..2de68f7aeb 100644
      // Ignore mark word because it may have been used to
      // chain together promoted objects (the last one
 diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
-index 2d7791138c..e3fdb6cf89 100644
+index 701231b4a..e3c0048da 100644
 --- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
 @@ -6715,7 +6715,7 @@ size_t CMSCollector::block_size_if_printezis_bits(HeapWord* addr) const {
@@ -174,11 +173,11 @@ index 2d7791138c..e3fdb6cf89 100644
      // Ignore mark word because we are running concurrent with mutators
      assert(oop(addr)->is_oop(true), "live block should be an oop");
 diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.cpp b/hotspot/src/share/vm/gc_interface/collectedHeap.cpp
-index 4f5e93bbe2..90207a8a4d 100644
+index 3ae8d61d0..e79251e13 100644
 --- a/hotspot/src/share/vm/gc_interface/collectedHeap.cpp
 +++ b/hotspot/src/share/vm/gc_interface/collectedHeap.cpp
 @@ -305,6 +305,22 @@ HeapWord* CollectedHeap::allocate_from_tlab_slow(KlassHandle klass, Thread* thre
-   return Universe::heap()->tlab_post_allocation_setup(obj);
+   return obj;
  }
  
 +void CollectedHeap::post_allocation_setup_class(KlassHandle klass,
@@ -201,7 +200,7 @@ index 4f5e93bbe2..90207a8a4d 100644
    MemRegion deferred = thread->deferred_card_mark();
    if (!deferred.is_empty()) {
 diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp b/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
-index 03956b036b..48fd7e7c0a 100644
+index 898a660f2..c13d29780 100644
 --- a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
 +++ b/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
 @@ -157,6 +157,8 @@ class CollectedHeap : public CHeapObj<mtInternal> {
@@ -213,7 +212,7 @@ index 03956b036b..48fd7e7c0a 100644
    // Clears an allocated object.
    inline static void init_obj(HeapWord* obj, size_t size);
  
-@@ -323,9 +325,7 @@ class CollectedHeap : public CHeapObj<mtInternal> {
+@@ -321,9 +323,7 @@ class CollectedHeap : public CHeapObj<mtInternal> {
    inline static oop obj_allocate(KlassHandle klass, int size, TRAPS);
    inline static oop array_allocate(KlassHandle klass, int size, int length, TRAPS);
    inline static oop array_allocate_nozero(KlassHandle klass, int size, int length, TRAPS);
@@ -222,10 +221,10 @@ index 03956b036b..48fd7e7c0a 100644
 -                                                       oop obj);
 +  inline static oop class_allocate(KlassHandle klass, int size, TRAPS);
  
-   virtual uint oop_extra_words();
- 
+   // Raw memory allocation facilities
+   // The obj and array allocate methods are covers for these methods.
 diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp b/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp
-index 9f3b885a9e..17e02c8f90 100644
+index 302d0c7cb..bdc97575f 100644
 --- a/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp
 +++ b/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp
 @@ -39,14 +39,22 @@
@@ -298,7 +297,7 @@ index 9f3b885a9e..17e02c8f90 100644
    assert(new_obj->is_array(), "must be an array");
    // notify jvmti and dtrace (must be after length is set for dtrace)
    post_allocation_notify(klass, new_obj, new_obj->size());
-@@ -208,6 +204,16 @@ oop CollectedHeap::obj_allocate(KlassHandle klass, int size, TRAPS) {
+@@ -206,6 +202,16 @@ oop CollectedHeap::obj_allocate(KlassHandle klass, int size, TRAPS) {
    return (oop)obj;
  }
  
@@ -316,7 +315,7 @@ index 9f3b885a9e..17e02c8f90 100644
                                    int size,
                                    int length,
 diff --git a/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp b/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp
-index 5b4c7d0fd2..73da78e5a8 100644
+index 5b4c7d0fd..73da78e5a 100644
 --- a/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp
 +++ b/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp
 @@ -363,13 +363,12 @@ instanceOop InstanceMirrorKlass::allocate_instance(KlassHandle k, TRAPS) {
@@ -337,10 +336,10 @@ index 5b4c7d0fd2..73da78e5a8 100644
  
  int InstanceMirrorKlass::oop_size(oop obj) const {
 diff --git a/hotspot/src/share/vm/oops/oop.hpp b/hotspot/src/share/vm/oops/oop.hpp
-index 1643ba9f55..c8d1f99183 100644
+index 4b707abce..c1e9fd550 100644
 --- a/hotspot/src/share/vm/oops/oop.hpp
 +++ b/hotspot/src/share/vm/oops/oop.hpp
-@@ -104,10 +104,12 @@ class oopDesc {
+@@ -83,10 +83,12 @@ class oopDesc {
  
    Klass* klass() const;
    Klass* klass_or_null() const volatile;
@@ -354,10 +353,10 @@ index 1643ba9f55..c8d1f99183 100644
    // For klass field compression
    int klass_gap() const;
 diff --git a/hotspot/src/share/vm/oops/oop.inline.hpp b/hotspot/src/share/vm/oops/oop.inline.hpp
-index 535a7a8953..5d47e3f4dc 100644
+index 4632457bf..491f148b9 100644
 --- a/hotspot/src/share/vm/oops/oop.inline.hpp
 +++ b/hotspot/src/share/vm/oops/oop.inline.hpp
-@@ -97,7 +97,6 @@ inline Klass* oopDesc::klass() const {
+@@ -85,7 +85,6 @@ inline Klass* oopDesc::klass() const {
  }
  
  inline Klass* oopDesc::klass_or_null() const volatile {
@@ -365,7 +364,7 @@ index 535a7a8953..5d47e3f4dc 100644
    if (UseCompressedClassPointers) {
      return Klass::decode_klass(_metadata._compressed_klass);
    } else {
-@@ -110,6 +109,17 @@ inline int oopDesc::klass_gap_offset_in_bytes() {
+@@ -98,6 +97,17 @@ inline int oopDesc::klass_gap_offset_in_bytes() {
    return oopDesc::klass_offset_in_bytes() + sizeof(narrowKlass);
  }
  
@@ -383,7 +382,7 @@ index 535a7a8953..5d47e3f4dc 100644
  inline Klass** oopDesc::klass_addr() {
    // Only used internally and with CMS and will not work with
    // UseCompressedOops
-@@ -122,10 +132,14 @@ inline narrowKlass* oopDesc::compressed_klass_addr() {
+@@ -110,10 +120,14 @@ inline narrowKlass* oopDesc::compressed_klass_addr() {
    return &_metadata._compressed_klass;
  }
  
@@ -401,7 +400,7 @@ index 535a7a8953..5d47e3f4dc 100644
    if (UseCompressedClassPointers) {
      *compressed_klass_addr() = Klass::encode_klass_not_null(k);
    } else {
-@@ -133,6 +147,18 @@ inline void oopDesc::set_klass(Klass* k) {
+@@ -121,6 +135,18 @@ inline void oopDesc::set_klass(Klass* k) {
    }
  }
  
@@ -420,7 +419,7 @@ index 535a7a8953..5d47e3f4dc 100644
  inline int oopDesc::klass_gap() const {
    return *(int*)(((intptr_t)this) + klass_gap_offset_in_bytes());
  }
-@@ -805,8 +831,8 @@ inline int oopDesc::size_given_klass(Klass* klass)  {
+@@ -511,8 +537,8 @@ inline int oopDesc::size_given_klass(Klass* klass)  {
      }
    }
  
@@ -432,5 +431,5 @@ index 535a7a8953..5d47e3f4dc 100644
  }
  
 -- 
-2.12.3
+2.19.0
 
