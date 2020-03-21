@@ -1,12 +1,10 @@
 From be9a6e1c3f15e798de03ef08c3bca91ef9589c80 Mon Sep 17 00:00:00 2001
-From: wuyan <wuyan34@huawei.com>
 Date: Thu, 12 Mar 2020 09:41:07 +0800
 Subject: [PATCH] 8204947: Port ShenandoahTaskTerminator to mainline and make
  it default
 
 Summary: <gc>: Improve gc performance, port ShenandoahTaskTerminator to mainline and make it default
 LLT: jtreg
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8204947
 ---
  .../concurrentMarkSweepGeneration.cpp              |  72 ++++++++-

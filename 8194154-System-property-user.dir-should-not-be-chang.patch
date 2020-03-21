@@ -1,11 +1,9 @@
 From 8ca41b47ee0af3868fcfe745ddedd89cd342a25a Mon Sep 17 00:00:00 2001
-From: muyongmei <muyongmei@huawei.com>
 Date: Tue, 12 Nov 2019 15:31:59 +0000
 Subject: [PATCH] 8194154: System property user.dir should not be changed
 
 Summary: <io>: System property user.dir should not be changed
 LLT: jdk/test/java/io/File/UserDirChangedTest.java
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8194154
 ---
  .../solaris/classes/java/io/UnixFileSystem.java    | 11 ++++-

@@ -1,5 +1,4 @@
 From f9f94ca5422ae79bf4ed90f41b7698febc6bed24 Mon Sep 17 00:00:00 2001
-From: zhangli <zhangli152@huawei.com>
 Date: Fri, 12 Jul 2019 15:26:27 +0000
 Subject: [PATCH] Backport of JDK-8203699: java/lang/invoke/SpecialInterfaceCall fails with SIGILL on aarch64
 

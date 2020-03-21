@@ -1,5 +1,4 @@
 From 51f5988d94ab3488080c4b9350b9d37b2ea19140 Mon Sep 17 00:00:00 2001
-From: guoge <guoge1@huawei.com>
 Date: Fri, 19 Apr 2019 16:13:29 +0000
 Subject: [PATCH] 8160300: aarch32: JNI layer to initialize native nio constants
 

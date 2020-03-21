@@ -1,11 +1,9 @@
 From f88d00280661d697440e40bf1300121bb704bb84 Mon Sep 17 00:00:00 2001
-From: wuyan <wuyan34@huawei.com>
 Date: Tue, 19 Nov 2019 11:38:36 +0800
 Subject: [PATCH] 8139041: Redundant DMB instructions
 
 Summary: <aarch64>: Redundant DMB instructions
 LLT: jtreg
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8139041
 ---
  hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp | 14 ++++++++++++++

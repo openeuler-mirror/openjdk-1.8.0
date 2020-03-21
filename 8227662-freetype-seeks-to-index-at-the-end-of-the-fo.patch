@@ -1,11 +1,9 @@
 From df8278f141b2fa1ea2a685fb1352428ecf84d50b Mon Sep 17 00:00:00 2001
-From: hedongbo <hedongbo@huawei.com>
 Date: Thu, 13 Feb 2020 17:32:14 +0000
 Subject: [PATCH] 8227662: freetype seeks to index at the end of the font data
 
 Summary: <freetype>: freetype seeks to index at the end of the font data
 LLT: jdk/test/java/awt/FontMetrics/SpaceAdvance.java
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8237400
 ---
  jdk/src/share/native/sun/font/freetypeScaler.c  |  2 +-

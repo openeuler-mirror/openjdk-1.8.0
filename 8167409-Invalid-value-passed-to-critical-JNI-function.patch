@@ -1,5 +1,4 @@
 From de7d96bd84ba81580e36f556587496e497ec1daf Mon Sep 17 00:00:00 2001
-From: hexuejin <hexuejin2@huawei.com>
 Date: Mon, 24 Jun 2019 16:39:29 +0000
 Subject: [PATCH] 8167409: Invalid value passed to critical JNI function
 

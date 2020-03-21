@@ -1,5 +1,4 @@
 From 26c54187c40901643d0cf65a985c98ddcee40bf0 Mon Sep 17 00:00:00 2001
-From: guoge <guoge1@huawei.com>
 Date: Fri, 19 Apr 2019 17:42:56 +0000
 Subject: [PATCH] 8171537: aarch64: compiler/c1/Test6849574.java generates guarantee failure in C1
 

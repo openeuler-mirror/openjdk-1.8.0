@@ -1,5 +1,4 @@
 From 34712f6bbc3c2c664ee641c78d4a2f8cfe427880 Mon Sep 17 00:00:00 2001
-From: zhouyong <zhouyong44@huawei.com>
 Date: Fri, 28 Feb 2020 15:17:44 +0000
 Subject: [PATCH] prohibition of irreducible loop in mergers
 

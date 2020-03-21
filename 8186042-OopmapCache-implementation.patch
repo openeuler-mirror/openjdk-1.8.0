@@ -1,5 +1,4 @@
 From c673dc6b67a6f44bafb279b02c0f8616704636ea Mon Sep 17 00:00:00 2001
-From: zhanggaofeng <zhanggaofeng9@huawei.com>
 Date: Sun, 7 Jul 2019 19:16:39 +0000
 Subject: [PATCH] Backport of JDK-8186042 for OopmapCache implementation
 

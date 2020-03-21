@@ -1,11 +1,9 @@
 From 19da764152e382f53c5c0f7069f52d993c649818 Mon Sep 17 00:00:00 2001
-From: hedongbo <hedongbo@huawei.com>
 Date: Mon, 11 Nov 2019 16:59:01 +0000
 Subject: [PATCH] 8165857: CMS _overflow_list is missing volatile specifiers.
 
 Summary: <gc>: [backport of JDK-8165857][Change _overflow_list from "oop" to "oopDesc* volatile", both CMS and ParNew.]
 LLT: NA
-Patch Type: backport
 Bug url: http://hg.openjdk.java.net/jdk9/jdk9/hotspot/rev/f1ad14991f86
 ---
  .../concurrentMarkSweep/concurrentMarkSweepGeneration.hpp               | 2 +-

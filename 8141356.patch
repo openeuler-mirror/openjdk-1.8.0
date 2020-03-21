@@ -1,5 +1,4 @@
 From 81c4aa5c13e38b701a0ace0765ab153b750a1e7e Mon Sep 17 00:00:00 2001
-From: mashoubing <mashoubing1@huawei.com>
 Date: Tue, 25 Jun 2019 10:06:19 +0000
 Subject: [PATCH] backport of JDK-8141356
 

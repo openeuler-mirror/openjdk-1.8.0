@@ -1,5 +1,4 @@
 From 3cdfc055dbaae92f295ac0c3ae52d33e1650e8c1 Mon Sep 17 00:00:00 2001
-From: hexuejin <hexuejin2@huawei.com>
 Date: Wed, 19 Jun 2019 09:30:39 +0000
 Subject: [PATCH] 8196485: FromCardCache default card index can cause crashes
 

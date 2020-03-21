@@ -1,5 +1,4 @@
 From b3b4fb064edf3a9537e5580dfaec69761b49f717 Mon Sep 17 00:00:00 2001
-From: hedongbo <hedongbo@huawei.com>
 Date: Mon, 6 Jan 2020 15:49:40 +0000
 Subject: [PATCH] Add ability to configure third port for remote JMX
 

@@ -1,5 +1,4 @@
 From be0206e834bab370da41cf9ec9e6b9be710e1987 Mon Sep 17 00:00:00 2001
-From: guoge <guoge1@huawei.com>
 Date: Fri, 19 Apr 2019 17:40:19 +0000
 Subject: [PATCH] 8148754: C2 loop unrolling fails due to unexpected graph shape
 

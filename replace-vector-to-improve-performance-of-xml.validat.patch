@@ -1,5 +1,4 @@
 From 6ee202c81902416a9ec5ec5a32c536d3294bd5e6 Mon Sep 17 00:00:00 2001
-From: guoge <guoge1@huawei.com>
 Date: Fri, 19 Apr 2019 17:23:48 +0000
 Subject: [PATCH] replace vector to improve performance of xml.validation
 

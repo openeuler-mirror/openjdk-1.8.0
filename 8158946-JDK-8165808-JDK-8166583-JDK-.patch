@@ -1,5 +1,4 @@
 From 213dd3425bd0681a0ad4ed3c5f004898be645d86 Mon Sep 17 00:00:00 2001
-From: wangshuai <wangshuai94@huawei.com>
 Date: Thu, 15 Aug 2019 11:15:18 +0000
 Subject: [PATCH]  Backport of JDK-8158946 JDK-8165808 JDK-8166583 JDK-8166862
 

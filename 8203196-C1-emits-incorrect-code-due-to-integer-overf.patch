@@ -1,12 +1,10 @@
 From 0e8b56655778da1200e06bb7138f86f8d395aec5 Mon Sep 17 00:00:00 2001
-From: wangkaihui <wangkaihui4@huawei.com>
 Date: Sat, 28 Dec 2019 12:41:30 +0000
 Subject: [PATCH] 8203196: C1 emits incorrect code due to integer overflow in
  _tableswitch keys
 
 Summary: <c1>: C1 emits incorrect code due to integer overflow in _tableswitch keys
 LLT: NA
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8203196
 ---
  hotspot/src/share/vm/c1/c1_Instruction.hpp  |  4 +--

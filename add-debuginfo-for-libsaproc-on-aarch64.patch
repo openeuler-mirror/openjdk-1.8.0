@@ -1,5 +1,4 @@
 From b26a2445044d5ba0a3ed0d45ef66108231fcec0f Mon Sep 17 00:00:00 2001
-From: songyaofei <songyaofei2@huawei.com>
 Date: Fri, 19 Apr 2019 17:41:12 +0000
 Subject: [PATCH] add debuginfo for libsaproc on aarch64
 

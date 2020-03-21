@@ -1,5 +1,4 @@
 From ffb7c326ceb85f9bab196a23d3c2adb4a27613ce Mon Sep 17 00:00:00 2001
-From: hexuejin <hexuejin2@huawei.com>
 Date: Wed, 17 Jul 2019 09:26:19 +0000
 Subject: [PATCH] Backport of JDK-8138971
 

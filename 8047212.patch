@@ -1,5 +1,4 @@
 From 752e6b3d3747194e9ebc2a57c06403a3ed6fccc0 Mon Sep 17 00:00:00 2001
-From: guoxuanda <guoxuanda@huawei.com>
 Date: Sat, 24 Aug 2019 17:39:22 +0000
 Subject: [PATCH] Backport of JDK-8047212
 

@@ -1,12 +1,10 @@
 From b6d77009fecd179ff16c27f04fad44ce542a30e0 Mon Sep 17 00:00:00 2001
-From: c00229008 <chenshanyao@huawei.com>
 Date: Mon, 10 Feb 2020 10:06:12 +0000
 Subject: [PATCH] 8193255: Root Certificates should be stored in text format
  and assembled at build time
 
 Summary: Runtime: Root Certificates should be stored in text format and assembled at build time.
 LLT: jdk/test/sun/security/lib/cacerts/VerifyCACerts.java
-Patch Type: backport(Community Backport Correction)
 Bug url: https://hg.openjdk.java.net/jdk8u/jdk8u/jdk/rev/8d39522b0f75
 ---
  common/autoconf/generated-configure.sh             |   2 -

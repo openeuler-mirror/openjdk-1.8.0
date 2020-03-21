@@ -1,12 +1,10 @@
 From 92585164635278b4b127f426bf50014d0a03b572 Mon Sep 17 00:00:00 2001
-From: songyaofei <songyaofei2@huawei.com>
 Date: Thu, 14 Nov 2019 15:23:46 +0000
 Subject: [PATCH] 8165860: WorkGroup classes are missing volatile specifiers
  for lock-free code
 
 Summary: <gc>: WorkGroup classes are missing volatile specifiers for lock-free code
 LLT: NA
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8165860
 ---
  hotspot/src/share/vm/utilities/workgroup.cpp | 12 +++++-------
