@@ -1,12 +1,10 @@
 From 31cb3f58bf65518cf3b9e35cd09405af693a38bd Mon Sep 17 00:00:00 2001
-From: mashoubing <mashoubing1@huawei.com>
 Date: Thu, 21 Nov 2019 11:49:57 +0000
 Subject: [PATCH] 8190332: PngReader throws NegativeArraySizeException/OOM
  error when IHDR width is very large
 
 Summary: <imageio>: PngReader throws NegativeArraySizeException/OOM error when IHDR width is very large
 LLT:
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8190332
 ---
  .../sun/imageio/plugins/png/PNGImageReader.java    | 27 +++++--

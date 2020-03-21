@@ -1,5 +1,4 @@
 From 7c73365615f00951272310db44dec2939b91b48e Mon Sep 17 00:00:00 2001
-From: songyaofei <songyaofei2@huawei.com>
 Date: Wed, 19 Feb 2020 19:09:39 +0000
 Subject: [PATCH] fix incorrect offset for oop field with weak memory model
 

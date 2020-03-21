@@ -1,5 +1,4 @@
 From 11a00ac42593c9338b9ec8779dd8c142d1492907 Mon Sep 17 00:00:00 2001
-From: wangkun <wangkun49@huawei.com>
 Date: Mon, 27 May 2019 21:41:37 +0000
 Subject: [PATCH] 8202952:C2:Unexpected dead nodes after matching
 

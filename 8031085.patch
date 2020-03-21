@@ -1,5 +1,4 @@
 From 727421f7f1abdcc90ac203fa03b279090a208cd7 Mon Sep 17 00:00:00 2001
-From: hedongbo <hedongbo@huawei.com>
 Date: Fri, 18 Oct 2019 12:06:46 +0000
 Subject: [PATCH] backport of JDK-8031085
 

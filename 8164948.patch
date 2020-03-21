@@ -1,5 +1,4 @@
 From d0c532d9b3e657fea7ce93602553c9d74aab85a6 Mon Sep 17 00:00:00 2001
-From: mashoubing <mashoubing1@huawei.com>
 Date: Fri, 21 Jun 2019 14:21:55 +0000
 Subject: [PATCH] 8164948: Initializing stores of HeapRegions are not ordered with regards to their use in G1ConcurrentMark
 

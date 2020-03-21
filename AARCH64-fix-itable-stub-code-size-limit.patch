@@ -1,5 +1,4 @@
 From 8e390a2cdfff1138f3ba6e694395cd8790aa1603 Mon Sep 17 00:00:00 2001
-From: guoge <guoge1@huawei.com>
 Date: Fri, 19 Apr 2019 17:33:26 +0000
 Subject: [PATCH] AARCH64 fix itable stub code size limit
 

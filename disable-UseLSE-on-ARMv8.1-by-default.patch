@@ -1,5 +1,4 @@
 From 1161177ce24da0348b5f6c6358667dc4a93f544b Mon Sep 17 00:00:00 2001
-From: guoge <guoge1@huawei.com>
 Date: Thu, 17 Oct 2019 14:49:51 +0000
 Subject: [PATCH] disable UseLSE on ARMv8.1 by default
 

@@ -1,5 +1,4 @@
 From a0559370c5b6ca2a080b673da7198ae366aa34bd Mon Sep 17 00:00:00 2001
-From: jitao <jitao8@huawei.com>
 Date: Fri, 19 Apr 2019 17:34:30 +0000
 Subject: [PATCH] 8221658: aarch64: add necessary predicate for ubfx patterns
 

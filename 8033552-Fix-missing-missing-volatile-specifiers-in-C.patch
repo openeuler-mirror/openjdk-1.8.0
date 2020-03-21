@@ -1,12 +1,10 @@
 From cad6af30875f8c5731b76cca494f1f1301e04c96 Mon Sep 17 00:00:00 2001
-From: zhanggaofeng <zhanggaofeng9@huawei.com>
 Date: Mon, 11 Nov 2019 17:16:36 +0000
 Subject: [PATCH] 8033552:Fix missing missing volatile specifiers in CAS
  operations in GC code
 
 Summary: GC:Fix missing missing volatile specifiers in CAS operations in GC code
 LLT: org.openjdk.jcstress.tests.defaultValues.arrays.small.plain.StringTest
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8033552
 ---
  .../vm/gc_implementation/concurrentMarkSweep/cmsOopClosures.hpp   | 4 ++--

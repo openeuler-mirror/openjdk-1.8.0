@@ -1,5 +1,4 @@
 From 822f93a00af8300b0516707c2fded59c7487b3ea Mon Sep 17 00:00:00 2001
-From: wangshuai <wangshuai94@huawei.com>
 Date: Mon, 14 Oct 2019 16:34:52 +0000
 Subject: [PATCH] Backport of JDK-8160369
 

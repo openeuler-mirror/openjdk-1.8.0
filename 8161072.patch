@@ -1,5 +1,4 @@
 From e42367ab7ce5d66823ef32ea00dbc5e44e3b20d1 Mon Sep 17 00:00:00 2001
-From: jitao <jitao8@huawei.com>
 Date: Tue, 28 May 2019 21:38:21 +0000
 Subject: [PATCH] 8161072: AArch64: jtreg compiler/uncommontrap/TestDeoptOOM failure
 

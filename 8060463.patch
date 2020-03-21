@@ -1,5 +1,4 @@
 From e01473adc4c392aa947417cbde478161b2d741bb Mon Sep 17 00:00:00 2001
-From: wangyadong <wangyadong4@huawei.com>
 Date: Fri, 12 Jul 2019 16:10:56 +0800
 Subject: [PATCH] Backport of JDK-8060463
 

@@ -1,5 +1,4 @@
 From a0788fc8804ec901f1011a7a7a3264098a717223 Mon Sep 17 00:00:00 2001
-From: songyaofei <songyaofei2@huawei.com>
 Date: Tue, 16 Jul 2019 19:36:33 +0000
 Subject: [PATCH] Backport of JDK-8131600
 

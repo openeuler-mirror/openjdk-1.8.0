@@ -1,11 +1,9 @@
 From bd619b88d5e074d960b34ece8f60b4e5147c4a47 Mon Sep 17 00:00:00 2001
-From: zhuliying <zhuliying1@huawei.com>
 Date: Fri, 8 Nov 2019 17:42:55 +0000
 Subject: [PATCH] 8182397: race in field updates
 
 Summary: <ArrayKlasses>: race in field updates when creating ArrayKlasses can lead to crash
 LLT: hotspot/test/runtime/CreateMirror/ArraysNewInstanceBug.java
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8182397
 ---
  hotspot/src/share/vm/classfile/javaClasses.cpp     | 31 ++++----

@@ -1,12 +1,10 @@
 From 18161c97014b072d7c0628fada35f1ed050c7c78 Mon Sep 17 00:00:00 2001
-From: wuyan <wuyan34@huawei.com>
 Date: Thu, 16 Jan 2020 20:30:28 +0800
 Subject: [PATCH] 8171410: aarch64: long multiplyExact shifts by 31 instead of
  63
 
 Summary: <c2>: long multiplyExact shifts by 31 instead of 63
 LLT: NA
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8171410
 ---
  hotspot/src/cpu/aarch64/vm/aarch64.ad | 8 ++++----

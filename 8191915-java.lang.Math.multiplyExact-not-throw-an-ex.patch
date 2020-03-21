@@ -1,12 +1,10 @@
 From eeb0317f3582ae74dd7d42d149fdc457cd01d835 Mon Sep 17 00:00:00 2001
-From: c00229008 <chenshanyao@huawei.com>
 Date: Thu, 26 Dec 2019 20:04:58 +0000
 Subject: [PATCH] 8191915: java.lang.Math.multiplyExact not throw an exception
  for certain values
 
 Summary: C2: java.lang.Math.multiplyExact not throw an exception for certain values
 LLT: hotspot/test/compiler/intrinsics/mathexact/LongMulOverflowTest.java
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8191915
 ---
  hotspot/src/share/vm/opto/mathexactnode.cpp        | 42 +++++++++------

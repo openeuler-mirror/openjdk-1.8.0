@@ -1,11 +1,9 @@
 From b325bb23c804a9ff2e1b8bf67dfc421ba1bdd0ab Mon Sep 17 00:00:00 2001
-From: wuyan <wuyan34@huawei.com>
 Date: Thu, 12 Mar 2020 11:09:48 +0800
 Subject: [PATCH] 8205921: Optimizing best-of-2 work stealing queue selection
 
 Summary: <gc>: Improve gc performance, optimizing best-of-2 work stealing queue selection
 LLT: jtreg
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8205921
 ---
  .../concurrentMarkSweepGeneration.cpp              |  29 ++----

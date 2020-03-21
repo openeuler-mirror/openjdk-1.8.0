@@ -1,5 +1,4 @@
 From ece7241c82e94a5ec19e7a83754db10a646ddb11 Mon Sep 17 00:00:00 2001
-From: wangyadong <wangyadong4@huawei.com>
 Date: Mon, 12 Aug 2019 20:20:50 +0800
 Subject: [PATCH] Backport of JDK-8166197.
 

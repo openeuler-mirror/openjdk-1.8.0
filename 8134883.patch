@@ -1,5 +1,4 @@
 From d58ebe4882c0dfcb2f185e948c5c838f2d867e6b Mon Sep 17 00:00:00 2001
-From: songyaofei <songyaofei2@huawei.com>
 Date: Wed, 12 Jun 2019 20:43:23 +0000
 Subject: [PATCH] fix-fastdebug-jdk-crash-when-running-a-jtreg-case
  

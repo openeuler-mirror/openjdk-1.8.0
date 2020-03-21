@@ -1,5 +1,4 @@
 From 29e183488a96a4c169f89eab9410e0a91a903476 Mon Sep 17 00:00:00 2001
-From: songyaofei <songyaofei2@huawei.com>
 Date: Tue, 22 Oct 2019 19:18:39 +0000
 Subject: [PATCH] Reduce the probability of the crash related to
  ciObjectFactory::create_new_metadata

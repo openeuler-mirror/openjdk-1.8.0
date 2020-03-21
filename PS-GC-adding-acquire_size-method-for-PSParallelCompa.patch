@@ -1,5 +1,4 @@
 From 8f0acd949be2c01c445e402ae81421d4554f7d2b Mon Sep 17 00:00:00 2001
-From: zhanggaofeng <zhanggaofeng9@huawei.com>
 Date: Fri, 13 Dec 2019 12:02:23 +0000
 Subject: [PATCH] PS GC: adding acquire_size method for
  PSParallelCompact::mark_obj.
