@@ -1,0 +1,4 @@
+version_control: github
+src_repo: ojdkbuild/lookaside_java-1.8.0-openjdk
+tag_prefix: aarch64-port-jdk8u-shenandoah-aarch64-shenandoah-
+seperator: -
