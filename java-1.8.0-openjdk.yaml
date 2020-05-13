@@ -1,4 +1,4 @@
 version_control: hg
 src_repo: http://hg.openjdk.java.net/aarch64-port/jdk8u-shenandoah
 tag_prefix: jdk8u
-seperator: -
+seperator: "-"
