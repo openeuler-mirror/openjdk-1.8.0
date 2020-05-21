@@ -1,0 +1,458 @@
+From 4ebab5f80152a4f807206f9464a261a75341c97c Mon Sep 17 00:00:00 2001
+Date: Fri, 3 Apr 2020 14:14:31 +0000
+Subject: [PATCH] 6858051: Create GC worker threads dynamically
+
+Summary: <gc>: Create GC worker threads dynamically
+LLT: hotspot/test/gc/ergonomics/TestDynamicNumberOfGCThreads.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-6858051
+---
+ .../parallelScavenge/gcTaskManager.cpp             | 70 ++++++++++++++------
+ .../parallelScavenge/gcTaskManager.hpp             | 12 +++-
+ .../parallelScavenge/gcTaskThread.cpp              |  7 --
+ .../parallelScavenge/gcTaskThread.hpp              |  6 +-
+ .../shared/adaptiveSizePolicy.cpp                  |  9 +--
+ .../shared/adaptiveSizePolicy.hpp                  |  2 +-
+ .../vm/gc_implementation/shared/workerManager.hpp  | 77 ++++++++++++++++++++++
+ 7 files changed, 144 insertions(+), 39 deletions(-)
+ create mode 100644 hotspot/src/share/vm/gc_implementation/shared/workerManager.hpp
+
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskManager.cpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskManager.cpp
+index 153e5bd86..3efeab85d 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskManager.cpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskManager.cpp
+@@ -25,12 +25,13 @@
+ #include "precompiled.hpp"
+ #include "gc_implementation/parallelScavenge/gcTaskManager.hpp"
+ #include "gc_implementation/parallelScavenge/gcTaskThread.hpp"
+-#include "gc_implementation/shared/adaptiveSizePolicy.hpp"
++#include "gc_implementation/shared/workerManager.hpp"
+ #include "memory/allocation.hpp"
+ #include "memory/allocation.inline.hpp"
+ #include "runtime/mutex.hpp"
+ #include "runtime/mutexLocker.hpp"
+ #include "runtime/orderAccess.inline.hpp"
++#include "runtime/os.hpp"
+ 
+ PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
+ 
+@@ -381,6 +382,7 @@ GCTaskManager::GCTaskManager(uint workers) :
+   _workers(workers),
+   _active_workers(0),
+   _idle_workers(0),
++  _created_workers(0),
+   _ndc(NULL) {
+   initialize();
+ }
+@@ -389,10 +391,28 @@ GCTaskManager::GCTaskManager(uint workers, NotifyDoneClosure* ndc) :
+   _workers(workers),
+   _active_workers(0),
+   _idle_workers(0),
++  _created_workers(0),
+   _ndc(ndc) {
+   initialize();
+ }
+ 
++GCTaskThread* GCTaskManager::install_worker(uint t) {
++  GCTaskThread* new_worker = GCTaskThread::create(this, t, _processor_assignment[t]);
++  set_thread(t, new_worker);
++  return new_worker;
++}
++
++void GCTaskManager::add_workers(bool initializing) {
++  os::ThreadType worker_type = os::pgc_thread;
++  _created_workers = WorkerManager::add_workers(this,
++                                                _active_workers,
++                                                (uint) _workers,
++                                                _created_workers,
++                                                worker_type,
++                                                initializing);
++  _active_workers = MIN2(_created_workers, _active_workers);
++}
++
+ void GCTaskManager::initialize() {
+   if (TraceGCTaskManager) {
+     tty->print_cr("GCTaskManager::initialize: workers: %u", workers());
+@@ -411,25 +431,27 @@ void GCTaskManager::initialize() {
+     // Set up worker threads.
+     //     Distribute the workers among the available processors,
+     //     unless we were told not to, or if the os doesn't want to.
+-    uint* processor_assignment = NEW_C_HEAP_ARRAY(uint, workers(), mtGC);
++    _processor_assignment = NEW_C_HEAP_ARRAY(uint, workers(), mtGC);
+     if (!BindGCTaskThreadsToCPUs ||
+-        !os::distribute_processes(workers(), processor_assignment)) {
++        !os::distribute_processes(workers(), _processor_assignment)) {
+       for (uint a = 0; a < workers(); a += 1) {
+-        processor_assignment[a] = sentinel_worker();
++        _processor_assignment[a] = sentinel_worker();
+       }
+     }
++
+     _thread = NEW_C_HEAP_ARRAY(GCTaskThread*, workers(), mtGC);
+-    for (uint t = 0; t < workers(); t += 1) {
+-      set_thread(t, GCTaskThread::create(this, t, processor_assignment[t]));
++    _active_workers = ParallelGCThreads;
++    if (UseDynamicNumberOfGCThreads && !FLAG_IS_CMDLINE(ParallelGCThreads)) {
++        _active_workers = 1U;
+     }
++
+     if (TraceGCTaskThread) {
+       tty->print("GCTaskManager::initialize: distribution:");
+       for (uint t = 0; t < workers(); t += 1) {
+-        tty->print("  %u", processor_assignment[t]);
++        tty->print("  %u", _processor_assignment[t]);
+       }
+       tty->cr();
+     }
+-    FREE_C_HEAP_ARRAY(uint, processor_assignment, mtGC);
+   }
+   reset_busy_workers();
+   set_unblocked();
+@@ -441,9 +463,8 @@ void GCTaskManager::initialize() {
+   reset_noop_tasks();
+   reset_barriers();
+   reset_emptied_queue();
+-  for (uint s = 0; s < workers(); s += 1) {
+-    thread(s)->start();
+-  }
++
++  add_workers(true);
+ }
+ 
+ GCTaskManager::~GCTaskManager() {
+@@ -454,13 +475,17 @@ GCTaskManager::~GCTaskManager() {
+   WaitForBarrierGCTask::destroy(_idle_inactive_task);
+   _idle_inactive_task = NULL;
+   if (_thread != NULL) {
+-    for (uint i = 0; i < workers(); i += 1) {
++    for (uint i = 0; i < created_workers(); i += 1) {
+       GCTaskThread::destroy(thread(i));
+       set_thread(i, NULL);
+     }
+     FREE_C_HEAP_ARRAY(GCTaskThread*, _thread, mtGC);
+     _thread = NULL;
+   }
++  if (_processor_assignment != NULL) {
++    FREE_C_HEAP_ARRAY(uint, _processor_assignment, mtGC);
++    _processor_assignment = NULL;
++  }
+   if (_resource_flag != NULL) {
+     FREE_C_HEAP_ARRAY(bool, _resource_flag, mtGC);
+     _resource_flag = NULL;
+@@ -487,6 +512,9 @@ void GCTaskManager::set_active_gang() {
+          err_msg("all_workers_active() is  incorrect: "
+                  "active %d  ParallelGCThreads %d", active_workers(),
+                  ParallelGCThreads));
++  _active_workers = MIN2(_active_workers, _workers);
++  // "add_workers" does not guarantee any additional workers
++  add_workers(false);
+   if (TraceDynamicGCThreads) {
+     gclog_or_tty->print_cr("GCTaskManager::set_active_gang(): "
+                            "all_workers_active()  %d  workers %d  "
+@@ -518,7 +546,7 @@ void GCTaskManager::task_idle_workers() {
+       // is starting).  Try later to release enough idle_workers
+       // to allow the desired number of active_workers.
+       more_inactive_workers =
+-        workers() - active_workers() - idle_workers();
++        created_workers() - active_workers() - idle_workers();
+       if (more_inactive_workers < 0) {
+         int reduced_active_workers = active_workers() + more_inactive_workers;
+         set_active_workers(reduced_active_workers);
+@@ -528,7 +556,7 @@ void GCTaskManager::task_idle_workers() {
+         gclog_or_tty->print_cr("JT: %d  workers %d  active  %d  "
+                                 "idle %d  more %d",
+                                 Threads::number_of_non_daemon_threads(),
+-                                workers(),
++                                created_workers(),
+                                 active_workers(),
+                                 idle_workers(),
+                                 more_inactive_workers);
+@@ -539,7 +567,7 @@ void GCTaskManager::task_idle_workers() {
+       q->enqueue(IdleGCTask::create_on_c_heap());
+       increment_idle_workers();
+     }
+-    assert(workers() == active_workers() + idle_workers(),
++    assert(created_workers() == active_workers() + idle_workers(),
+       "total workers should equal active + inactive");
+     add_list(q);
+     // GCTaskQueue* q was created in a ResourceArea so a
+@@ -558,14 +586,15 @@ void  GCTaskManager::release_idle_workers() {
+ }
+ 
+ void GCTaskManager::print_task_time_stamps() {
+-  for(uint i=0; i<ParallelGCThreads; i++) {
++  uint num_thr = created_workers();
++  for(uint i=0; i < num_thr; i++) {
+     GCTaskThread* t = thread(i);
+     t->print_task_time_stamps();
+   }
+ }
+ 
+ void GCTaskManager::print_threads_on(outputStream* st) {
+-  uint num_thr = workers();
++  uint num_thr = created_workers();
+   for (uint i = 0; i < num_thr; i++) {
+     thread(i)->print_on(st);
+     st->cr();
+@@ -574,19 +603,20 @@ void GCTaskManager::print_threads_on(outputStream* st) {
+ 
+ void GCTaskManager::threads_do(ThreadClosure* tc) {
+   assert(tc != NULL, "Null ThreadClosure");
+-  uint num_thr = workers();
++  uint num_thr = created_workers();
+   for (uint i = 0; i < num_thr; i++) {
+     tc->do_thread(thread(i));
+   }
+ }
+ 
+ GCTaskThread* GCTaskManager::thread(uint which) {
+-  assert(which < workers(), "index out of bounds");
++  assert(which < created_workers(), "index out of bounds");
+   assert(_thread[which] != NULL, "shouldn't have null thread");
+   return _thread[which];
+ }
+ 
+ void GCTaskManager::set_thread(uint which, GCTaskThread* value) {
++  // "_created_workers" may not have been updated yet so use workers()
+   assert(which < workers(), "index out of bounds");
+   assert(value != NULL, "shouldn't have null thread");
+   _thread[which] = value;
+@@ -753,7 +783,7 @@ uint GCTaskManager::decrement_busy_workers() {
+ 
+ void GCTaskManager::release_all_resources() {
+   // If you want this to be done atomically, do it in a BarrierGCTask.
+-  for (uint i = 0; i < workers(); i += 1) {
++  for (uint i = 0; i < created_workers(); i += 1) {
+     set_resource_flag(i, true);
+   }
+ }
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskManager.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskManager.hpp
+index 76b0ec92d..91d0cd3e6 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskManager.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskManager.hpp
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2002, 2012, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2002, 2016, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -370,6 +370,7 @@ private:
+   Monitor*                  _monitor;           // Notification of changes.
+   SynchronizedGCTaskQueue*  _queue;             // Queue of tasks.
+   GCTaskThread**            _thread;            // Array of worker threads.
++  uint                      _created_workers;   // Number of workers created.
+   uint                      _active_workers;    // Number of active workers.
+   uint                      _busy_workers;      // Number of busy workers.
+   uint                      _blocking_worker;   // The worker that's blocking.
+@@ -382,6 +383,8 @@ private:
+   uint                      _noop_tasks;        // Count of noop tasks.
+   WaitForBarrierGCTask*     _idle_inactive_task;// Task for inactive workers
+   volatile uint             _idle_workers;      // Number of idled workers
++  uint*                     _processor_assignment;  // Worker to cpu mappings. May
++                                                    // be used lazily
+ public:
+   // Factory create and destroy methods.
+   static GCTaskManager* create(uint workers) {
+@@ -566,6 +569,13 @@ protected:
+   uint active_workers() const {
+     return _active_workers;
+   }
++  uint created_workers() const {
++    return _created_workers;
++  }
++  // Create a GC worker and install into GCTaskManager
++  GCTaskThread* install_worker(uint worker_id);
++  // Add GC workers as needed.
++  void add_workers(bool initializing);
+ };
+ 
+ //
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskThread.cpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskThread.cpp
+index 4454cd18d..e9813d7c1 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskThread.cpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskThread.cpp
+@@ -44,9 +44,6 @@ GCTaskThread::GCTaskThread(GCTaskManager* manager,
+   _time_stamps(NULL),
+   _time_stamp_index(0)
+ {
+-  if (!os::create_thread(this, os::pgc_thread))
+-    vm_exit_out_of_memory(0, OOM_MALLOC_ERROR, "Cannot create GC thread. Out of system resources.");
+-
+   if (PrintGCTaskTimeStamps) {
+     _time_stamps = NEW_C_HEAP_ARRAY(GCTaskTimeStamp, GCTaskTimeStampEntries, mtGC);
+ 
+@@ -62,10 +59,6 @@ GCTaskThread::~GCTaskThread() {
+   }
+ }
+ 
+-void GCTaskThread::start() {
+-  os::start_thread(this);
+-}
+-
+ GCTaskTimeStamp* GCTaskThread::time_stamp_at(uint index) {
+   guarantee(index < GCTaskTimeStampEntries, "increase GCTaskTimeStampEntries");
+ 
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskThread.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskThread.hpp
+index 7f8aff2bd..b4e69025f 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskThread.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/gcTaskThread.hpp
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2002, 2012, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2002, 2016, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -48,13 +48,13 @@ private:
+ 
+   bool _is_working;                     // True if participating in GC tasks
+ 
+- public:
+   // Factory create and destroy methods.
+   static GCTaskThread* create(GCTaskManager* manager,
+                               uint           which,
+                               uint           processor_id) {
+     return new GCTaskThread(manager, which, processor_id);
+   }
++ public:
+   static void destroy(GCTaskThread* manager) {
+     if (manager != NULL) {
+       delete manager;
+@@ -65,8 +65,6 @@ private:
+     return true;
+   }
+   virtual void run();
+-  // Methods.
+-  void start();
+ 
+   void print_task_time_stamps();
+   void print_on(outputStream* st) const;
+diff --git a/hotspot/src/share/vm/gc_implementation/shared/adaptiveSizePolicy.cpp b/hotspot/src/share/vm/gc_implementation/shared/adaptiveSizePolicy.cpp
+index 3bfbddcb5..1e99e73e4 100644
+--- a/hotspot/src/share/vm/gc_implementation/shared/adaptiveSizePolicy.cpp
++++ b/hotspot/src/share/vm/gc_implementation/shared/adaptiveSizePolicy.cpp
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2004, 2014, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2004, 2016, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -129,10 +129,7 @@ int AdaptiveSizePolicy::calc_default_active_workers(uintx total_workers,
+   uintx max_active_workers =
+     MAX2(active_workers_by_JT, active_workers_by_heap_size);
+ 
+-  // Limit the number of workers to the the number created,
+-  // (workers()).
+-  new_active_workers = MIN2(max_active_workers,
+-                                (uintx) total_workers);
++  new_active_workers = MIN2(max_active_workers, (uintx) total_workers);
+ 
+   // Increase GC workers instantly but decrease them more
+   // slowly.
+@@ -167,7 +164,7 @@ int AdaptiveSizePolicy::calc_default_active_workers(uintx total_workers,
+   }
+ 
+   if (TraceDynamicGCThreads) {
+-     gclog_or_tty->print_cr("GCTaskManager::calc_default_active_workers() : "
++    gclog_or_tty->print_cr("GCTaskManager::calc_default_active_workers() : "
+        "active_workers(): %d  new_active_workers: %d  "
+        "prev_active_workers: %d\n"
+        " active_workers_by_JT: %d  active_workers_by_heap_size: %d",
+diff --git a/hotspot/src/share/vm/gc_implementation/shared/adaptiveSizePolicy.hpp b/hotspot/src/share/vm/gc_implementation/shared/adaptiveSizePolicy.hpp
+index 2fca75fce..e0d160ac6 100644
+--- a/hotspot/src/share/vm/gc_implementation/shared/adaptiveSizePolicy.hpp
++++ b/hotspot/src/share/vm/gc_implementation/shared/adaptiveSizePolicy.hpp
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2004, 2012, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2004, 2016, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+diff --git a/hotspot/src/share/vm/gc_implementation/shared/workerManager.hpp b/hotspot/src/share/vm/gc_implementation/shared/workerManager.hpp
+new file mode 100644
+index 000000000..1a840cf2b
+--- /dev/null
++++ b/hotspot/src/share/vm/gc_implementation/shared/workerManager.hpp
+@@ -0,0 +1,77 @@
++/*
++ * Copyright (c) 2016 Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++#ifndef SHARE_VM_GC_SHARED_WORKERMANAGER_HPP
++#define SHARE_VM_GC_SHARED_WORKERMANAGER_HPP
++
++#include "gc_implementation/shared/adaptiveSizePolicy.hpp"
++
++class WorkerManager : public AllStatic {
++ public:
++  // Create additional workers as needed.
++  //   active_workers - number of workers being requested for an upcoming
++  // parallel task.
++  //   total_workers - total number of workers.  This is the maximum
++  // number possible.
++  //   created_workers - number of workers already created.  This maybe
++  // less than, equal to, or greater than active workers.  If greater than
++  // or equal to active_workers, nothing is done.
++  //   worker_type - type of thread.
++  //   initializing - true if this is called to get the initial number of
++  // GC workers.
++  // If initializing is true, do a vm exit if the workers cannot be created.
++  // The initializing = true case is for JVM start up and failing to
++  // create all the worker at start should considered a problem so exit.
++  // If initializing = false, there are already some number of worker
++  // threads and a failure would not be optimal but should not be fatal.
++  template <class WorkerType>
++  static uint add_workers (WorkerType* holder,
++                   uint active_workers,
++                   uint total_workers,
++                   uint created_workers,
++                   os::ThreadType worker_type,
++                   bool initializing) {
++    uint start = created_workers;
++    uint end = MIN2(active_workers, total_workers);
++    for (uint worker_id = start; worker_id < end; worker_id += 1) {
++      WorkerThread* new_worker = holder->install_worker(worker_id);
++      assert(new_worker != NULL, "Failed to allocate GangWorker");
++      if (new_worker == NULL || !os::create_thread(new_worker, worker_type)) {
++        if(initializing) {
++          vm_exit_out_of_memory(0, OOM_MALLOC_ERROR,
++                  "Cannot create worker GC thread. Out of system resources.");
++        }
++      }
++      created_workers++;
++      os::start_thread(new_worker);
++    }
++
++    gclog_or_tty->print_cr("AdaptiveSizePolicy::add_workers() : "
++       "active_workers: %u created_workers: %u",
++       active_workers, created_workers);
++
++    return created_workers;
++  }
++};
++#endif // SHARE_VM_GC_SHARED_WORKERMANAGER_HPP
+-- 
+2.12.3
+

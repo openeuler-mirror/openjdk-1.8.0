@@ -167,7 +167,7 @@
 # note, following three variables are sedded from update_sources if used correctly. Hardcode them rather there.
 %global shenandoah_project	aarch64-port
 %global shenandoah_repo		jdk8u-shenandoah
-%global shenandoah_revision    	aarch64-shenandoah-jdk8u242-b08
+%global shenandoah_revision    	aarch64-shenandoah-jdk8u262-b02
 # Define old aarch64/jdk8u tree variables for compatibility
 %global project         %{shenandoah_project}
 %global repo            %{shenandoah_repo}
@@ -190,7 +190,7 @@
 # images stub
 %global jdkimage       j2sdk-image
 # output dir stub
-%define buildoutputdir() %{expand:aarch64-shenandoah-jdk8u242-b08/build/jdk8.build%{?1}}
+%define buildoutputdir() %{expand:aarch64-shenandoah-jdk8u262-b02/build/jdk8.build%{?1}}
 # we can copy the javadoc to not arched dir, or make it not noarch
 %define uniquejavadocdir()    %{expand:%{fullversion}%{?1}}
 # main id and dir of this jdk
@@ -799,7 +799,7 @@ Provides: java-%{javaver}-%{origin}-src%{?1} = %{epoch}:%{version}-%{release}
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1.h5
+Release: 6
 Epoch:	 1
 Summary: %{origin_nice} Runtime Environment %{majorver}
 Group:   Development/Languages
@@ -846,7 +846,6 @@ Patch13: 8171537.patch
 Patch18: fix-vendor-info.patch
 Patch21: 8202952-C2-Unexpected-dead-nodes-after-matching.patch
 Patch22: 8161072.patch
-Patch23: 8135318.patch
 Patch24: 8134883.patch
 Patch25: FromCardCache-default-card-index-can-cause.patch
 Patch26: disable-UseLSE-on-ARMv8.1-by-default.patch
@@ -862,22 +861,18 @@ Patch35: 8186042-OopmapCache-implementation.patch
 Patch36: 8060463.patch
 Patch37: 8131600.patch
 Patch38: 8138971.patch
-Patch39: 8167409-Invalid-value-passed-to-critical-JNI-function.patch
 Patch40: 8129626.patch
 Patch41: 8203699-java-lang-invoke-SpecialInte.patch
 Patch45: 8191129.patch
 Patch46: 8182036.patch
 Patch47: 8166197.patch
 Patch48: 8158946-JDK-8165808-JDK-8166583-JDK-.patch
-Patch49: 8146792.patch
-Patch50: 8047212.patch
 Patch51: add-with-company-name-option.patch
 Patch56: 8160369.patch
 Patch57: 8031085.patch
 Patch58: Reduce-the-probability-of-the-crash-related-to-ciObj.patch
 Patch62: 8165857-CMS-_overflow_list-is-missing-volatile-speci.patch
 Patch63: 8033552-Fix-missing-missing-volatile-specifiers-in-C.patch
-Patch65: 8234264-Incorrrect-8047434-JDK-8-backport-in-8219677.patch
 Patch67: 8165860-WorkGroup-classes-are-missing-volatile-speci.patch
 Patch68: 8194154-System-property-user.dir-should-not-be-chang.patch
 Patch70: 8164948.patch
@@ -890,13 +885,15 @@ Patch75: Add-ability-to-configure-third-port-for-remote-JMX.patch
 Patch76: 8203196-C1-emits-incorrect-code-due-to-integer-overf.patch
 Patch77: 8190332-PngReader-throws-NegativeArraySizeException-.patch
 Patch78: 8171410-aarch64-long-multiplyExact-shifts-by-31-inst.patch
-Patch79: 8193255-Root-Certificates-should-be-stored-in-text-f.patch
-Patch80: 8227662-freetype-seeks-to-index-at-the-end-of-the-fo.patch
 Patch81: fix-incorrect-offset-for-oop-field-with-weak-memory-.patch
-Patch82: prohibition-of-irreducible-loop-in-mergers.patch
 Patch83: 8204947-Port-ShenandoahTaskTerminator-to-mainline-an.patch
 Patch84: 8205921-Optimizing-best-of-2-work-stealing-queue-sel.patch
 Patch85: 8139041-Redundant-DMB-instructions.patch
+
+# 8u252
+Patch86: 6858051-Create-GC-worker-threads-dynamically.patch
+Patch87: 6858051-Add-a-switch-for-the-dynamic-thread-related-.patch
+Patch88: dismiss-warnings-in-GCC-8.X.patch
 
 BuildRequires: autoconf
 BuildRequires: automake
@@ -1109,7 +1106,6 @@ pushd %{top_level_dir_name}
 %patch18 -p1
 %patch21 -p1
 %patch22 -p1
-%patch23 -p1
 %patch24 -p1
 %patch25 -p1
 %patch26 -p1
@@ -1125,22 +1121,18 @@ pushd %{top_level_dir_name}
 %patch36 -p1
 %patch37 -p1
 %patch38 -p1
-%patch39 -p1
 %patch40 -p1
 %patch41 -p1
 %patch45 -p1
 %patch46 -p1
 %patch47 -p1
 %patch48 -p1
-%patch49 -p1
-%patch50 -p1
 %patch51 -p1
 %patch56 -p1
 %patch57 -p1
 %patch58 -p1
 %patch62 -p1
 %patch63 -p1
-%patch65 -p1
 %patch67 -p1
 %patch68 -p1
 %patch70 -p1
@@ -1151,13 +1143,13 @@ pushd %{top_level_dir_name}
 %patch76 -p1
 %patch77 -p1
 %patch78 -p1
-%patch79 -p1
-%patch80 -p1
 %patch81 -p1
-%patch82 -p1
 %patch83 -p1
 %patch84 -p1
 %patch85 -p1
+%patch86 -p1
+%patch87 -p1
+%patch88 -p1
 
 popd
 
@@ -1181,7 +1173,7 @@ export CFLAGS="$CFLAGS -mieee"
 # pass EXTRA_CFLAGS to the HotSpot C++ compiler...
 # Explicitly set the C++ standard as the default has changed on GCC >= 6
 EXTRA_CFLAGS="-std=gnu++98 -Wno-error -fno-delete-null-pointer-checks -fno-lifetime-dse -fstack-protector-strong"
-EXTRA_CPP_FLAGS="-std=gnu++98 -fno-delete-null-pointer-checks -fno-lifetime-dse -fstack-protector-strong"
+EXTRA_CPP_FLAGS="-std=gnu++98 -Wno-error -fno-delete-null-pointer-checks -fno-lifetime-dse -fstack-protector-strong"
 EXTRA_LDFLAGS="-Wl,-z,now,-z,relro"
 
 export EXTRA_CFLAGS
@@ -1209,8 +1201,8 @@ bash ../../configure \
     --with-build-number=%{buildver} \
     --with-debug-level=$debugbuild \
     --enable-unlimited-crypto \
-    --with-extra-cxxflags="$EXTRA_CPP_FLAGS" \
     --with-extra-cflags="$EXTRA_CFLAGS" \
+    --with-extra-cxxflags="$EXTRA_CPP_FLAGS" \
     --with-extra-ldflags="%{ourldflags}" \
     --with-num-cores="$NUM_PROC" \
     --with-boot-jdk-jvmargs=-XX:-UsePerfData
@@ -1555,6 +1547,10 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue May 21 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.262-b02.6
+- Update to jdk8u-shenandoah-8u262-b02
+- Create GC worker threads dynamically
+
 * Tue Mar 20 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.242-b08.5
 - upgrade openjdk to jdk8u242-b08
 
