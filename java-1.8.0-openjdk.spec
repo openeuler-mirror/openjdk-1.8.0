@@ -155,7 +155,7 @@
 # note, following three variables are sedded from update_sources if used correctly. Hardcode them rather there.
 %global shenandoah_project	aarch64-port
 %global shenandoah_repo		jdk8u-shenandoah
-%global shenandoah_revision    	aarch64-shenandoah-jdk8u262-b02
+%global shenandoah_revision    	aarch64-shenandoah-jdk8u262-b05
 # Define old aarch64/jdk8u tree variables for compatibility
 %global project         %{shenandoah_project}
 %global repo            %{shenandoah_repo}
@@ -899,7 +899,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 8
+Release: 9
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1012,7 +1012,6 @@ Patch77: 8190332-PngReader-throws-NegativeArraySizeException-.patch
 Patch78: 8171410-aarch64-long-multiplyExact-shifts-by-31-inst.patch
 Patch81: fix-incorrect-offset-for-oop-field-with-weak-memory-.patch
 Patch83: 8204947-Port-ShenandoahTaskTerminator-to-mainline-an.patch
-Patch84: 8205921-Optimizing-best-of-2-work-stealing-queue-sel.patch
 Patch85: 8139041-Redundant-DMB-instructions.patch
 
 # 8u252
@@ -1404,7 +1403,6 @@ pushd %{top_level_dir_name}
 %patch78 -p1
 %patch81 -p1
 %patch83 -p1
-%patch84 -p1
 %patch85 -p1
 %patch86 -p1
 %patch87 -p1
@@ -2027,6 +2025,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Jun 11 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.262-b05.9
+- Update to aarch64-shenandoah-jdk8u-8u262-b05
+
 * Tue Jun 9 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.262-b02.8
 - Add some judgement
 
