@@ -1,0 +1,79 @@
+From c1d5b7c044ba418848c98d36ec21358a1dac568e Mon Sep 17 00:00:00 2001
+From: sunjianye <sunjianye@huawei.com>
+Date: Sat, 23 May 2020 17:18:39 +0800
+Subject: [PATCH] 8223504:improve performance of forall loops by better
+ inlining of "iterator()" methods
+
+DTS/AR: AR.SR.IREQ02373832.002.001
+Summary: <C2>  : improve performance of forall loops by better inlining of "iterator()" methods
+LLT: NA
+Patch Type: backport
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8223504
+---
+ hotspot/src/share/vm/classfile/systemDictionary.hpp | 3 +++
+ hotspot/src/share/vm/classfile/vmSymbols.hpp        | 2 ++
+ hotspot/src/share/vm/opto/bytecodeInfo.cpp          | 9 ++++++++-
+ 3 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/hotspot/src/share/vm/classfile/systemDictionary.hpp b/hotspot/src/share/vm/classfile/systemDictionary.hpp
+index 57a9d669b..956b50313 100644
+--- a/hotspot/src/share/vm/classfile/systemDictionary.hpp
++++ b/hotspot/src/share/vm/classfile/systemDictionary.hpp
+@@ -196,6 +196,9 @@ class Ticks;
+   do_klass(Short_klass,                                 java_lang_Short,                           Pre                 ) \
+   do_klass(Integer_klass,                               java_lang_Integer,                         Pre                 ) \
+   do_klass(Long_klass,                                  java_lang_Long,                            Pre                 ) \
++                                                                                                                         \
++  /* force inline of iterators */                                                                                        \
++  do_klass(Iterator_klass,                              java_util_Iterator,                        Pre                 ) \
+   /*end*/
+ 
+ 
+diff --git a/hotspot/src/share/vm/classfile/vmSymbols.hpp b/hotspot/src/share/vm/classfile/vmSymbols.hpp
+index 46f2e2d8b..acc33fcc2 100644
+--- a/hotspot/src/share/vm/classfile/vmSymbols.hpp
++++ b/hotspot/src/share/vm/classfile/vmSymbols.hpp
+@@ -121,6 +121,8 @@
+   template(sun_misc_Launcher_AppClassLoader,          "sun/misc/Launcher$AppClassLoader")         \
+   template(sun_misc_Launcher_ExtClassLoader,          "sun/misc/Launcher$ExtClassLoader")         \
+                                                                                                   \
++  template(java_util_Iterator,                        "java/util/Iterator")                       \
++                                                                                                  \
+   /* Java runtime version access */                                                               \
+   template(sun_misc_Version,                          "sun/misc/Version")                         \
+   template(java_runtime_name_name,                    "java_runtime_name")                        \
+diff --git a/hotspot/src/share/vm/opto/bytecodeInfo.cpp b/hotspot/src/share/vm/opto/bytecodeInfo.cpp
+index d16b5631b..06a30b94a 100644
+--- a/hotspot/src/share/vm/opto/bytecodeInfo.cpp
++++ b/hotspot/src/share/vm/opto/bytecodeInfo.cpp
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 1998, 2013, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 1998, 2020, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -75,6 +75,8 @@ InlineTree::InlineTree(Compile* c,
+  *  Return true when EA is ON and a java constructor is called or
+  *  a super constructor is called from an inlined java constructor.
+  *  Also return true for boxing methods.
++ *  Also return true for methods returning Iterator (including Iterable::iterator())
++ *  that is essential for forall-loops performance.
+  */
+ static bool is_init_with_ea(ciMethod* callee_method,
+                             ciMethod* caller_method, Compile* C) {
+@@ -92,6 +94,11 @@ static bool is_init_with_ea(ciMethod* callee_method,
+   if (C->eliminate_boxing() && callee_method->is_boxing_method()) {
+     return true;
+   }
++  ciType *retType = callee_method->signature()->return_type();
++  ciKlass *iter = C->env()->Iterator_klass();
++  if (retType->is_loaded() && iter->is_loaded() && retType->is_subtype_of(iter)) {
++    return true;
++  }
+   return false;
+ }
+ 
+-- 
+2.19.1
+

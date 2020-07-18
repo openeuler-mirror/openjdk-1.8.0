@@ -94,7 +94,7 @@ index df886e88f4..c0c7b7bdb3 100644
  
 +company_name =
 +ifneq ($(COMPANY_NAME),N/A)
-+  company_name=($(COMPANY_NAME))
++  company_name=$(COMPANY_NAME)
 +endif
 +
  $(JDK_OUTPUTDIR)/gensrc/sun/misc/Version.java \
@@ -127,7 +127,7 @@ index 32e2586e79..022c142810 100644
          /* Second line: runtime version (ie, libraries). */
  
 -        ps.print(java_runtime_name + " (build " + java_runtime_version);
-+        ps.print(java_runtime_name + " " + company_name + "(build " + java_runtime_version);
++        ps.print(java_runtime_name + " " + company_name + " " + "(build " + java_runtime_version);
  
          if (java_profile_name.length() > 0) {
              // profile name
@@ -137,7 +137,7 @@ index 32e2586e79..022c142810 100644
          String java_vm_info    = System.getProperty("java.vm.info");
 -        ps.println(java_vm_name + " (build " + java_vm_version + ", " +
 -                   java_vm_info + ")");
-+        ps.println(java_vm_name + " " + company_name + "(build " + java_vm_version + ", " +
++        ps.println(java_vm_name + " " + company_name + " " + "(build " + java_vm_version + ", " +
 +                    java_vm_info + ")");
      }
  

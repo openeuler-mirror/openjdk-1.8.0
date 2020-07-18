@@ -15,10 +15,10 @@ Bug url: https://bugs.openjdk.java.net/browse/JDK-8182397
  create mode 100644 hotspot/test/runtime/CreateMirror/ArraysNewInstanceBug.java
 
 diff --git a/hotspot/src/share/vm/classfile/javaClasses.cpp b/hotspot/src/share/vm/classfile/javaClasses.cpp
-index cd28c758d0..e010c77cd1 100644
+index 86cb361c..4db165d4 100644
 --- a/hotspot/src/share/vm/classfile/javaClasses.cpp
 +++ b/hotspot/src/share/vm/classfile/javaClasses.cpp
-@@ -573,6 +573,7 @@ void java_lang_Class::initialize_mirror_fields(KlassHandle k,
+@@ -575,6 +575,7 @@ void java_lang_Class::initialize_mirror_fields(KlassHandle k,
  
  void java_lang_Class::create_mirror(KlassHandle k, Handle class_loader,
                                      Handle protection_domain, TRAPS) {
@@ -26,7 +26,7 @@ index cd28c758d0..e010c77cd1 100644
    assert(k->java_mirror() == NULL, "should only assign mirror once");
    // Use this moment of initialization to cache modifier_flags also,
    // to support Class.getModifiers().  Instance classes recalculate
-@@ -585,11 +586,10 @@ void java_lang_Class::create_mirror(KlassHandle k, Handle class_loader,
+@@ -587,11 +588,10 @@ void java_lang_Class::create_mirror(KlassHandle k, Handle class_loader,
    if (SystemDictionary::Class_klass_loaded()) {
      // Allocate mirror (java.lang.Class instance)
      Handle mirror = InstanceMirrorKlass::cast(SystemDictionary::Class_klass())->allocate_instance(k, CHECK);
@@ -40,7 +40,7 @@ index cd28c758d0..e010c77cd1 100644
  
      InstanceMirrorKlass* mk = InstanceMirrorKlass::cast(mirror->klass());
      assert(oop_size(mirror()) == mk->instance_size(k), "should have been set");
-@@ -598,21 +598,21 @@ void java_lang_Class::create_mirror(KlassHandle k, Handle class_loader,
+@@ -600,21 +600,21 @@ void java_lang_Class::create_mirror(KlassHandle k, Handle class_loader,
  
      // It might also have a component mirror.  This mirror must already exist.
      if (k->oop_is_array()) {
@@ -67,8 +67,8 @@ index cd28c758d0..e010c77cd1 100644
      } else {
        assert(k->oop_is_instance(), "Must be");
  
-@@ -631,10 +631,13 @@ void java_lang_Class::create_mirror(KlassHandle k, Handle class_loader,
-     assert(oopDesc::equals(class_loader(), k->class_loader()), "should be same");
+@@ -633,10 +633,13 @@ void java_lang_Class::create_mirror(KlassHandle k, Handle class_loader,
+     assert(class_loader() == k->class_loader(), "should be same");
      set_class_loader(mirror(), class_loader());
  
 -    // Setup indirection from klass->mirror last
@@ -84,7 +84,7 @@ index cd28c758d0..e010c77cd1 100644
      }
    } else {
      if (fixup_mirror_list() == NULL) {
-@@ -715,7 +718,7 @@ oop java_lang_Class::create_basic_type_mirror(const char* basic_type_name, Basic
+@@ -716,7 +719,7 @@ oop java_lang_Class::create_basic_type_mirror(const char* basic_type_name, Basic
    if (type != T_VOID) {
      Klass* aklass = Universe::typeArrayKlassObj(type);
      assert(aklass != NULL, "correct bootstrap");
@@ -93,7 +93,7 @@ index cd28c758d0..e010c77cd1 100644
    }
  #ifdef ASSERT
    InstanceMirrorKlass* mk = InstanceMirrorKlass::cast(SystemDictionary::Class_klass());
-@@ -812,9 +815,9 @@ Klass* java_lang_Class::array_klass(oop java_class) {
+@@ -813,9 +816,9 @@ Klass* java_lang_Class::array_klass(oop java_class) {
  }
  
  
@@ -106,7 +106,7 @@ index cd28c758d0..e010c77cd1 100644
  
  
 diff --git a/hotspot/src/share/vm/classfile/javaClasses.hpp b/hotspot/src/share/vm/classfile/javaClasses.hpp
-index 51879658c7..d9e65f9014 100644
+index 51879658..d9e65f90 100644
 --- a/hotspot/src/share/vm/classfile/javaClasses.hpp
 +++ b/hotspot/src/share/vm/classfile/javaClasses.hpp
 @@ -281,7 +281,7 @@ class java_lang_Class : AllStatic {
@@ -119,10 +119,10 @@ index 51879658c7..d9e65f9014 100644
    static int klass_offset_in_bytes()                { return _klass_offset; }
    static int array_klass_offset_in_bytes()          { return _array_klass_offset; }
 diff --git a/hotspot/src/share/vm/oops/oop.hpp b/hotspot/src/share/vm/oops/oop.hpp
-index c8d1f99183..c9bcf96d1c 100644
+index 5e598b4b..a703a54e 100644
 --- a/hotspot/src/share/vm/oops/oop.hpp
 +++ b/hotspot/src/share/vm/oops/oop.hpp
-@@ -243,6 +243,8 @@ class oopDesc {
+@@ -203,6 +203,8 @@ class oopDesc {
    Metadata* metadata_field(int offset) const;
    void metadata_field_put(int offset, Metadata* value);
  
@@ -132,11 +132,11 @@ index c8d1f99183..c9bcf96d1c 100644
    void byte_field_put(int offset, jbyte contents);
  
 diff --git a/hotspot/src/share/vm/oops/oop.inline.hpp b/hotspot/src/share/vm/oops/oop.inline.hpp
-index 5d47e3f4dc..16d2870d79 100644
+index a76b8506..d4c4d75c 100644
 --- a/hotspot/src/share/vm/oops/oop.inline.hpp
 +++ b/hotspot/src/share/vm/oops/oop.inline.hpp
-@@ -393,6 +393,10 @@ inline void oopDesc::metadata_field_put(int offset, Metadata* value) {
-   }
+@@ -373,6 +373,10 @@ inline void oopDesc::metadata_field_put(int offset, Metadata* value) {
+   *metadata_field_addr(offset) = value;
  }
  
 +void oopDesc::release_metadata_field_put(int offset, Metadata* value) {
@@ -144,11 +144,11 @@ index 5d47e3f4dc..16d2870d79 100644
 +}
 +
  inline void oopDesc::obj_field_put_raw(int offset, oop value) {
-   if (UseShenandoahGC) {
-     oop p = bs()->write_barrier(this);
+   UseCompressedOops ?
+     encode_store_heap_oop(obj_field_addr<narrowOop>(offset), value) :
 diff --git a/hotspot/test/runtime/CreateMirror/ArraysNewInstanceBug.java b/hotspot/test/runtime/CreateMirror/ArraysNewInstanceBug.java
 new file mode 100644
-index 0000000000..870e8ea94b
+index 00000000..870e8ea9
 --- /dev/null
 +++ b/hotspot/test/runtime/CreateMirror/ArraysNewInstanceBug.java
 @@ -0,0 +1,83 @@
