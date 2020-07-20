@@ -21,9 +21,6 @@
 # Enable release builds by default on relevant arches.
 %bcond_without release
 
-# Do not check unpackaged files
-%define _unpackaged_files_terminate_build 0
-
 # The -g flag says to use strip -g instead of full strip on DSOs or EXEs.
 # This fixes detailed NMT and other tools which need minimal debug info.
 %global _find_debuginfo_opts -g
@@ -32,7 +29,6 @@
 # also necessary when passing it as parameter to other macros. If not macro, then it is considered a switch
 # see the difference between global and define:
 # See https://github.com/rpm-software-management/rpm/issues/127 to comments at  "pmatilai commented on Aug 18, 2017"
-# (initiated in https://bugzilla.redhat.com/show_bug.cgi?id=1482192)
 %global debug_suffix_unquoted -slowdebug
 # quoted one for shell operations
 %global debug_suffix "%{debug_suffix_unquoted}"
@@ -56,11 +52,12 @@
 %endif
 
 %global aarch64         aarch64
+%global jit_arches 	x86_64 %{aarch64}
+%global sa_arches 	x86_64 %{aarch64}
+%global jfr_arches 	x86_64 %{aarch64}
 
 # By default, we build a debug build during main build on JIT architectures
-%if %{with slowdebug}
 %global include_debug_build 1
-%endif
 
 %if %{include_debug_build}
 %global build_loop2 %{debug_suffix}
@@ -74,7 +71,11 @@
 # is expected in one single case at the end of the build
 %global rev_build_loop  %{build_loop2} %{build_loop1}
 
+%ifarch %{jit_arches}
 %global bootstrap_build 1
+%else
+%global bootstrap_build 0
+%endif
 
 %global release_targets images zip-docs
 # No docs nor bootcycle for debug builds
@@ -96,23 +97,11 @@
 %global NSS_LIBDIR %(pkg-config --variable=libdir nss)
 %global NSS_LIBS %(pkg-config --libs nss)
 %global NSS_CFLAGS %(pkg-config --cflags nss-softokn)
-# see https://bugzilla.redhat.com/show_bug.cgi?id=1332456
 %global NSSSOFTOKN_BUILDTIME_NUMBER %(pkg-config --modversion nss-softokn || : )
 %global NSS_BUILDTIME_NUMBER %(pkg-config --modversion nss || : )
 # this is workaround for processing of requires during srpm creation
 %global NSSSOFTOKN_BUILDTIME_VERSION %(if [ "x%{NSSSOFTOKN_BUILDTIME_NUMBER}" == "x" ] ; then echo "" ;else echo ">= %{NSSSOFTOKN_BUILDTIME_NUMBER}" ;fi)
 %global NSS_BUILDTIME_VERSION %(if [ "x%{NSS_BUILDTIME_NUMBER}" == "x" ] ; then echo "" ;else echo ">= %{NSS_BUILDTIME_NUMBER}" ;fi)
-
-
-# Fix for https://bugzilla.redhat.com/show_bug.cgi?id=1111349.
-# See also https://bugzilla.redhat.com/show_bug.cgi?id=1590796
-# as to why some libraries *cannot* be excluded. In particular,
-# these are:
-# libjsig.so, libjava.so, libjawt.so, libjvm.so and libverify.so
-%global _privatelibs libatk-wrapper[.]so.*|libattach[.]so.*|libawt_headless[.]so.*|libawt[.]so.*|libawt_xawt[.]so.*|libdt_socket[.]so.*|libfontmanager[.]so.*|libhprof[.]so.*|libinstrument[.]so.*|libj2gss[.]so.*|libj2pcsc[.]so.*|libj2pkcs11[.]so.*|libjaas_unix[.]so.*|libjava_crw_demo[.]so.*|libjavajpeg[.]so.*|libjdwp[.]so.*|libjli[.]so.*|libjsdt[.]so.*|libjsoundalsa[.]so.*|libjsound[.]so.*|liblcms[.]so.*|libmanagement[.]so.*|libmlib_image[.]so.*|libnet[.]so.*|libnio[.]so.*|libnpt[.]so.*|libsaproc[.]so.*|libsctp[.]so.*|libsplashscreen[.]so.*|libsunec[.]so.*|libunpack[.]so.*|libzip[.]so.*|lib[.]so\\(SUNWprivate_.*
-
-%global __provides_exclude ^(%{_privatelibs})$
-%global __requires_exclude ^(%{_privatelibs})$
 
 # In some cases, the arch used by the JDK does
 # not match _arch.
@@ -127,7 +116,11 @@
 %global stapinstall arm64
 %endif
 
+%ifarch %{jit_arches}
 %global with_systemtap 1
+%else
+%global with_systemtap 0
+%endif
 
 # New Version-String scheme-style defines
 %global majorver 8
@@ -152,14 +145,11 @@
 %global origin          openjdk
 %global origin_nice     OpenJDK
 %global top_level_dir_name   %{origin}
-# note, following three variables are sedded from update_sources if used correctly. Hardcode them rather there.
-%global shenandoah_project	aarch64-port
-%global shenandoah_repo		jdk8u-shenandoah
-%global shenandoah_revision    	aarch64-shenandoah-jdk8u262-b05
 # Define old aarch64/jdk8u tree variables for compatibility
-%global project         %{shenandoah_project}
-%global repo            %{shenandoah_repo}
-%global revision        %{shenandoah_revision}
+%global project		aarch64-port
+%global repo		jdk8u-shenandoah
+%global revision    	aarch64-shenandoah-jdk8u262-b10
+%global full_revision	%{project}-%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
 
@@ -170,7 +160,7 @@
 # eg jdk8u60-b27 -> b27
 %global buildver        %(VERSION=%{revision}; echo ${VERSION##*-})
 # priority must be 7 digits in total. The expression is workarounding tip
-%global priority        %(TIP=1800%{updatever};  echo ${TIP/tip/999})
+%global priority        1800%{updatever}
 
 %global javaver         1.%{majorver}.0
 
@@ -185,6 +175,16 @@
 %define uniquejavadocdir()    %{expand:%{fullversion}%{?1}}
 # main id and dir of this jdk
 %define uniquesuffix()        %{expand:%{fullversion}.%{_arch}%{?1}}
+
+%global _privatelibs libatk-wrapper[.]so.*|libattach[.]so.*|libawt_headless[.]so.*|libawt[.]so.*|libawt_xawt[.]so.*|libdt_socket[.]so.*|libfontmanager[.]so.*|libhprof[.]so.*|libinstrument[.]so.*|libj2gss[.]so.*|libj2pcsc[.]so.*|libj2pkcs11[.]so.*|libjaas_unix[.]so.*|libjava_crw_demo[.]so.*|libjavajpeg[.]so.*|libjdwp[.]so.*|libjli[.]so.*|libjsdt[.]so.*|libjsoundalsa[.]so.*|libjsound[.]so.*|liblcms[.]so.*|libmanagement[.]so.*|libmlib_image[.]so.*|libnet[.]so.*|libnio[.]so.*|libnpt[.]so.*|libsaproc[.]so.*|libsctp[.]so.*|libsplashscreen[.]so.*|libsunec[.]so.*|libunpack[.]so.*|libzip[.]so.*|lib[.]so\\(SUNWprivate_.*
+%global _publiclibs libjawt[.]so.*|libjava[.]so.*|libjvm[.]so.*|libverify[.]so.*|libjsig[.]so.*
+
+%global __provides_exclude ^(%{_privatelibs})$
+%global __requires_exclude ^(%{_privatelibs})$
+# Never generate lib-style provides/requires for slowdebug packages
+%global __provides_exclude_from ^.*/%{uniquesuffix -- %{debug_suffix_unquoted}}/.*$
+%global __requires_exclude_from ^.*/%{uniquesuffix -- %{debug_suffix_unquoted}}/.*$
+
 %global etcjavasubdir     %{_sysconfdir}/java/java-%{javaver}-%{origin}
 %define etcjavadir()      %{expand:%{etcjavasubdir}/%{uniquesuffix -- %{?1}}}
 
@@ -329,6 +329,9 @@ alternatives \\
   --slave %{_bindir}/jconsole jconsole %{sdkbindir -- %{?1}}/jconsole \\
   --slave %{_bindir}/jdb jdb %{sdkbindir -- %{?1}}/jdb \\
   --slave %{_bindir}/jdeps jdeps %{sdkbindir -- %{?1}}/jdeps \\
+%ifarch %{jfr_arches}
+  --slave %{_bindir}/jfr jfr %{sdkbindir -- %{?1}}/jfr \\
+%endif
   --slave %{_bindir}/jhat jhat %{sdkbindir -- %{?1}}/jhat \\
   --slave %{_bindir}/jinfo jinfo %{sdkbindir -- %{?1}}/jinfo \\
   --slave %{_bindir}/jmap jmap %{sdkbindir -- %{?1}}/jmap \\
@@ -542,8 +545,10 @@ exit 0
 %{_mandir}/man1/policytool-%{uniquesuffix -- %{?1}}.1*
 %{_jvmdir}/%{jredir -- %{?1}}/lib/security/nss.cfg
 %config(noreplace) %{etcjavadir -- %{?1}}/lib/security/nss.cfg
+%ifarch %{jit_arches}
 %attr(444, root, root) %ghost %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/server/classes.jsa
 %attr(444, root, root) %ghost %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/client/classes.jsa
+%endif
 %dir %{etcjavasubdir}
 %dir %{etcjavadir -- %{?1}}
 %dir %{etcjavadir -- %{?1}}/lib
@@ -582,7 +587,9 @@ exit 0
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnet.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnio.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnpt.so
+%ifarch %{sa_arches}
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libsaproc.so
+%endif
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libsctp.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libsunec.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libunpack.so
@@ -621,12 +628,20 @@ exit 0
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/sunjce_provider.jar
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/sunpkcs11.jar
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/zipfs.jar
+%ifarch %{jfr_arches}
+%{_jvmdir}/%{jredir -- %{?1}}/lib/jfr.jar
+%{_jvmdir}/%{jredir -- %{?1}}/lib/jfr/default.jfc
+%{_jvmdir}/%{jredir -- %{?1}}/lib/jfr/profile.jfc
+%endif
 
 %dir %{_jvmdir}/%{jredir -- %{?1}}/lib/images
 %dir %{_jvmdir}/%{jredir -- %{?1}}/lib/images/cursors
 %dir %{_jvmdir}/%{jredir -- %{?1}}/lib/management
 %dir %{_jvmdir}/%{jredir -- %{?1}}/lib/cmm
 %dir %{_jvmdir}/%{jredir -- %{?1}}/lib/ext
+%ifarch %{jfr_arches}
+%dir %{_jvmdir}/%{jredir -- %{?1}}/lib/jfr
+%endif
 }
 
 %define files_devel() %{expand:
@@ -654,6 +669,9 @@ exit 0
 %{_jvmdir}/%{sdkdir -- %{?1}}/bin/jconsole
 %{_jvmdir}/%{sdkdir -- %{?1}}/bin/jdb
 %{_jvmdir}/%{sdkdir -- %{?1}}/bin/jdeps
+%ifarch %{jfr_arches}
+%{_jvmdir}/%{sdkdir -- %{?1}}/bin/jfr
+%endif
 %{_jvmdir}/%{sdkdir -- %{?1}}/bin/jhat
 %{_jvmdir}/%{sdkdir -- %{?1}}/bin/jinfo
 %{_jvmdir}/%{sdkdir -- %{?1}}/bin/jjs
@@ -689,7 +707,9 @@ exit 0
 %{_jvmdir}/%{sdkdir -- %{?1}}/lib/ir.idl
 %{_jvmdir}/%{sdkdir -- %{?1}}/lib/jconsole.jar
 %{_jvmdir}/%{sdkdir -- %{?1}}/lib/orb.idl
+%ifarch %{sa_arches}
 %{_jvmdir}/%{sdkdir -- %{?1}}/lib/sa-jdi.jar
+%endif
 %{_jvmdir}/%{sdkdir -- %{?1}}/lib/dt.jar
 %{_jvmdir}/%{sdkdir -- %{?1}}/lib/jexec
 %{_jvmdir}/%{sdkdir -- %{?1}}/lib/tools.jar
@@ -790,7 +810,7 @@ Requires: ca-certificates
 # Require javapackages-filesystem for ownership of /usr/lib/jvm/
 Requires: javapackages-filesystem
 # Require zone-info data provided by tzdata-java sub-package
-Requires: tzdata-java >= 2015d
+Requires: tzdata-java >= 2020a
 # libsctp.so.1 is being `dlopen`ed on demand
 Requires: lksctp-tools%{?_isa}
 # there is a need to depend on the exact version of NSS
@@ -823,10 +843,6 @@ Provides: java-%{javaver}-%{origin}-headless%{?1} = %{epoch}:%{version}-%{releas
 Provides: java-%{javaver}-headless%{?1} = %{epoch}:%{version}-%{release}
 Provides: java-%{origin}-headless%{?1} = %{epoch}:%{version}-%{release}
 Provides: java-headless%{?1} = %{epoch}:%{version}-%{release}
-
-# https://bugzilla.redhat.com/show_bug.cgi?id=1312019
-Provides: /usr/bin/jjs
-
 }
 
 %define java_devel_rpo() %{expand:
@@ -899,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 9
+Release: 0
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -925,17 +941,9 @@ Group:   Development/Languages
 # The PCSClite headers are under a BSD with advertising license
 # The elliptic curve cryptography (ECC) source code is licensed under the LGPLv2.1 or any later version
 License:  ASL 1.1 and ASL 2.0 and BSD and BSD with advertising and GPL+ and GPLv2 and GPLv2 with exceptions and IJG and LGPLv2+ and MIT and MPLv2.0 and Public Domain and W3C and zlib
-URL:      http://openjdk.java.net
+URL:      http://openjdk.java.net/
 
-# Shenandoah HotSpot
-# aarch64-port/jdk8u-shenandoah contains an integration forest of
-# OpenJDK 8u, the aarch64 port and Shenandoah
-# To regenerate, use:
-# VERSION=%%{shenandoah_revision}
-# FILE_NAME_ROOT=%%{shenandoah_project}-%%{shenandoah_repo}-${VERSION}
-# REPO_ROOT=<path to checked-out repository> generate_source_tarball.sh
-# where the source is obtained from http://hg.openjdk.java.net/%%{project}/%%{repo}
-Source0: %{shenandoah_revision}.tar.xz
+Source0: %{full_revision}.tar.xz
 
 # Custom README for -src subpackage
 Source2:  README.md
@@ -1010,7 +1018,6 @@ Patch75: Add-ability-to-configure-third-port-for-remote-JMX.patch
 Patch76: 8203196-C1-emits-incorrect-code-due-to-integer-overf.patch
 Patch77: 8190332-PngReader-throws-NegativeArraySizeException-.patch
 Patch78: 8171410-aarch64-long-multiplyExact-shifts-by-31-inst.patch
-Patch81: fix-incorrect-offset-for-oop-field-with-weak-memory-.patch
 Patch83: 8204947-Port-ShenandoahTaskTerminator-to-mainline-an.patch
 Patch85: 8139041-Redundant-DMB-instructions.patch
 
@@ -1018,6 +1025,14 @@ Patch85: 8139041-Redundant-DMB-instructions.patch
 Patch86: 6858051-Create-GC-worker-threads-dynamically.patch
 Patch87: 6858051-Add-a-switch-for-the-dynamic-thread-related-.patch
 Patch88: dismiss-warnings-in-GCC-8.X.patch
+
+# 8u262
+Patch89: 8144993-Elide-redundant-memory-barrier-after-AllocationNode.patch
+Patch90: 8223504-improve-performance-of-forall-loops-by-better.patch
+Patch91: add-vm-option-BoxTypeCachedMax-for-Integer-and-Long-cache.patch
+Patch92: 8080289-8040213-8189067-move-the-store-out-of-the-loop.patch
+Patch93: fast-serializer-jdk8.patch
+Patch94: 8182397-race-in-field-updates.patch
 
 #############################################
 #
@@ -1342,7 +1357,6 @@ if [ %{include_debug_build} -eq 0 -a  %{include_normal_build} -eq 0 ] ; then
   exit 13
 fi
 %setup -q -c -n %{uniquesuffix ""} -T -a 0
-# https://bugzilla.redhat.com/show_bug.cgi?id=1189084
 prioritylength=`expr length %{priority}`
 if [ $prioritylength -ne 7 ] ; then
  echo "priority must be 7 digits in total, violated"
@@ -1401,12 +1415,17 @@ pushd %{top_level_dir_name}
 %patch76 -p1
 %patch77 -p1
 %patch78 -p1
-%patch81 -p1
 %patch83 -p1
 %patch85 -p1
 %patch86 -p1
 %patch87 -p1
 %patch88 -p1
+%patch89 -p1
+%patch90 -p1
+%patch91 -p1
+%patch92 -p1
+%patch93 -p1
+%patch94 -p1
 
 popd
 
@@ -1505,10 +1524,18 @@ mkdir -p %{buildoutputdir -- $suffix}
 pushd %{buildoutputdir -- $suffix}
 
 bash ${top_srcdir_abs_path}/configure \
+%ifarch %{jfr_arches}
+    --enable-jfr \
+%endif
     --with-native-debug-symbols=internal \
     --with-milestone="fcs" \
     --with-update-version=%{updatever} \
     --with-build-number=%{buildver} \
+    --with-company-name="Boole" \
+    --with-vendor-name="Boole" \
+    --with-vendor-url="https://openeuler.org/" \
+    --with-vendor-bug-url="https://gitee.com/src-openeuler/openjdk-1.8.0/issues/" \
+    --with-vendor-vm-bug-url="https://gitee.com/src-openeuler/openjdk-1.8.0/issues/" \
     --with-debug-level=$debugbuild \
     --enable-unlimited-crypto \
     --with-zlib=system \
@@ -1538,7 +1565,6 @@ make \
 
 # the build (erroneously) removes read permissions from some jars
 # this is a regression in OpenJDK 7 (our compiler):
-# http://icedtea.classpath.org/bugzilla/show_bug.cgi?id=1437
 find images/%{jdkimage} -iname '*.jar' -exec chmod ugo+r {} \;
 chmod ugo+r images/%{jdkimage}/lib/ct.sym
 
@@ -1629,9 +1655,7 @@ done
 # Make sure gdb can do a backtrace based on line numbers on libjvm.so
 # javaCalls.cpp:58 should map to:
 # http://hg.openjdk.java.net/jdk8u/jdk8u/hotspot/file/ff3b27e6bcc2/src/share/vm/runtime/javaCalls.cpp#l58 
-# Using line number 1 might cause build problems. See:
-# https://bugzilla.redhat.com/show_bug.cgi?id=1539664
-# https://bugzilla.redhat.com/show_bug.cgi?id=1538767
+# Using line number 1 might cause build problems.
 gdb -q "$JAVA_HOME/bin/java" <<EOF | tee gdb.out
 handle SIGSEGV pass nostop noprint
 handle SIGILL pass nostop noprint
@@ -1753,7 +1777,6 @@ for e in jconsole$suffix policytool$suffix ; do
 done
 
 # Install /etc/.java/.systemPrefs/ directory
-# See https://bugzilla.redhat.com/show_bug.cgi?id=741821
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/.java/.systemPrefs
 
 # Find non-documentation demo files.
@@ -1826,7 +1849,6 @@ find $RPM_BUILD_ROOT%{_jvmdir}/%{sdkdir -- $suffix}/demo \
 %endif
 
 bash %{SOURCE20} $RPM_BUILD_ROOT/%{_jvmdir}/%{jredir -- $suffix} %{javaver}
-# https://bugzilla.redhat.com/show_bug.cgi?id=1183793
 touch -t 201401010000 $RPM_BUILD_ROOT/%{_jvmdir}/%{jredir -- $suffix}/lib/security/java.security
 
 # moving config files to /etc
@@ -1850,8 +1872,6 @@ done
 %if %{include_normal_build}
 # intentionally only for non-debug
 %pretrans headless -p <lua>
--- see https://bugzilla.redhat.com/show_bug.cgi?id=1038092 for whole issue
--- see https://bugzilla.redhat.com/show_bug.cgi?id=1290388 for pretrans over pre
 -- if copy-jdk-configs is in transaction, it installs in pretrans to temp
 -- if copy_jdk_configs is in temp, then it means that copy-jdk-configs is in transaction  and so is
 -- preferred over one in %%{_libexecdir}. If it is not in transaction, then depends
@@ -2025,6 +2045,17 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Jul 18 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.262-b10.0
+- Update to aarch64-shenandoah-jdk8u-8u262-b10
+- add 8144993-Elide-redundant-memory-barrier-after-AllocationNode.patch
+- add 8223504-improve-performance-of-forall-loops-by-better.patch
+- add add-vm-option-BoxTypeCachedMax-for-Integer-and-Long-cache.patch
+- add 8080289-8040213-8189067-move-the-store-out-of-the-loop.patch
+- add fast-serializer-jdk8.patch
+- add 8182397-race-in-field-updates.patch
+- add --with-company-name="Boole"
+- remove fix-incorrect-offset-for-oop-field-with-weak-memory-.patch
+
 * Thu Jun 11 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.262-b05.9
 - Update to aarch64-shenandoah-jdk8u-8u262-b05
 
