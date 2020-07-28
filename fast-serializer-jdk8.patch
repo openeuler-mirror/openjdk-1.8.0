@@ -1,0 +1,679 @@
+commit 3ece3b6a87e4bf61a1f786c12d796012becce313
+Author: hexuejin <hexuejin2@huawei.com>
+Date:   Thu May 28 10:30:20 2020 +0800
+
+    Add FastSerializer
+    
+    DTS/AR: AR.SR.IREQ02369011.001.001
+    Summary:<core-libs>:  Add FastSerializer
+    LLT: jtreg
+    Patch Type: huawei
+    Bug url: NA
+
+diff --git a/hotspot/src/share/vm/prims/unsafe.cpp b/hotspot/src/share/vm/prims/unsafe.cpp
+index cdb72c0d5..d50041635 100644
+--- a/hotspot/src/share/vm/prims/unsafe.cpp
++++ b/hotspot/src/share/vm/prims/unsafe.cpp
+@@ -1361,6 +1361,10 @@ UNSAFE_ENTRY(void, Unsafe_PrefetchWrite(JNIEnv* env, jclass ignored, jobject obj
+   Prefetch::write(addr, (intx)offset);
+ UNSAFE_END
+ 
++UNSAFE_ENTRY(jboolean, Unsafe_GetUseFastSerializer(JNIEnv *env, jobject unsafe)) {
++  return UseFastSerializer;
++}
++UNSAFE_END
+ 
+ /// JVM_RegisterUnsafeMethods
+ 
+@@ -1447,7 +1451,8 @@ static JNINativeMethod methods_140[] = {
+     {CC "allocateInstance",   CC "(" CLS ")" OBJ,             FN_PTR(Unsafe_AllocateInstance)},
+     {CC "monitorEnter",       CC "(" OBJ ")V",               FN_PTR(Unsafe_MonitorEnter)},
+     {CC "monitorExit",        CC "(" OBJ ")V",               FN_PTR(Unsafe_MonitorExit)},
+-    {CC "throwException",     CC "(" THR ")V",               FN_PTR(Unsafe_ThrowException)}
++    {CC "throwException",     CC "(" THR ")V",               FN_PTR(Unsafe_ThrowException)},
++    {CC "getUseFastSerializer",   CC "()Z",              FN_PTR(Unsafe_GetUseFastSerializer)}
+ };
+ 
+ // These are the methods prior to the JSR 166 changes in 1.5.0
+@@ -1493,8 +1498,8 @@ static JNINativeMethod methods_141[] = {
+     {CC "allocateInstance",   CC "(" CLS ")" OBJ,             FN_PTR(Unsafe_AllocateInstance)},
+     {CC "monitorEnter",       CC "(" OBJ ")V",               FN_PTR(Unsafe_MonitorEnter)},
+     {CC "monitorExit",        CC "(" OBJ ")V",               FN_PTR(Unsafe_MonitorExit)},
+-    {CC "throwException",     CC "(" THR ")V",               FN_PTR(Unsafe_ThrowException)}
+-
++    {CC "throwException",     CC "(" THR ")V",               FN_PTR(Unsafe_ThrowException)},
++    {CC "getUseFastSerializer",   CC "()Z",              FN_PTR(Unsafe_GetUseFastSerializer)}
+ };
+ 
+ // These are the methods prior to the JSR 166 changes in 1.6.0
+@@ -1548,7 +1553,8 @@ static JNINativeMethod methods_15[] = {
+     {CC "compareAndSwapInt",  CC "(" OBJ "J""I""I"")Z",      FN_PTR(Unsafe_CompareAndSwapInt)},
+     {CC "compareAndSwapLong", CC "(" OBJ "J""J""J"")Z",      FN_PTR(Unsafe_CompareAndSwapLong)},
+     {CC "park",               CC "(ZJ)V",                  FN_PTR(Unsafe_Park)},
+-    {CC "unpark",             CC "(" OBJ ")V",               FN_PTR(Unsafe_Unpark)}
++    {CC "unpark",             CC "(" OBJ ")V",               FN_PTR(Unsafe_Unpark)},
++    {CC "getUseFastSerializer",   CC "()Z",              FN_PTR(Unsafe_GetUseFastSerializer)}
+ 
+ };
+ 
+@@ -1606,7 +1612,8 @@ static JNINativeMethod methods_16[] = {
+     {CC "putOrderedInt",      CC "(" OBJ "JI)V",             FN_PTR(Unsafe_SetOrderedInt)},
+     {CC "putOrderedLong",     CC "(" OBJ "JJ)V",             FN_PTR(Unsafe_SetOrderedLong)},
+     {CC "park",               CC "(ZJ)V",                  FN_PTR(Unsafe_Park)},
+-    {CC "unpark",             CC "(" OBJ ")V",               FN_PTR(Unsafe_Unpark)}
++    {CC "unpark",             CC "(" OBJ ")V",               FN_PTR(Unsafe_Unpark)},
++    {CC "getUseFastSerializer",   CC "()Z",              FN_PTR(Unsafe_GetUseFastSerializer)}
+ };
+ 
+ // These are the methods for 1.8.0
+@@ -1662,7 +1669,8 @@ static JNINativeMethod methods_18[] = {
+     {CC "putOrderedInt",      CC "(" OBJ "JI)V",             FN_PTR(Unsafe_SetOrderedInt)},
+     {CC "putOrderedLong",     CC "(" OBJ "JJ)V",             FN_PTR(Unsafe_SetOrderedLong)},
+     {CC "park",               CC "(ZJ)V",                  FN_PTR(Unsafe_Park)},
+-    {CC "unpark",             CC "(" OBJ ")V",               FN_PTR(Unsafe_Unpark)}
++    {CC "unpark",             CC "(" OBJ ")V",               FN_PTR(Unsafe_Unpark)},
++    {CC "getUseFastSerializer",   CC "()Z",              FN_PTR(Unsafe_GetUseFastSerializer)}
+ };
+ 
+ JNINativeMethod loadavg_method[] = {
+diff --git a/hotspot/src/share/vm/runtime/globals.hpp b/hotspot/src/share/vm/runtime/globals.hpp
+index 2e6ff26ed..0a6ebfae1 100644
+--- a/hotspot/src/share/vm/runtime/globals.hpp
++++ b/hotspot/src/share/vm/runtime/globals.hpp
+@@ -553,6 +553,10 @@ class CommandLineFlags {
+           "Enable normal processing of flags relating to experimental "     \
+           "features")                                                       \
+                                                                             \
++  experimental(bool, UseFastSerializer, false,                              \
++          "Cache-based serialization.It is extremely fast, but it can only" \
++          "be effective in certain scenarios.")                             \
++                                                                            \
+   product(bool, JavaMonitorsInStackTrace, true,                             \
+           "Print information about Java monitor locks when the stacks are"  \
+           "dumped")                                                         \
+diff --git a/jdk/src/share/classes/java/io/ObjectInputStream.java b/jdk/src/share/classes/java/io/ObjectInputStream.java
+index 5d30f2a01..b67f01719 100644
+--- a/jdk/src/share/classes/java/io/ObjectInputStream.java
++++ b/jdk/src/share/classes/java/io/ObjectInputStream.java
+@@ -49,6 +49,7 @@ import sun.misc.SharedSecrets;
+ import sun.misc.JavaOISAccess;
+ import sun.util.logging.PlatformLogger;
+ import sun.security.action.GetBooleanAction;
++import sun.misc.Unsafe;
+ 
+ /**
+  * An ObjectInputStream deserializes primitive data and objects previously
+@@ -284,6 +285,22 @@ public class ObjectInputStream
+             traceLogger = (filterLog != null &&
+                 filterLog.isLoggable(PlatformLogger.Level.FINER)) ? filterLog : null;
+         }
++
++        /*
++         * Logger for FastSerializer.
++         * Setup the FastSerializer logger if it is set to FINE
++         * (Assuming it will not change).
++         */
++        private static final PlatformLogger fastSerLogger;
++        static {
++            if (printFastSerializer) {
++                PlatformLogger fastSerLog = PlatformLogger.getLogger("fastSerializer");
++                fastSerLogger = (fastSerLog != null &&
++                    fastSerLog.isLoggable(PlatformLogger.Level.FINE)) ? fastSerLog : null;
++            } else {
++                fastSerLogger = null;
++            }
++        }
+     }
+ 
+     /** filter stream for handling block data conversion */
+@@ -312,6 +329,9 @@ public class ObjectInputStream
+     /** if true, invoke resolveObject() */
+     private boolean enableResolve;
+ 
++    /** Used to get the commandline option: useFastSerializer */
++    private static final Unsafe UNSAFE = Unsafe.getUnsafe();
++
+     /**
+      * Context during upcalls to class-defined readObject methods; holds
+      * object currently being deserialized and descriptor for current class.
+@@ -325,6 +345,33 @@ public class ObjectInputStream
+      */
+     private ObjectInputFilter serialFilter;
+ 
++    /**
++     * value of "useFastSerializer" property
++     */
++    private static final boolean defaultFastSerializer = UNSAFE.getUseFastSerializer();
++
++    /**
++     *  true or false for open FastSerilizer
++     *  May be changed in readStreamHeader
++     */
++    private boolean useFastSerializer = defaultFastSerializer;
++
++    /**
++     * Value of "fastSerializerEscapeMode" property. It can be turned on
++     * when useFastSerializer is true.
++     */
++    private static final boolean fastSerializerEscapeMode = java.security.AccessController.doPrivileged(
++            new sun.security.action.GetBooleanAction(
++                    "fastSerializerEscapeMode")).booleanValue();
++
++    /**
++     * value of  "printFastSerializer" property,
++     * as true or false for printing FastSerializer logs.
++     */
++    private static final boolean printFastSerializer = java.security.AccessController.doPrivileged(
++            new sun.security.action.GetBooleanAction(
++                    "printFastSerializer")).booleanValue();
++
+     /**
+      * Creates an ObjectInputStream that reads from the specified InputStream.
+      * A serialization stream header is read from the stream and verified.
+@@ -396,6 +443,9 @@ public class ObjectInputStream
+      * transitively so that a complete equivalent graph of objects is
+      * reconstructed by readObject.
+      *
++     * The difference between fastSerialzation and default serialization is the
++     * descriptor serialization. The data serialization is same with each other.
++     *
+      * <p>The root object is completely restored when all of its fields and the
+      * objects it references are completely restored.  At this point the object
+      * validation callbacks are executed in order based on their registered
+@@ -670,11 +720,20 @@ public class ObjectInputStream
+         vlist.register(obj, prio);
+     }
+ 
++    /**
++     * Cache the class meta during serialization.
++     * Only used in FastSerilizer.
++     */
++    protected static ConcurrentHashMap<String,Class<?>> nameToClass = new ConcurrentHashMap<>();
++
+     /**
+      * Load the local class equivalent of the specified stream class
+      * description.  Subclasses may implement this method to allow classes to
+      * be fetched from an alternate source.
+      *
++     * When fastSerializer is turned on, fields of desc will be null except
++     * name. When resolveClass is override, this may cause null pointer exception.
++     *
+      * <p>The corresponding method in <code>ObjectOutputStream</code> is
+      * <code>annotateClass</code>.  This method will be invoked only once for
+      * each unique class in the stream.  This method can be implemented by
+@@ -715,16 +774,27 @@ public class ObjectInputStream
+         throws IOException, ClassNotFoundException
+     {
+         String name = desc.getName();
++        Class<?> cl = null;
++
++        if (useFastSerializer) {
++            cl = nameToClass.get(name);
++             if (cl != null) {
++                 return cl;
++             }
++        }
+         try {
+-            return Class.forName(name, false, latestUserDefinedLoader());
++            cl = Class.forName(name, false, latestUserDefinedLoader());
+         } catch (ClassNotFoundException ex) {
+-            Class<?> cl = primClasses.get(name);
+-            if (cl != null) {
+-                return cl;
+-            } else {
++            cl = primClasses.get(name);
++            if (cl == null) {
+                 throw ex;
+             }
+         }
++        if (useFastSerializer) {
++            nameToClass.put(name, cl);
++        }
++
++        return cl;
+     }
+ 
+     /**
+@@ -894,9 +964,34 @@ public class ObjectInputStream
+     {
+         short s0 = bin.readShort();
+         short s1 = bin.readShort();
+-        if (s0 != STREAM_MAGIC || s1 != STREAM_VERSION) {
+-            throw new StreamCorruptedException(
+-                String.format("invalid stream header: %04X%04X", s0, s1));
++        if (useFastSerializer) {
++            if (s0 != STREAM_MAGIC_FAST || s1 != STREAM_VERSION) {
++
++                if (s0 != STREAM_MAGIC) {
++                    throw new StreamCorruptedException(
++                            String.format("invalid stream header: %04X%04X, and FastSerializer is activated", s0, s1));
++                }
++
++                if (!fastSerializerEscapeMode) {
++                    throw new StreamCorruptedException(
++                            String.format("invalid stream header: %04X%04X.Fast serialization does not support " +
++                                          "original serialized files", s0, s1));
++                }
++
++                // Escape to default serialization
++                useFastSerializer = false;
++                if (Logging.fastSerLogger != null) {
++                    Logging.fastSerLogger.fine("[Deserialize]: Escape and disable FastSerializer");
++                }
++            }
++        } else if (s0 != STREAM_MAGIC || s1 != STREAM_VERSION) {
++            if (s0 == STREAM_MAGIC_FAST && s1 == STREAM_VERSION) {
++                throw new StreamCorruptedException(
++                        String.format("invalid stream header: %04X%04X, and it is a FastSerializer stream", s0, s1));
++            } else {
++                throw new StreamCorruptedException(
++                        String.format("invalid stream header: %04X%04X", s0, s1));
++            }
+         }
+     }
+ 
+@@ -910,6 +1005,11 @@ public class ObjectInputStream
+      * this method reads class descriptors according to the format defined in
+      * the Object Serialization specification.
+      *
++     * In fastSerialize mode, the descriptor is obtained by lookup method. And
++     * the resolveClass method is called here to get the classmeta. Since the
++     * descriptor is obtained by lookup, the descriptor is same as localdesc.
++     * So we cann't distinguish the receiver desc and local desc.
++     *
+      * @return  the class descriptor read
+      * @throws  IOException If an I/O error has occurred.
+      * @throws  ClassNotFoundException If the Class of a serialized object used
+@@ -920,6 +1020,27 @@ public class ObjectInputStream
+     protected ObjectStreamClass readClassDescriptor()
+         throws IOException, ClassNotFoundException
+     {
++        // fastSerializer
++        if (useFastSerializer) {
++            String name = readUTF();
++            Class<?> cl = null;
++            ObjectStreamClass desc = new ObjectStreamClass(name);
++            try {
++                // In order to match this method, we add an annotateClass method in
++                // writeClassDescriptor.
++                cl = resolveClass(desc);
++            } catch (ClassNotFoundException ex) {
++                // resolveClass is just used to obtain Class which required by lookup method
++                // and it will be called again later, so we don't throw ClassNotFoundException here.
++                return desc;
++            }
++            if (cl != null) {
++                desc = ObjectStreamClass.lookup(cl, true);
++            }
++            return desc;
++        }
++
++        // Default deserialization. If the Class cannot be found, throw ClassNotFoundException.
+         ObjectStreamClass desc = new ObjectStreamClass();
+         desc.readNonProxy(this);
+         return desc;
+@@ -1935,17 +2056,40 @@ public class ObjectInputStream
+ 
+         skipCustomData();
+ 
+-        try {
+-            totalObjectRefs++;
+-            depth++;
+-            desc.initNonProxy(readDesc, cl, resolveEx, readClassDesc(false));
+-        } finally {
+-            depth--;
++        totalObjectRefs++;
++        depth++;
++
++        if (useFastSerializer) {
++            desc.initNonProxyFast(readDesc, resolveEx);
++            ObjectStreamClass superDesc = desc.getSuperDesc();
++            long originDepth = depth - 1;
++            // Since desc is obtained from the lookup method, we will lose the depth and
++            // totalObjectRefs of superDesc. So we add a loop here to compute the depth
++            // and objectRef of superDesc.
++            while (superDesc != null && superDesc.forClass() != null) {
++                filterCheck(superDesc.forClass(), -1);
++                superDesc = superDesc.getSuperDesc();
++                totalObjectRefs++;
++                depth++;
++            }
++            depth = originDepth;
++        } else {
++            try {
++                desc.initNonProxy(readDesc, cl, resolveEx, readClassDesc(false));
++            } finally {
++                depth--;
++            }
+         }
+ 
+         handles.finish(descHandle);
+         passHandle = descHandle;
+ 
++        if (Logging.fastSerLogger != null) {
++            Logging.fastSerLogger.fine(
++                    "[Deserialize] useFastSerializer:{0}, Class name:{1}, SerialVersionUID:{2}, flags:{3}",
++                    useFastSerializer, desc.getName(), desc.getSerialVersionUID(), desc.getFlags(this));
++        }
++
+         return desc;
+     }
+ 
+@@ -2334,21 +2478,25 @@ public class ObjectInputStream
+             desc.setPrimFieldValues(obj, primVals);
+         }
+ 
+-        int objHandle = passHandle;
+-        ObjectStreamField[] fields = desc.getFields(false);
+-        Object[] objVals = new Object[desc.getNumObjFields()];
+-        int numPrimFields = fields.length - objVals.length;
+-        for (int i = 0; i < objVals.length; i++) {
+-            ObjectStreamField f = fields[numPrimFields + i];
+-            objVals[i] = readObject0(Object.class, f.isUnshared());
+-            if (f.getField() != null) {
+-                handles.markDependency(objHandle, passHandle);
++        Object[] objVals = null;
++        int numObjFields = desc.getNumObjFields();
++        if (numObjFields > 0) {
++            int objHandle = passHandle;
++            ObjectStreamField[] fields = desc.getFields(false);
++            objVals = new Object[numObjFields];
++            int numPrimFields = fields.length - objVals.length;
++            for (int i = 0; i < objVals.length; i++) {
++                ObjectStreamField f = fields[numPrimFields + i];
++                objVals[i] = readObject0(Object.class, f.isUnshared());
++                if (f.getField() != null) {
++                    handles.markDependency(objHandle, passHandle);
++                }
+             }
++            if (obj != null) {
++                desc.setObjFieldValues(obj, objVals);
++            }
++            passHandle = objHandle;
+         }
+-        if (obj != null) {
+-            desc.setObjFieldValues(obj, objVals);
+-        }
+-        passHandle = objHandle;
+     }
+ 
+     /**
+diff --git a/jdk/src/share/classes/java/io/ObjectOutputStream.java b/jdk/src/share/classes/java/io/ObjectOutputStream.java
+index 6d29e3a1f..3890efc3e 100644
+--- a/jdk/src/share/classes/java/io/ObjectOutputStream.java
++++ b/jdk/src/share/classes/java/io/ObjectOutputStream.java
+@@ -37,6 +37,8 @@ import java.util.concurrent.ConcurrentMap;
+ import static java.io.ObjectStreamClass.processQueue;
+ import java.io.SerialCallbackContext;
+ import sun.reflect.misc.ReflectUtil;
++import sun.misc.Unsafe;
++import sun.util.logging.PlatformLogger;
+ 
+ /**
+  * An ObjectOutputStream writes primitive data types and graphs of Java objects
+@@ -173,6 +175,24 @@ public class ObjectOutputStream
+             new ReferenceQueue<>();
+     }
+ 
++    private static class Logging {
++        /*
++         * Logger for FastSerializer.
++         * Setup the FastSerializer logger if it is set to FINE.
++         * (Assuming it will not change).
++         */
++        static final PlatformLogger fastSerLogger;
++        static {
++            if (printFastSerializer) {
++                PlatformLogger fastSerLog = PlatformLogger.getLogger("fastSerializer");
++                fastSerLogger = (fastSerLog != null &&
++                        fastSerLog.isLoggable(PlatformLogger.Level.FINE)) ? fastSerLog : null;
++            } else {
++                fastSerLogger = null;
++            }
++        }
++    }
++
+     /** filter stream for handling block data conversion */
+     private final BlockDataOutputStream bout;
+     /** obj -> wire handle map */
+@@ -214,6 +234,22 @@ public class ObjectOutputStream
+             new sun.security.action.GetBooleanAction(
+                 "sun.io.serialization.extendedDebugInfo")).booleanValue();
+ 
++    private static final Unsafe UNSAFE = Unsafe.getUnsafe();
++
++    /**
++     * Value of "UseFastSerializer" property. The fastSerializer is turned
++     * on when it is true.
++     */
++    private static final boolean useFastSerializer = UNSAFE.getUseFastSerializer();
++
++    /**
++     * value of  "printFastSerializer" property,
++     * as true or false for printing FastSerializer logs.
++     */
++    private static final boolean printFastSerializer = java.security.AccessController.doPrivileged(
++            new sun.security.action.GetBooleanAction(
++                    "printFastSerializer")).booleanValue();
++
+     /**
+      * Creates an ObjectOutputStream that writes to the specified OutputStream.
+      * This constructor writes the serialization stream header to the
+@@ -327,6 +363,9 @@ public class ObjectOutputStream
+      * object are written transitively so that a complete equivalent graph of
+      * objects can be reconstructed by an ObjectInputStream.
+      *
++     * The difference between fastSerialzation and default serialization is the
++     * descriptor serialization. The data serialization is same with each other.
++     *
+      * <p>Exceptions are thrown for problems with the OutputStream and for
+      * classes that should not be serialized.  All exceptions are fatal to the
+      * OutputStream, which is left in an indeterminate state, and it is up to
+@@ -633,7 +672,11 @@ public class ObjectOutputStream
+      *          stream
+      */
+     protected void writeStreamHeader() throws IOException {
+-        bout.writeShort(STREAM_MAGIC);
++        if (useFastSerializer) {
++            bout.writeShort(STREAM_MAGIC_FAST);
++        } else {
++            bout.writeShort(STREAM_MAGIC);
++        }
+         bout.writeShort(STREAM_VERSION);
+     }
+ 
+@@ -648,6 +691,9 @@ public class ObjectOutputStream
+      * By default, this method writes class descriptors according to the format
+      * defined in the Object Serialization specification.
+      *
++     * In fastSerializer mode, we will only write the classname to the stream.
++     * The annotateClass is used to match the resolveClass in readClassDescriptor.
++     *
+      * <p>Note that this method will only be called if the ObjectOutputStream
+      * is not using the old serialization stream format (set by calling
+      * ObjectOutputStream's <code>useProtocolVersion</code> method).  If this
+@@ -665,7 +711,14 @@ public class ObjectOutputStream
+     protected void writeClassDescriptor(ObjectStreamClass desc)
+         throws IOException
+     {
+-        desc.writeNonProxy(this);
++        if (useFastSerializer) {
++            writeUTF(desc.getName());
++            // The annotateClass is used to match the resolveClass called in
++            // readClassDescriptor.
++            annotateClass(desc.forClass());
++        } else {
++            desc.writeNonProxy(this);
++        }
+     }
+ 
+     /**
+@@ -1275,9 +1328,21 @@ public class ObjectOutputStream
+         bout.writeByte(TC_CLASSDESC);
+         handles.assign(unshared ? null : desc);
+ 
++        if (Logging.fastSerLogger != null) {
++            Logging.fastSerLogger.fine(
++            "[Serialize]   useFastSerializer:{0}, Class name:{1}, SerialVersionUID:{2}, flags:{3}, protocol:{4}",
++            useFastSerializer, desc.getName(), desc.getSerialVersionUID(), desc.getFlags(this), protocol);
++        }
++
+         if (protocol == PROTOCOL_VERSION_1) {
+             // do not invoke class descriptor write hook with old protocol
+-            desc.writeNonProxy(this);
++            if (useFastSerializer) {
++                // only write name and annotate class when using FastSerializer
++                writeUTF(desc.getName());
++                annotateClass(desc.forClass());
++            } else {
++                desc.writeNonProxy(this);
++            }
+         } else {
+             writeClassDescriptor(desc);
+         }
+@@ -1291,7 +1356,9 @@ public class ObjectOutputStream
+         bout.setBlockDataMode(false);
+         bout.writeByte(TC_ENDBLOCKDATA);
+ 
+-        writeClassDesc(desc.getSuperDesc(), false);
++        if (!useFastSerializer) {
++            writeClassDesc(desc.getSuperDesc(), false);
++        }
+     }
+ 
+     /**
+diff --git a/jdk/src/share/classes/java/io/ObjectStreamClass.java b/jdk/src/share/classes/java/io/ObjectStreamClass.java
+index 64453b25a..fce3c3475 100644
+--- a/jdk/src/share/classes/java/io/ObjectStreamClass.java
++++ b/jdk/src/share/classes/java/io/ObjectStreamClass.java
+@@ -280,6 +280,40 @@ public class ObjectStreamClass implements Serializable {
+         return suid.longValue();
+     }
+ 
++    /**
++     * Return the flags for this class described by this descriptor. The flags
++     * means a set of bit masks for ObjectStreamClass, which indicate the status
++     * of SC_WRITE_METHOD, SC_SERIALIZABLE, SC_EXTERNALIZABLE, SC_BLOCK_DATA and
++     * SC_ENUM.
++     *
++     * @param serialStream ObjectOutputStream or ObjectInputStream
++     *
++     * @return the flags for this class described by this descriptor
++     */
++    public byte getFlags(Object serialStream) {
++        byte flags = 0;
++        if (externalizable) {
++            flags |= ObjectStreamConstants.SC_EXTERNALIZABLE;
++            if (serialStream instanceof ObjectOutputStream) {
++                int protocol = ((ObjectOutputStream)serialStream).getProtocolVersion();
++                if (protocol != ObjectStreamConstants.PROTOCOL_VERSION_1) {
++                    flags |= ObjectStreamConstants.SC_BLOCK_DATA;
++                }
++            } else if (serialStream instanceof ObjectInputStream) {
++                flags |= ObjectStreamConstants.SC_BLOCK_DATA;
++            }
++        } else if (serializable) {
++            flags |= ObjectStreamConstants.SC_SERIALIZABLE;
++        }
++        if (hasWriteObjectData) {
++            flags |= ObjectStreamConstants.SC_WRITE_METHOD;
++        }
++        if (isEnum) {
++            flags |= ObjectStreamConstants.SC_ENUM;
++        }
++        return flags;
++    }
++
+     /**
+      * Return the class in the local VM that this version is mapped to.  Null
+      * is returned if there is no corresponding local class.
+@@ -570,6 +604,15 @@ public class ObjectStreamClass implements Serializable {
+     ObjectStreamClass() {
+     }
+ 
++    /**
++     * Create a blank class descriptor with name. It is only used
++     * in fastSerialize path.
++     * @param name  class name
++     */
++    ObjectStreamClass(String name) {
++        this.name  = name;
++    }
++
+     /**
+      * Creates a PermissionDomain that grants no permission.
+      */
+@@ -756,6 +799,44 @@ public class ObjectStreamClass implements Serializable {
+         initialized = true;
+     }
+ 
++    /**
++     * Initializes class descriptor representing a non-proxy class.
++     * Used in fast serialization mode.
++     */
++    void initNonProxyFast(ObjectStreamClass model,
++                          ClassNotFoundException resolveEx)
++    {
++        this.cl = model.cl;
++        this.resolveEx = resolveEx;
++        this.superDesc = model.superDesc;
++        name = model.name;
++        this.suid = model.suid;
++        isProxy = false;
++        isEnum = model.isEnum;
++        serializable = model.serializable;
++        externalizable = model.externalizable;
++        hasBlockExternalData = model.hasBlockExternalData;
++        hasWriteObjectData = model.hasWriteObjectData;
++        fields = model.fields;
++        primDataSize = model.primDataSize;
++        numObjFields = model.numObjFields;
++
++        writeObjectMethod = model.writeObjectMethod;
++        readObjectMethod = model.readObjectMethod;
++        readObjectNoDataMethod = model.readObjectNoDataMethod;
++        writeReplaceMethod = model.writeReplaceMethod;
++        readResolveMethod = model.readResolveMethod;
++        if (deserializeEx == null) {
++            deserializeEx = model.deserializeEx;
++        }
++        domains = model.domains;
++        cons = model.cons;
++        fieldRefl = model.fieldRefl;
++        localDesc = model;
++
++        initialized = true;
++    }
++
+     /**
+      * Reads non-proxy class descriptor information from given input stream.
+      * The resulting class descriptor is not fully functional; it can only be
+diff --git a/jdk/src/share/classes/java/io/ObjectStreamConstants.java b/jdk/src/share/classes/java/io/ObjectStreamConstants.java
+index 23f72b436..59179a6ec 100644
+--- a/jdk/src/share/classes/java/io/ObjectStreamConstants.java
++++ b/jdk/src/share/classes/java/io/ObjectStreamConstants.java
+@@ -38,6 +38,11 @@ public interface ObjectStreamConstants {
+      */
+     final static short STREAM_MAGIC = (short)0xaced;
+ 
++    /**
++     * Magic number that is written to the stream header when using fastserilizer.
++     */
++    static final short STREAM_MAGIC_FAST = (short)0xdeca;
++
+     /**
+      * Version number that is written to the stream header.
+      */
+diff --git a/jdk/src/share/classes/sun/misc/Unsafe.java b/jdk/src/share/classes/sun/misc/Unsafe.java
+index 99e465802..92fb01669 100644
+--- a/jdk/src/share/classes/sun/misc/Unsafe.java
++++ b/jdk/src/share/classes/sun/misc/Unsafe.java
+@@ -433,6 +433,8 @@ public final class Unsafe {
+     /** @see #putByte(long, byte) */
+     public native void    putDouble(long address, double x);
+ 
++    public native boolean getUseFastSerializer();
++
+     /**
+      * Fetches a native pointer from a given memory address.  If the address is
+      * zero, or does not point into a block obtained from {@link

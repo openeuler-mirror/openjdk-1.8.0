@@ -1,0 +1,258 @@
+From e938b66397096f88ef40f4fc3522a543f938267d Mon Sep 17 00:00:00 2001
+From: sunjianye <sunjianye@huawei.com>
+Date: Sat, 23 May 2020 18:10:45 +0800
+Subject: [PATCH] 8144993:Elide redundant memory barrier after AllocationNode
+ and JDK:8139758
+
+DTS/AR: AR.SR.IREQ02373832.002.001
+Summary: <C2> : Elide redundant memory barrier after AllocationNode
+LLT: NA
+Patch Type: backport
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8144993  https://bugs.openjdk.java.net/browse/JDK-8139758
+---
+ hotspot/src/share/vm/opto/callnode.cpp        |  18 ++++
+ hotspot/src/share/vm/opto/callnode.hpp        |   8 ++
+ hotspot/src/share/vm/opto/macro.cpp           |  17 ++-
+ hotspot/src/share/vm/opto/parse1.cpp          |   8 ++
+ hotspot/src/share/vm/opto/parse3.cpp          |   5 +-
+ .../stable/TestStableMemoryBarrier.java       | 102 ++++++++++++++++++
+ 6 files changed, 151 insertions(+), 7 deletions(-)
+ create mode 100644 hotspot/test/compiler/stable/TestStableMemoryBarrier.java
+
+diff --git a/hotspot/src/share/vm/opto/callnode.cpp b/hotspot/src/share/vm/opto/callnode.cpp
+index 418f69f60..4ba29841c 100644
+--- a/hotspot/src/share/vm/opto/callnode.cpp
++++ b/hotspot/src/share/vm/opto/callnode.cpp
+@@ -1293,6 +1293,7 @@ AllocateNode::AllocateNode(Compile* C, const TypeFunc *atype,
+   init_flags(Flag_is_macro);
+   _is_scalar_replaceable = false;
+   _is_non_escaping = false;
++  _is_allocation_MemBar_redundant = false;
+   Node *topnode = C->top();
+ 
+   init_req( TypeFunc::Control  , ctrl );
+@@ -1307,6 +1308,23 @@ AllocateNode::AllocateNode(Compile* C, const TypeFunc *atype,
+   C->add_macro_node(this);
+ }
+ 
++void AllocateNode::compute_MemBar_redundancy(ciMethod* initializer)
++{
++  assert(initializer != NULL &&
++         initializer->is_initializer() &&
++         !initializer->is_static(),
++             "unexpected initializer method");
++  BCEscapeAnalyzer* analyzer = initializer->get_bcea();
++  if (analyzer == NULL) {
++    return;
++  }
++
++  // Allocation node is first parameter in its initializer
++  if (analyzer->is_arg_stack(0) || analyzer->is_arg_local(0)) {
++    _is_allocation_MemBar_redundant = true;
++  }
++}
++
+ //=============================================================================
+ Node* AllocateArrayNode::Ideal(PhaseGVN *phase, bool can_reshape) {
+   if (remove_dead_region(phase, can_reshape))  return this;
+diff --git a/hotspot/src/share/vm/opto/callnode.hpp b/hotspot/src/share/vm/opto/callnode.hpp
+index f01bc1ec2..4aa46e492 100644
+--- a/hotspot/src/share/vm/opto/callnode.hpp
++++ b/hotspot/src/share/vm/opto/callnode.hpp
+@@ -848,6 +848,8 @@ public:
+   // Result of Escape Analysis
+   bool _is_scalar_replaceable;
+   bool _is_non_escaping;
++  // True when MemBar for new is redundant with MemBar at initialzer exit
++  bool _is_allocation_MemBar_redundant;
+ 
+   virtual uint size_of() const; // Size is bigger
+   AllocateNode(Compile* C, const TypeFunc *atype, Node *ctrl, Node *mem, Node *abio,
+@@ -915,6 +917,12 @@ public:
+     return _is_non_escaping || (((init = initialization()) != NULL) && init->does_not_escape());
+   }
+ #endif
++  // If object doesn't escape in <.init> method and there is memory barrier
++  // inserted at exit of its <.init>, memory barrier for new is not necessary.
++  // Inovke this method when MemBar at exit of initializer and post-dominate
++  // allocation node.
++  void compute_MemBar_redundancy(ciMethod* initializer);
++  bool is_allocation_MemBar_redundant() { return _is_allocation_MemBar_redundant; }
+ };
+ 
+ //------------------------------AllocateArray---------------------------------
+diff --git a/hotspot/src/share/vm/opto/macro.cpp b/hotspot/src/share/vm/opto/macro.cpp
+index 3c13f973f..628ee6656 100644
+--- a/hotspot/src/share/vm/opto/macro.cpp
++++ b/hotspot/src/share/vm/opto/macro.cpp
+@@ -1402,11 +1402,20 @@ void PhaseMacroExpand::expand_allocate_common(
+ 
+     // If initialization is performed by an array copy, any required
+     // MemBarStoreStore was already added. If the object does not
+-    // escape no need for a MemBarStoreStore. Otherwise we need a
+-    // MemBarStoreStore so that stores that initialize this object
+-    // can't be reordered with a subsequent store that makes this
+-    // object accessible by other threads.
++    // escape no need for a MemBarStoreStore. If the object does not
++    // escape in its initializer and memory barrier (MemBarStoreStore or
++    // stronger) is already added at exit of initializer, also no need
++    // for a MemBarStoreStore. Otherwise we need a MemBarStoreStore
++    // so that stores that initialize this object can't be reordered
++    // with a subsequent store that makes this object accessible by
++    // other threads.
++    // Other threads include java threads and JVM internal threads
++    // (for example concurrent GC threads). Current concurrent GC
++    // implementation: CMS and G1 will not scan newly created object,
++    // so it's safe to skip storestore barrier when allocation does
++    // not escape.
+     if ( AARCH64_ONLY ( !alloc->does_not_escape_thread() &&
++			!alloc->is_allocation_MemBar_redundant() &&
+ 	                (init == NULL ||
+ 			 !init->is_complete_with_arraycopy()) )
+          NOT_AARCH64  ( init == NULL ||
+diff --git a/hotspot/src/share/vm/opto/parse1.cpp b/hotspot/src/share/vm/opto/parse1.cpp
+index 2d6daa159..da0c6dd68 100644
+--- a/hotspot/src/share/vm/opto/parse1.cpp
++++ b/hotspot/src/share/vm/opto/parse1.cpp
+@@ -973,6 +973,14 @@ void Parse::do_exits() {
+     // exceptional returns, since they cannot publish normally.
+     //
+     _exits.insert_mem_bar(Op_MemBarRelease, alloc_with_final());
++
++    // If Memory barrier is created for final fields write
++    // and allocation node does not escape the initialize method,
++    // then barrier introduced by allocation node can be removed.
++    if (DoEscapeAnalysis && alloc_with_final()) {
++      AllocateNode *alloc = AllocateNode::Ideal_allocation(alloc_with_final(), &_gvn);
++      alloc->compute_MemBar_redundancy(method());
++    }
+ #ifndef PRODUCT
+     if (PrintOpto && (Verbose || WizardMode)) {
+       method()->print_name();
+diff --git a/hotspot/src/share/vm/opto/parse3.cpp b/hotspot/src/share/vm/opto/parse3.cpp
+index abcfc2a48..0e085275f 100644
+--- a/hotspot/src/share/vm/opto/parse3.cpp
++++ b/hotspot/src/share/vm/opto/parse3.cpp
+@@ -359,9 +359,8 @@ void Parse::do_put_xxx(Node* obj, ciField* field, bool is_field) {
+     set_wrote_final(true);
+     // Preserve allocation ptr to create precedent edge to it in membar
+     // generated on exit from constructor.
+-    if (C->eliminate_boxing() &&
+-        adr_type->isa_oopptr() && adr_type->is_oopptr()->is_ptr_to_boxed_value() &&
+-        AllocateNode::Ideal_allocation(obj, &_gvn) != NULL) {
++    // Can't bind stable with its allocation, only record allocation for final field.
++    if (field->is_final() && AllocateNode::Ideal_allocation(obj, &_gvn) != NULL) {
+       set_alloc_with_final(obj);
+     }
+   }
+diff --git a/hotspot/test/compiler/stable/TestStableMemoryBarrier.java b/hotspot/test/compiler/stable/TestStableMemoryBarrier.java
+new file mode 100644
+index 000000000..c9724f54f
+--- /dev/null
++++ b/hotspot/test/compiler/stable/TestStableMemoryBarrier.java
+@@ -0,0 +1,102 @@
++/*
++ * Copyright (c) 2015, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.  Oracle designates this
++ * particular file as subject to the "Classpath" exception as provided
++ * by Oracle in the LICENSE file that accompanied this code.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++
++/*
++ * @test TestStableMemoryBarrier
++ * @bug 8139758
++ * @summary tests memory barrier correctly inserted for stable fields
++ * @library /testlibrary /testlibrary/whitebox
++ * @build TestStableMemoryBarrier StableConfiguration sun.hotspot.WhiteBox
++ * @run main ClassFileInstaller sun.hotspot.WhiteBox sun.hotspot.WhiteBox$WhiteBoxPermission
++ * @run main ClassFileInstaller
++ *           java/lang/invoke/StableConfiguration
++ *           java/lang/invoke/TestStableMemoryBarrier
++ *           java/lang/invoke/TestStableMemoryBarrier$NotDominate
++ *
++ * @run main/othervm -Xbootclasspath/a:.
++ *                   -XX:+UnlockDiagnosticVMOptions -XX:+WhiteBoxAPI -Xcomp
++ *                   -XX:-TieredCompilation
++ *                   -XX:+FoldStableValues
++ *                   -XX:CompileOnly=::testCompile
++ *                   java.lang.invoke.TestStableMemoryBarrier
++ *
++ * @author hui.shi@linaro.org
++ */
++
++package java.lang.invoke;
++
++import java.lang.reflect.InvocationTargetException;
++
++public class TestStableMemoryBarrier {
++
++    public static void main(String[] args) throws Exception {
++        run(NotDominate.class);
++
++    }
++
++    /* ====================================================
++     * Stable field initialized in method, but its allocation
++     * doesn't dominate MemBar Release at the end of method.
++     */
++
++    static class NotDominate{
++        public @Stable int v;
++        public static int[] array = new int[100];
++        public static NotDominate testCompile(int n) {
++           if ((n % 2) == 0) return null;
++           // add a loop here, trigger PhaseIdealLoop::verify_dominance
++           for (int i = 0; i < 100; i++) {
++              array[i] = n;
++           }
++           NotDominate nm = new NotDominate();
++           nm.v = n;
++           return nm;
++        }
++
++        public static void test() throws Exception {
++           for (int i = 0; i < 1000000; i++)
++               testCompile(i);
++        }
++    }
++
++    public static void run(Class<?> test) {
++        Throwable ex = null;
++        System.out.print(test.getName()+": ");
++        try {
++            test.getMethod("test").invoke(null);
++        } catch (InvocationTargetException e) {
++            ex = e.getCause();
++        } catch (Throwable e) {
++            ex = e;
++        } finally {
++            if (ex == null) {
++                System.out.println("PASSED");
++            } else {
++                System.out.println("FAILED");
++                ex.printStackTrace(System.out);
++            }
++        }
++    }
++}
+-- 
+2.19.1
+

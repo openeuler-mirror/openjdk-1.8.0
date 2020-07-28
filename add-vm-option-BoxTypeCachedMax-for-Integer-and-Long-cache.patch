@@ -1,0 +1,166 @@
+From b5c192bb3dc57021996545b0bac822d73c75ec19 Mon Sep 17 00:00:00 2001
+From: sunjianye <sunjianye@huawei.com>
+Date: Thu, 23 Apr 2020 16:12:34 +0800
+Subject: [PATCH] add vm option BoxTypeCachedMax for Integer and Long cache
+
+DTS/AR: AR.SR.IREQ02373832.002.001
+Summary: < JDK>  : add vm option BoxTypeCachedMax for Integer and Long cache
+LLT: NA
+Patch Type: huawei
+Bug url: NA
+---
+ hotspot/src/share/vm/opto/c2_globals.hpp   |  3 ++
+ hotspot/src/share/vm/runtime/arguments.cpp | 23 ++++++++++++
+ hotspot/src/share/vm/runtime/arguments.hpp |  3 ++
+ jdk/src/share/classes/java/lang/Long.java  | 43 ++++++++++++++++++----
+ 4 files changed, 65 insertions(+), 7 deletions(-)
+
+diff --git a/hotspot/src/share/vm/opto/c2_globals.hpp b/hotspot/src/share/vm/opto/c2_globals.hpp
+index 4b6a87508..3f2d286b2 100644
+--- a/hotspot/src/share/vm/opto/c2_globals.hpp
++++ b/hotspot/src/share/vm/opto/c2_globals.hpp
+@@ -470,6 +470,9 @@
+   product(intx, AutoBoxCacheMax, 128,                                       \
+           "Sets max value cached by the java.lang.Integer autobox cache")   \
+                                                                             \
++  product(intx, BoxTypeCachedMax, 128,                                       \
++          "Sets max value cached by the java.lang.Long and Integer autobox cache")   \
++                                                                            \
+   experimental(bool, AggressiveUnboxing, false,                             \
+           "Control optimizations for aggressive boxing elimination")        \
+                                                                             \
+diff --git a/hotspot/src/share/vm/runtime/arguments.cpp b/hotspot/src/share/vm/runtime/arguments.cpp
+index 63b39c4ba..75ef29b9b 100644
+--- a/hotspot/src/share/vm/runtime/arguments.cpp
++++ b/hotspot/src/share/vm/runtime/arguments.cpp
+@@ -2194,6 +2194,24 @@ void Arguments::set_bytecode_flags() {
+   }
+ }
+ 
++// set Integer and Long box type cached MAX num flag : -XX:BoxTypeCachedMax=<size>
++void Arguments::set_boxtype_cached_max_flags() {
++  int  size = 1024;
++  char buffer[size];
++  jio_snprintf(buffer, size, "java.lang.Long.LongCache.high=" INTX_FORMAT, BoxTypeCachedMax);
++  add_property(buffer);
++
++  if (AggressiveOpts || !FLAG_IS_DEFAULT(AutoBoxCacheMax)) {
++    if (FLAG_IS_DEFAULT(AutoBoxCacheMax)) {
++      FLAG_SET_DEFAULT(AutoBoxCacheMax, 20000);
++    }
++    jio_snprintf(buffer, size, "java.lang.Integer.IntegerCache.high=" INTX_FORMAT, AutoBoxCacheMax);
++  } else {
++    jio_snprintf(buffer, size, "java.lang.Integer.IntegerCache.high=" INTX_FORMAT, BoxTypeCachedMax);
++  }
++  add_property(buffer);
++}
++
+ // Aggressive optimization flags  -XX:+AggressiveOpts
+ void Arguments::set_aggressive_opts_flags() {
+ #ifdef COMPILER2
+@@ -2846,6 +2864,8 @@ bool Arguments::check_vm_args_consistency() {
+   // Check the minimum number of compiler threads
+   status &=verify_min_value(CICompilerCount, min_number_of_compiler_threads, "CICompilerCount");
+ 
++  status &= verify_min_value(BoxTypeCachedMax, 1, "BoxTypeCachedMax");
++
+   return status;
+ }
+ 
+@@ -4336,6 +4356,9 @@ jint Arguments::apply_ergo() {
+   // Set bytecode rewriting flags
+   set_bytecode_flags();
+ 
++  // Set Integer and Long cached max
++  set_boxtype_cached_max_flags();
++
+   // Set flags if Aggressive optimization flags (-XX:+AggressiveOpts) enabled.
+   set_aggressive_opts_flags();
+ 
+diff --git a/hotspot/src/share/vm/runtime/arguments.hpp b/hotspot/src/share/vm/runtime/arguments.hpp
+index a5cd59ea6..6f7ff138f 100644
+--- a/hotspot/src/share/vm/runtime/arguments.hpp
++++ b/hotspot/src/share/vm/runtime/arguments.hpp
+@@ -386,6 +386,9 @@ class Arguments : AllStatic {
+   // System properties
+   static bool add_property(const char* prop);
+ 
++  // set Integer and Long box type cached MAX num
++  static void set_boxtype_cached_max_flags();
++
+   // Aggressive optimization flags.
+   static void set_aggressive_opts_flags();
+ 
+diff --git a/jdk/src/share/classes/java/lang/Long.java b/jdk/src/share/classes/java/lang/Long.java
+index 9e21cb853..d56f4c6be 100644
+--- a/jdk/src/share/classes/java/lang/Long.java
++++ b/jdk/src/share/classes/java/lang/Long.java
+@@ -804,13 +804,43 @@ public final class Long extends Number implements Comparable<Long> {
+     }
+ 
+     private static class LongCache {
++        static final int low;
++        static final int high;
++
+         private LongCache(){}
+ 
+-        static final Long cache[] = new Long[-(-128) + 127 + 1];
++        static final Long cache[];
+ 
+         static {
+-            for(int i = 0; i < cache.length; i++)
+-                cache[i] = new Long(i - 128);
++
++            String longCacheHighPropValue =
++                sun.misc.VM.getSavedProperty("java.lang.Long.LongCache.high");
++            if (longCacheHighPropValue != null) {
++                // high value may be configured by property
++                int h = 0;
++                try {
++                    int i = Integer.parseInt(longCacheHighPropValue);
++                    i = Math.max(i, 128);
++                    // Maximum array size is Integer.MAX_VALUE
++                    h = Math.min(i, Integer.MAX_VALUE/2 -1);
++                } catch( NumberFormatException nfe) {
++                    // If the property cannot be parsed into an int, ignore it.
++                }
++                high = h;
++                low = -h+1;
++                cache = new Long[(high - low) + 1];
++                int j = low;
++                for(int k = 0; k < cache.length; k++)
++                    cache[k] = new Long(j++);
++
++            } else {
++                low = -128;
++                high = 127;
++                cache = new Long[(high - low) + 1];
++                int j = low;
++                for(int k = 0; k < cache.length; k++)
++                    cache[k] = new Long(j++);
++            }
+         }
+     }
+ 
+@@ -833,10 +863,8 @@ public final class Long extends Number implements Comparable<Long> {
+      * @since  1.5
+      */
+     public static Long valueOf(long l) {
+-        final int offset = 128;
+-        if (l >= -128 && l <= 127) { // will cache
+-            return LongCache.cache[(int)l + offset];
+-        }
++        if (l >= LongCache.low && l <= LongCache.high)
++            return LongCache.cache[(int) l + (-LongCache.low)];
+         return new Long(l);
+     }
+ 
+@@ -1617,4 +1645,5 @@ public final class Long extends Number implements Comparable<Long> {
+ 
+     /** use serialVersionUID from JDK 1.0.2 for interoperability */
+     @Native private static final long serialVersionUID = 4290774380558885855L;
++
+ }
+-- 
+2.19.1
+
