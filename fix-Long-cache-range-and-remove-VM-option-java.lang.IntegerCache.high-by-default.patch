@@ -1,0 +1,68 @@
+diff --git a/hotspot/src/share/vm/opto/c2_globals.hpp b/hotspot/src/share/vm/opto/c2_globals.hpp
+index 8e6d3f4cd..1b5fbdd35 100644
+--- a/hotspot/src/share/vm/opto/c2_globals.hpp
++++ b/hotspot/src/share/vm/opto/c2_globals.hpp
+@@ -467,7 +467,7 @@
+   product(intx, AutoBoxCacheMax, 128,                                       \
+           "Sets max value cached by the java.lang.Integer autobox cache")   \
+                                                                             \
+-  product(intx, BoxTypeCachedMax, 128,                                       \
++  product(intx, BoxTypeCachedMax, 127,                                       \
+           "Sets max value cached by the java.lang.Long and Integer autobox cache")   \
+                                                                             \
+   experimental(bool, AggressiveUnboxing, false,                             \
+diff --git a/hotspot/src/share/vm/runtime/arguments.cpp b/hotspot/src/share/vm/runtime/arguments.cpp
+index 0f6decc0b..a04dcacf9 100644
+--- a/hotspot/src/share/vm/runtime/arguments.cpp
++++ b/hotspot/src/share/vm/runtime/arguments.cpp
+@@ -2178,20 +2178,16 @@ void Arguments::set_bytecode_flags() {
+ 
+ // set Integer and Long box type cached MAX num flag : -XX:BoxTypeCachedMax=<size>
+ void Arguments::set_boxtype_cached_max_flags() {
+-  int  size = 1024;
+-  char buffer[size];
+-  jio_snprintf(buffer, size, "java.lang.Long.LongCache.high=" INTX_FORMAT, BoxTypeCachedMax);
+-  add_property(buffer);
+-
+-  if (AggressiveOpts || !FLAG_IS_DEFAULT(AutoBoxCacheMax)) {
+-    if (FLAG_IS_DEFAULT(AutoBoxCacheMax)) {
+-      FLAG_SET_DEFAULT(AutoBoxCacheMax, 20000);
++  if (!AggressiveOpts) {
++    if (!FLAG_IS_DEFAULT(BoxTypeCachedMax)) {
++       int  size = 1024;
++       char buffer[size];
++       jio_snprintf(buffer, size, "java.lang.Long.LongCache.high=" INTX_FORMAT, BoxTypeCachedMax);
++       add_property(buffer);
++       jio_snprintf(buffer, size, "java.lang.Integer.IntegerCache.high=" INTX_FORMAT, BoxTypeCachedMax);
++       add_property(buffer);
+     }
+-    jio_snprintf(buffer, size, "java.lang.Integer.IntegerCache.high=" INTX_FORMAT, AutoBoxCacheMax);
+-  } else {
+-    jio_snprintf(buffer, size, "java.lang.Integer.IntegerCache.high=" INTX_FORMAT, BoxTypeCachedMax);
+   }
+-  add_property(buffer);
+ }
+ 
+ // Aggressive optimization flags  -XX:+AggressiveOpts
+diff --git a/jdk/src/share/classes/java/lang/Long.java b/jdk/src/share/classes/java/lang/Long.java
+index d56f4c6be..58c2cc3ba 100644
+--- a/jdk/src/share/classes/java/lang/Long.java
++++ b/jdk/src/share/classes/java/lang/Long.java
+@@ -820,14 +820,14 @@ public final class Long extends Number implements Comparable<Long> {
+                 int h = 0;
+                 try {
+                     int i = Integer.parseInt(longCacheHighPropValue);
+-                    i = Math.max(i, 128);
++                    i = Math.max(i, 127);
+                     // Maximum array size is Integer.MAX_VALUE
+                     h = Math.min(i, Integer.MAX_VALUE/2 -1);
+                 } catch( NumberFormatException nfe) {
+                     // If the property cannot be parsed into an int, ignore it.
+                 }
+                 high = h;
+-                low = -h+1;
++                low = -h - 1;
+                 cache = new Long[(high - low) + 1];
+                 int j = low;
+                 for(int k = 0; k < cache.length; k++)
+

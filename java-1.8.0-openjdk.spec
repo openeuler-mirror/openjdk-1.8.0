@@ -148,7 +148,7 @@
 # Define old aarch64/jdk8u tree variables for compatibility
 %global project		aarch64-port
 %global repo		jdk8u-shenandoah
-%global revision    	aarch64-shenandoah-jdk8u262-b10
+%global revision    	aarch64-shenandoah-jdk8u265-b01
 %global full_revision	%{project}-%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
@@ -1033,6 +1033,10 @@ Patch91: add-vm-option-BoxTypeCachedMax-for-Integer-and-Long-cache.patch
 Patch92: 8080289-8040213-8189067-move-the-store-out-of-the-loop.patch
 Patch93: fast-serializer-jdk8.patch
 Patch94: 8182397-race-in-field-updates.patch
+Patch95: 8205921-Optimizing-best-of-2-work-stealing-queue-selection.patch
+
+# 8u265
+Patch96: fix-Long-cache-range-and-remove-VM-option-java.lang.IntegerCache.high-by-default.patch
 
 #############################################
 #
@@ -1426,6 +1430,8 @@ pushd %{top_level_dir_name}
 %patch92 -p1
 %patch93 -p1
 %patch94 -p1
+%patch95 -p1
+%patch96 -p1
 
 popd
 
@@ -2045,6 +2051,13 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Aug 25 2020 noah <hedongbo@huawei.com> - 1:1.8.0.265-b10.0
+- Update to aarch64-shenandoah-jdk8u-8u265-b01
+- add fix-Long-cache-range-and-remove-VM-option-java.lang.IntegerCache.high-by-default.patch
+
+* Mon Jul 21 2020 noah <hedongbo@huawei.com> - 1:1.8.0.262-b10.1
+- add 8205921-Optimizing-best-of-2-work-stealing-queue-selection.patch
+
 * Thu Jul 18 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.262-b10.0
 - Update to aarch64-shenandoah-jdk8u-8u262-b10
 - add 8144993-Elide-redundant-memory-barrier-after-AllocationNode.patch
