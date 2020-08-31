@@ -1,0 +1,479 @@
+diff --git a/hotspot/src/cpu/aarch64/vm/assembler_aarch64.hpp b/hotspot/src/cpu/aarch64/vm/assembler_aarch64.hpp
+index 1e9b1cb91..c0fd37d05 100644
+--- a/hotspot/src/cpu/aarch64/vm/assembler_aarch64.hpp
++++ b/hotspot/src/cpu/aarch64/vm/assembler_aarch64.hpp
+@@ -2061,6 +2061,14 @@ public:
+     ld_st(Vt, T, a, op1, op2);						\
+   }
+ 
++  void ld1_d(FloatRegister Vt, int index, const Address &a) {
++    starti;
++    assert(index == 0 || index == 1, "Index must be 0 or 1 for Vx.2D");
++    f(0, 31), f(index & 1, 30);
++    f(0b001101110, 29, 21), rf(a.index(), 16), f(0b1000, 15, 12);
++    f(0b01, 11, 10), rf(a.base(), 5), rf(Vt, 0);
++  }
++
+   INSN1(ld1,  0b001100010, 0b0111);
+   INSN2(ld1,  0b001100010, 0b1010);
+   INSN3(ld1,  0b001100010, 0b0110);
+@@ -2186,6 +2194,13 @@ public:
+ 
+ #undef INSN
+ 
++  void faddp_d(FloatRegister Vd, FloatRegister Vn) {
++    starti;
++    f(0b01, 31, 30), f(0b1111100, 29, 23), f(0b1, 22), f(0b11000, 21, 17);
++    f(0b0110110, 16, 10);
++    rf(Vn, 5), rf(Vd, 0);
++  }
++
+ #define INSN(NAME, opc)                                                                 \
+   void NAME(FloatRegister Vd, SIMD_Arrangement T, FloatRegister Vn, FloatRegister Vm) { \
+     starti;                                                                             \
+diff --git a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
+index f2f85df60..873da580b 100644
+--- a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
++++ b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
+@@ -2853,6 +2853,124 @@ void MacroAssembler::update_word_crc32(Register crc, Register v, Register tmp,
+   eor(crc, crc, tmp);
+ }
+ 
++/**
++ * Multiply and summation of 1 double-precision floating number pairs(sparse)
++ */
++void MacroAssembler::f2j_ddot_s1(Register dx, Register incx,
++                                 Register dy, Register incy) {
++  const FloatRegister tmpx = v2;
++  const FloatRegister tmpy = v3;
++
++  ld1_d(tmpx, 0, Address(dx, incx));
++  ld1_d(tmpy, 0, Address(dy, incy));
++  fmaddd(v0, tmpx, tmpy, v0);
++}
++
++/**
++ * Multiply and summation of 1 double-precision floating number pairs(dense)
++ */
++void MacroAssembler::f2j_ddot_d1(Register dx, Register dy, int size) {
++  const FloatRegister tmpx = v2;
++  const FloatRegister tmpy = v3;
++
++  ldrd(tmpx, post(dx, size));
++  ldrd(tmpy, post(dy, size));
++  fmaddd(v0, tmpx, tmpy, v0);
++}
++
++/**
++ * Multiply and summation of 4 double-precision floating numbers
++ */
++void MacroAssembler::f2j_ddot_d4(Register dx, Register dy) {
++  ld1(v2, v3, T2D, post(dx, 32));
++  ld1(v4, v5, T2D, post(dy, 32));
++  fmul(v2, T2D, v2, v4);
++  fmul(v3, T2D, v3, v5);
++  fadd(v0, T2D, v0, v2);
++  fadd(v6, T2D, v6, v3);
++}
++
++/**
++ * @param n         register containing the number of doubles in array
++ * @param dx        register pointing to input array
++ * @param incx      register containing step len for dx
++ * @param dy        register pointing to another input array
++ * @param incy      register containing step len for dy
++ * @param temp_reg  register containing loop variable
++ */
++void MacroAssembler::f2j_ddot(Register n, Register dx, Register incx,
++                              Register dy, Register incy, Register temp_reg) {
++  Label Ldot_EXIT, Ldot_S_BEGIN, Ldot_S1, Ldot_S10, Ldot_S4, Ldot_D_BEGIN,
++        Ldot_D1, Ldot_D10, Ldot_D4;
++
++  const int SZ = 8;
++
++    enter();
++    fmovd(v0, zr);
++    fmovd(v6, v0);
++
++    cmp(n, zr);
++    br(Assembler::LE, Ldot_EXIT);
++
++    cmp(incx, 1);
++    br(Assembler::NE, Ldot_S_BEGIN);
++    cmp(incy, 1);
++    br(Assembler::NE, Ldot_S_BEGIN);
++
++  BIND(Ldot_D_BEGIN);
++    asr(temp_reg, n, 2);
++    cmp(temp_reg, zr);
++    br(Assembler::LE, Ldot_D1);
++
++  BIND(Ldot_D4);
++    f2j_ddot_d4(dx, dy);
++    subs(temp_reg, temp_reg, 1);
++    br(Assembler::NE, Ldot_D4);
++
++    fadd(v0, T2D, v0, v6);
++    faddp_d(v0, v0);
++
++  BIND(Ldot_D1);
++    ands(temp_reg, n, 3);
++    br(Assembler::LE, Ldot_EXIT);
++
++  BIND(Ldot_D10);
++    f2j_ddot_d1(dx, dy, SZ);
++    subs(temp_reg, temp_reg, 1);
++    br(Assembler::NE, Ldot_D10);
++    leave();
++    ret(lr);
++
++  BIND(Ldot_S_BEGIN);
++    lsl(incx, incx, 3);
++    lsl(incy, incy, 3);
++
++    asr(temp_reg, n, 2);
++    cmp(temp_reg, zr);
++    br(Assembler::LE, Ldot_S1);
++
++  BIND(Ldot_S4);
++    f2j_ddot_s1(dx, incx, dy, incy);
++    f2j_ddot_s1(dx, incx, dy, incy);
++    f2j_ddot_s1(dx, incx, dy, incy);
++    f2j_ddot_s1(dx, incx, dy, incy);
++    subs(temp_reg, temp_reg, 1);
++    br(Assembler::NE, Ldot_S4);
++
++  BIND(Ldot_S1);
++    ands(temp_reg, n, 3);
++    br(Assembler::LE, Ldot_EXIT);
++
++  BIND(Ldot_S10);
++    f2j_ddot_s1(dx, incx, dy, incy);
++    subs(temp_reg, temp_reg, 1);
++    br(Assembler::NE, Ldot_S10);
++
++  BIND(Ldot_EXIT);
++    leave();
++    ret(lr);
++}
++
+ /**
+  * @param crc   register containing existing CRC (32-bit)
+  * @param buf   register pointing to input byte buffer (byte*)
+diff --git a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp
+index 388177589..1abc7e3b0 100644
+--- a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp
++++ b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp
+@@ -1180,6 +1180,9 @@ public:
+         Register table0, Register table1, Register table2, Register table3,
+         bool upper = false);
+ 
++  void f2j_ddot(Register n, Register dx, Register incx,
++                  Register dy, Register incy, Register temp_reg);
++
+   void string_compare(Register str1, Register str2,
+ 		      Register cnt1, Register cnt2, Register result,
+ 		      Register tmp1);
+@@ -1236,6 +1239,11 @@ private:
+   // Uses rscratch2 if the address is not directly reachable
+   Address spill_address(int size, int offset, Register tmp=rscratch2);
+ 
++private:
++  void f2j_ddot_s1(Register dx, Register incx, Register dy, Register incy);
++  void f2j_ddot_d1(Register dx, Register dy, int size);
++  void f2j_ddot_d4(Register dx, Register dy);
++
+ public:
+   void spill(Register Rx, bool is64, int offset) {
+     if (is64) {
+diff --git a/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp
+index 0d73c0c0c..337d5c1dd 100644
+--- a/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp
++++ b/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp
+@@ -45,6 +45,7 @@
+ 
+ #include "stubRoutines_aarch64.hpp"
+ 
++
+ #ifdef COMPILER2
+ #include "opto/runtime.hpp"
+ #endif
+@@ -3220,6 +3221,39 @@ class StubGenerator: public StubCodeGenerator {
+     return start;
+   }
+ 
++  /**
++   *  Arguments:
++   *
++   * Inputs:
++   *   c_rarg0   - int n
++   *   c_rarg1   - double[] dx
++   *   c_rarg2   - int incx
++   *   c_rarg3   - double[] dy
++   *   c_rarg4   - int incy
++   *
++   * Output:
++   *       d0   - ddot result
++   *
++   */
++  address generate_ddotF2jBLAS() {
++    __ align(CodeEntryAlignment);
++    StubCodeMark mark(this, "StubRoutines", "f2jblas_ddot");
++
++    address start = __ pc();
++
++    const Register n    = c_rarg0;
++    const Register dx   = c_rarg1;
++    const Register incx = c_rarg2;
++    const Register dy   = c_rarg3;
++    const Register incy = c_rarg4;
++
++    BLOCK_COMMENT("Entry:");
++
++    __ f2j_ddot(n, dx, incx, dy, incy, rscratch2);
++
++    return start;
++  }
++
+   /**
+    *  Arguments:
+    *
+@@ -4262,6 +4296,10 @@ class StubGenerator: public StubCodeGenerator {
+       StubRoutines::_montgomerySquare = g.generate_multiply();
+     }
+ 
++    if (UseF2jBLASIntrinsics) {
++      StubRoutines::_ddotF2jBLAS = generate_ddotF2jBLAS();
++    }
++
+     if (UseAESIntrinsics) {
+       StubRoutines::_aescrypt_encryptBlock = generate_aescrypt_encryptBlock();
+       StubRoutines::_aescrypt_decryptBlock = generate_aescrypt_decryptBlock();
+diff --git a/hotspot/src/share/vm/classfile/vmSymbols.hpp b/hotspot/src/share/vm/classfile/vmSymbols.hpp
+index 148f9212e..6bd8dbedd 100644
+--- a/hotspot/src/share/vm/classfile/vmSymbols.hpp
++++ b/hotspot/src/share/vm/classfile/vmSymbols.hpp
+@@ -852,6 +852,12 @@
+    do_name(     implCompress_name,                                 "implCompress0")                                     \
+    do_signature(implCompress_signature,                            "([BI)V")                                            \
+                                                                                                                         \
++  /* support for com.github.fommil.netlib.F2jBLAS */                                                                    \
++  do_class(com_github_fommil_netlib_f2jblas,                       "com/github/fommil/netlib/F2jBLAS")                  \
++  do_intrinsic(_f2jblas_ddot, com_github_fommil_netlib_f2jblas, ddot_name, ddot_signature, F_R)                         \
++   do_name(     ddot_name,                                         "ddot")                                              \
++   do_signature(ddot_signature,                                    "(I[DI[DI)D")                                        \
++                                                                                                                        \
+   /* support for sun.security.provider.SHA2 */                                                                          \
+   do_class(sun_security_provider_sha2,                             "sun/security/provider/SHA2")                        \
+   do_intrinsic(_sha2_implCompress, sun_security_provider_sha2, implCompress_name, implCompress_signature, F_R)          \
+diff --git a/hotspot/src/share/vm/oops/method.cpp b/hotspot/src/share/vm/oops/method.cpp
+index 24fae4d30..64cdae9c7 100644
+--- a/hotspot/src/share/vm/oops/method.cpp
++++ b/hotspot/src/share/vm/oops/method.cpp
+@@ -1281,7 +1281,9 @@ vmSymbols::SID Method::klass_id_for_intrinsics(Klass* holder) {
+   // which does not use the class default class loader so we check for its loader here
+   InstanceKlass* ik = InstanceKlass::cast(holder);
+   if ((ik->class_loader() != NULL) && !SystemDictionary::is_ext_class_loader(ik->class_loader())) {
+-    return vmSymbols::NO_SID;   // regardless of name, no intrinsics here
++    if (!EnableIntrinsicExternal) {
++      return vmSymbols::NO_SID;   // regardless of name, no intrinsics here
++    }
+   }
+ 
+   // see if the klass name is well-known:
+diff --git a/hotspot/src/share/vm/opto/escape.cpp b/hotspot/src/share/vm/opto/escape.cpp
+index 9ef1c5e69..aa1b1ac3a 100644
+--- a/hotspot/src/share/vm/opto/escape.cpp
++++ b/hotspot/src/share/vm/opto/escape.cpp
+@@ -978,7 +978,8 @@ void ConnectionGraph::process_call_arguments(CallNode *call) {
+                   strcmp(call->as_CallLeaf()->_name, "squareToLen") == 0 ||
+                   strcmp(call->as_CallLeaf()->_name, "mulAdd") == 0 ||
+                   strcmp(call->as_CallLeaf()->_name, "montgomery_multiply") == 0 ||
+-                  strcmp(call->as_CallLeaf()->_name, "montgomery_square") == 0)
++                  strcmp(call->as_CallLeaf()->_name, "montgomery_square") == 0 ||
++                  strcmp(call->as_CallLeaf()->_name, "f2jblas_ddot") == 0)
+                  ))) {
+             call->dump();
+             fatal(err_msg_res("EA unexpected CallLeaf %s", call->as_CallLeaf()->_name));
+diff --git a/hotspot/src/share/vm/opto/library_call.cpp b/hotspot/src/share/vm/opto/library_call.cpp
+index 89ebabe6f..5cbc0f012 100644
+--- a/hotspot/src/share/vm/opto/library_call.cpp
++++ b/hotspot/src/share/vm/opto/library_call.cpp
+@@ -335,6 +335,7 @@ class LibraryCallKit : public GraphKit {
+   bool inline_mulAdd();
+   bool inline_montgomeryMultiply();
+   bool inline_montgomerySquare();
++  bool inline_ddotF2jBLAS();
+ 
+   bool inline_profileBoolean();
+ };
+@@ -587,6 +588,10 @@ CallGenerator* Compile::make_vm_intrinsic(ciMethod* m, bool is_virtual) {
+     if (!UseCRC32Intrinsics) return NULL;
+     break;
+ 
++  case vmIntrinsics::_f2jblas_ddot:
++    if (!UseF2jBLASIntrinsics) return NULL;
++    break;
++
+   case vmIntrinsics::_incrementExactI:
+   case vmIntrinsics::_addExactI:
+     if (!Matcher::match_rule_supported(Op_OverflowAddI) || !UseMathExactIntrinsics) return NULL;
+@@ -983,6 +988,8 @@ bool LibraryCallKit::try_to_inline(int predicate) {
+ 
+   case vmIntrinsics::_profileBoolean:
+     return inline_profileBoolean();
++  case vmIntrinsics::_f2jblas_ddot:
++    return inline_ddotF2jBLAS();
+ 
+   default:
+     // If you get here, it may be that someone has added a new intrinsic
+@@ -6303,6 +6310,49 @@ bool LibraryCallKit::inline_updateBytesCRC32() {
+   return true;
+ }
+ 
++/**
++ * double com.github.fommil.netlib.F2jBLAS.ddot(int n, double[] dx, int incx, double[] dy, int incy)
++ */
++bool LibraryCallKit::inline_ddotF2jBLAS() {
++  assert(callee()->signature()->size() == 5, "update has 5 parameters");
++  Node* n    = argument(1);       // type: int
++  Node* dx   = argument(2);       // type: double[]
++  Node* incx = argument(3);       // type: int
++  Node* dy   = argument(4);       // type: double[]
++  Node* incy = argument(5);       // type: int
++
++  const Type* dx_type = dx->Value(&_gvn);
++  const Type* dy_type = dy->Value(&_gvn);
++  const TypeAryPtr* dx_top_src = dx_type->isa_aryptr();
++  const TypeAryPtr* dy_top_src = dy_type->isa_aryptr();
++  if (dx_top_src == NULL || dx_top_src->klass() == NULL ||
++      dy_top_src == NULL || dy_top_src->klass() == NULL) {
++    // failed array check
++    return false;
++  }
++
++  // Figure out the size and type of the elements we will be copying.
++  BasicType dx_elem = dx_type->isa_aryptr()->klass()->as_array_klass()->element_type()->basic_type();
++  BasicType dy_elem = dy_type->isa_aryptr()->klass()->as_array_klass()->element_type()->basic_type();
++  if (dx_elem != T_DOUBLE || dy_elem != T_DOUBLE) {
++    return false;
++  }
++
++  // 'dx_start' points to dx array + scaled offset
++  Node* dx_start = array_element_address(dx, intcon(0), dx_elem);
++  Node* dy_start = array_element_address(dy, intcon(0), dy_elem);
++
++  address stubAddr = StubRoutines::ddotF2jBLAS();
++  const char *stubName = "f2jblas_ddot";
++  Node* call;
++  call = make_runtime_call(RC_LEAF, OptoRuntime::ddotF2jBLAS_Type(),
++                           stubAddr, stubName, TypePtr::BOTTOM,
++                           n, dx_start, incx, dy_start, incy);
++  Node* result = _gvn.transform(new (C) ProjNode(call, TypeFunc::Parms));
++  set_result(result);
++  return true;
++}
++
+ /**
+  * Calculate CRC32 for ByteBuffer.
+  * int java.util.zip.CRC32.updateByteBuffer(int crc, long buf, int off, int len)
+diff --git a/hotspot/src/share/vm/opto/runtime.cpp b/hotspot/src/share/vm/opto/runtime.cpp
+index ba8f42e49..f1fe4d666 100644
+--- a/hotspot/src/share/vm/opto/runtime.cpp
++++ b/hotspot/src/share/vm/opto/runtime.cpp
+@@ -920,6 +920,30 @@ const TypeFunc* OptoRuntime::updateBytesCRC32_Type() {
+   return TypeFunc::make(domain, range);
+ }
+ 
++/**
++ * double ddot(int n, double *dx, int incx, double *dy, int incy)
++ */
++const TypeFunc* OptoRuntime::ddotF2jBLAS_Type() {
++  // create input type (domain)
++  int num_args = 5;
++  int argcnt = num_args;
++  const Type** fields = TypeTuple::fields(argcnt);
++  int argp = TypeFunc::Parms;
++  fields[argp++] = TypeInt::INT;        // n
++  fields[argp++] = TypeAryPtr::DOUBLES;    // dx
++  fields[argp++] = TypeInt::INT;        // incx
++  fields[argp++] = TypeAryPtr::DOUBLES;    // dy
++  fields[argp++] = TypeInt::INT;        // incy
++  assert(argp == TypeFunc::Parms + argcnt, "correct decoding");
++  const TypeTuple* domain = TypeTuple::make(TypeFunc::Parms + argcnt, fields);
++
++  // result type needed
++  fields = TypeTuple::fields(1);
++  fields[TypeFunc::Parms + 0] = Type::DOUBLE;
++  const TypeTuple* range = TypeTuple::make(TypeFunc::Parms + 1, fields);
++  return TypeFunc::make(domain, range);
++}
++
+ // for cipherBlockChaining calls of aescrypt encrypt/decrypt, four pointers and a length, returning int
+ const TypeFunc* OptoRuntime::cipherBlockChaining_aescrypt_Type() {
+   // create input type (domain)
+diff --git a/hotspot/src/share/vm/opto/runtime.hpp b/hotspot/src/share/vm/opto/runtime.hpp
+index e3bdfdf9c..66d393c5c 100644
+--- a/hotspot/src/share/vm/opto/runtime.hpp
++++ b/hotspot/src/share/vm/opto/runtime.hpp
+@@ -317,6 +317,8 @@ private:
+ 
+   static const TypeFunc* updateBytesCRC32_Type();
+ 
++  static const TypeFunc* ddotF2jBLAS_Type();
++
+   // leaf on stack replacement interpreter accessor types
+   static const TypeFunc* osr_end_Type();
+ 
+diff --git a/hotspot/src/share/vm/runtime/globals.hpp b/hotspot/src/share/vm/runtime/globals.hpp
+index 7b17e623b..520cc3187 100644
+--- a/hotspot/src/share/vm/runtime/globals.hpp
++++ b/hotspot/src/share/vm/runtime/globals.hpp
+@@ -743,6 +743,12 @@ class CommandLineFlags {
+   product(bool, UseCRC32Intrinsics, false,                                  \
+           "use intrinsics for java.util.zip.CRC32")                         \
+                                                                             \
++  experimental(bool, UseF2jBLASIntrinsics, false,                           \
++          "use intrinsics for com.github.fommil.netlib.F2jBLAS on aarch64") \
++                                                                            \
++  experimental(bool, EnableIntrinsicExternal, false,                        \
++          "enable intrinsics for methods of external packages")             \
++                                                                            \
+   develop(bool, TraceCallFixup, false,                                      \
+           "Trace all call fixups")                                          \
+                                                                             \
+diff --git a/hotspot/src/share/vm/runtime/stubRoutines.cpp b/hotspot/src/share/vm/runtime/stubRoutines.cpp
+index d943248da..10f438bc5 100644
+--- a/hotspot/src/share/vm/runtime/stubRoutines.cpp
++++ b/hotspot/src/share/vm/runtime/stubRoutines.cpp
+@@ -136,6 +136,8 @@ address StubRoutines::_sha512_implCompressMB = NULL;
+ address StubRoutines::_updateBytesCRC32 = NULL;
+ address StubRoutines::_crc_table_adr = NULL;
+ 
++address StubRoutines::_ddotF2jBLAS = NULL;
++
+ address StubRoutines::_multiplyToLen = NULL;
+ address StubRoutines::_squareToLen = NULL;
+ address StubRoutines::_mulAdd = NULL;
+diff --git a/hotspot/src/share/vm/runtime/stubRoutines.hpp b/hotspot/src/share/vm/runtime/stubRoutines.hpp
+index e18b9127d..a4eeb910d 100644
+--- a/hotspot/src/share/vm/runtime/stubRoutines.hpp
++++ b/hotspot/src/share/vm/runtime/stubRoutines.hpp
+@@ -214,6 +214,8 @@ class StubRoutines: AllStatic {
+   static address _updateBytesCRC32;
+   static address _crc_table_adr;
+ 
++  static address _ddotF2jBLAS;
++
+   static address _multiplyToLen;
+   static address _squareToLen;
+   static address _mulAdd;
+@@ -377,6 +379,8 @@ class StubRoutines: AllStatic {
+   static address updateBytesCRC32()    { return _updateBytesCRC32; }
+   static address crc_table_addr()      { return _crc_table_adr; }
+ 
++  static address ddotF2jBLAS()         { return _ddotF2jBLAS; }
++
+   static address multiplyToLen()       {return _multiplyToLen; }
+   static address squareToLen()         {return _squareToLen; }
+   static address mulAdd()              {return _mulAdd; }
