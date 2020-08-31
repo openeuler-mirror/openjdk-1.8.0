@@ -1,0 +1,210 @@
+diff --git a/hotspot/src/os_cpu/linux_aarch64/vm/atomic_linux_aarch64.inline.hpp b/hotspot/src/os_cpu/linux_aarch64/vm/atomic_linux_aarch64.inline.hpp
+index fba64e15f..1c92314f9 100644
+--- a/hotspot/src/os_cpu/linux_aarch64/vm/atomic_linux_aarch64.inline.hpp
++++ b/hotspot/src/os_cpu/linux_aarch64/vm/atomic_linux_aarch64.inline.hpp
+@@ -131,6 +131,14 @@ inline intptr_t Atomic::cmpxchg_ptr(intptr_t exchange_value, volatile intptr_t*
+  return __sync_val_compare_and_swap(dest, compare_value, exchange_value);
+ }
+ 
++inline intptr_t Atomic::relax_cmpxchg_ptr(intptr_t exchange_value, volatile intptr_t* dest, intptr_t compare_value)
++{
++  intptr_t value = compare_value;
++  __atomic_compare_exchange(dest, &value, &exchange_value, /* weak */false,
++                              __ATOMIC_RELAXED, __ATOMIC_RELAXED);
++  return value;
++}
++
+ inline void* Atomic::cmpxchg_ptr(void* exchange_value, volatile void* dest, void* compare_value)
+ {
+   return (void *) cmpxchg_ptr((intptr_t) exchange_value,
+diff --git a/hotspot/src/share/vm/classfile/classFileParser.cpp b/hotspot/src/share/vm/classfile/classFileParser.cpp
+index 07d07e4f2..f001a94e7 100644
+--- a/hotspot/src/share/vm/classfile/classFileParser.cpp
++++ b/hotspot/src/share/vm/classfile/classFileParser.cpp
+@@ -4393,6 +4393,11 @@ void ClassFileParser::fill_oop_maps(instanceKlassHandle k,
+   OopMapBlock* this_oop_map = k->start_of_nonstatic_oop_maps();
+   const InstanceKlass* const super = k->superklass();
+   const unsigned int super_count = super ? super->nonstatic_oop_map_count() : 0;
++
++  const bool super_is_gc_leaf = super ? super->oop_is_gc_leaf() : true;
++  bool this_is_gc_leaf = super_is_gc_leaf && (nonstatic_oop_map_count == 0);
++  k->set_oop_is_gc_leaf(this_is_gc_leaf);
++
+   if (super_count > 0) {
+     // Copy maps from superklass
+     OopMapBlock* super_oop_map = super->start_of_nonstatic_oop_maps();
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp
+index b2de74d41..dde9ac426 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp
+@@ -49,7 +49,12 @@ inline void PSPromotionManager::claim_or_forward_internal_depth(T* p) {
+       }
+       oopDesc::encode_store_heap_oop_not_null(p, o);
+     } else {
+-      push_depth(p);
++      // leaf object copy in advanced, reduce cost of push and pop
++      if (!o->klass()->oop_is_gc_leaf()) {
++        push_depth(p);
++      } else {
++        PSScavenge::copy_and_push_safe_barrier<T, false>(this, p);
++      }
+     }
+   }
+ }
+@@ -171,7 +176,15 @@ oop PSPromotionManager::copy_to_survivor_space(oop o) {
+     Copy::aligned_disjoint_words((HeapWord*)o, (HeapWord*)new_obj, new_obj_size);
+ 
+     // Now we have to CAS in the header.
++#ifdef AARCH64
++    // CAS with memory fence cost a lot within copy_to_survivor_space on aarch64.
++    // To minimize the cost, we use a normal CAS to do object forwarding, plus a
++    // memory fence only upon CAS succeeds. To further reduce the fence insertion,
++    // we can skip the fence insertion for leaf objects (objects don't have reference fields).
++    if (o->relax_cas_forward_to(new_obj, test_mark)) {
++#else
+     if (o->cas_forward_to(new_obj, test_mark)) {
++#endif
+       // We won any races, we "own" this object.
+       assert(new_obj == o->forwardee(), "Sanity");
+ 
+@@ -195,10 +208,13 @@ oop PSPromotionManager::copy_to_survivor_space(oop o) {
+         push_depth(masked_o);
+         TASKQUEUE_STATS_ONLY(++_arrays_chunked; ++_masked_pushes);
+       } else {
+-        // we'll just push its contents
+-        new_obj->push_contents(this);
++        // leaf object don't have contents, never need push_contents
++        if (!o->klass()->oop_is_gc_leaf()) {
++          // we'll just push its contents
++          new_obj->push_contents(this);
++        }
+       }
+-    }  else {
++    } else {
+       // We lost, someone else "owns" this object
+       guarantee(o->is_forwarded(), "Object must be forwarded if the cas failed.");
+ 
+diff --git a/hotspot/src/share/vm/oops/klass.cpp b/hotspot/src/share/vm/oops/klass.cpp
+index 7fda7ce62..6e8f9acde 100644
+--- a/hotspot/src/share/vm/oops/klass.cpp
++++ b/hotspot/src/share/vm/oops/klass.cpp
+@@ -207,6 +207,8 @@ Klass::Klass() {
+   clear_modified_oops();
+   clear_accumulated_modified_oops();
+   _shared_class_path_index = -1;
++
++  set_oop_is_gc_leaf(false);
+ }
+ 
+ jint Klass::array_layout_helper(BasicType etype) {
+diff --git a/hotspot/src/share/vm/oops/klass.hpp b/hotspot/src/share/vm/oops/klass.hpp
+index 22ae48f5c..4aea54795 100644
+--- a/hotspot/src/share/vm/oops/klass.hpp
++++ b/hotspot/src/share/vm/oops/klass.hpp
+@@ -177,6 +177,8 @@ class Klass : public Metadata {
+   jbyte _modified_oops;             // Card Table Equivalent (YC/CMS support)
+   jbyte _accumulated_modified_oops; // Mod Union Equivalent (CMS support)
+ 
++  bool _is_gc_leaf;
++
+ private:
+   // This is an index into FileMapHeader::_classpath_entry_table[], to
+   // associate this class with the JAR file where it's loaded from during
+@@ -569,6 +571,9 @@ protected:
+                                                     oop_is_typeArray_slow()); }
+   #undef assert_same_query
+ 
++  void set_oop_is_gc_leaf(bool is_gc_leaf)        { _is_gc_leaf = is_gc_leaf; }
++  inline bool oop_is_gc_leaf()              const { return _is_gc_leaf; }
++
+   // Access flags
+   AccessFlags access_flags() const         { return _access_flags;  }
+   void set_access_flags(AccessFlags flags) { _access_flags = flags; }
+diff --git a/hotspot/src/share/vm/oops/oop.hpp b/hotspot/src/share/vm/oops/oop.hpp
+index a703a54ef..41a7bce4d 100644
+--- a/hotspot/src/share/vm/oops/oop.hpp
++++ b/hotspot/src/share/vm/oops/oop.hpp
+@@ -76,6 +76,9 @@ class oopDesc {
+ 
+   void    release_set_mark(markOop m);
+   markOop cas_set_mark(markOop new_mark, markOop old_mark);
++#ifdef AARCH64
++  markOop relax_cas_set_mark(markOop new_mark, markOop old_mark);
++#endif
+ 
+   // Used only to re-initialize the mark word (e.g., of promoted
+   // objects during a GC) -- requires a valid klass pointer
+@@ -317,6 +320,10 @@ class oopDesc {
+   void forward_to(oop p);
+   bool cas_forward_to(oop p, markOop compare);
+ 
++#ifdef AARCH64
++  bool relax_cas_forward_to(oop p, markOop compare);
++#endif
++
+ #if INCLUDE_ALL_GCS
+   // Like "forward_to", but inserts the forwarding pointer atomically.
+   // Exactly one thread succeeds in inserting the forwarding pointer, and
+diff --git a/hotspot/src/share/vm/oops/oop.inline.hpp b/hotspot/src/share/vm/oops/oop.inline.hpp
+index d4c4d75c0..c3abdb128 100644
+--- a/hotspot/src/share/vm/oops/oop.inline.hpp
++++ b/hotspot/src/share/vm/oops/oop.inline.hpp
+@@ -76,6 +76,12 @@ inline markOop oopDesc::cas_set_mark(markOop new_mark, markOop old_mark) {
+   return (markOop) Atomic::cmpxchg_ptr(new_mark, &_mark, old_mark);
+ }
+ 
++#ifdef AARCH64
++inline markOop oopDesc::relax_cas_set_mark(markOop new_mark, markOop old_mark) {
++  return (markOop)Atomic::relax_cmpxchg_ptr((intptr_t)new_mark, (volatile intptr_t*)&_mark, (intptr_t)old_mark);
++}
++#endif
++
+ inline Klass* oopDesc::klass() const {
+   if (UseCompressedClassPointers) {
+     return Klass::decode_klass_not_null(_metadata._compressed_klass);
+@@ -715,6 +721,30 @@ inline bool oopDesc::cas_forward_to(oop p, markOop compare) {
+   return cas_set_mark(m, compare) == compare;
+ }
+ 
++#ifdef AARCH64
++inline bool oopDesc::relax_cas_forward_to(oop p, markOop compare) {
++  assert(check_obj_alignment(p),
++         "forwarding to something not aligned");
++  assert(Universe::heap()->is_in_reserved(p),
++         "forwarding to something not in heap");
++  markOop m = markOopDesc::encode_pointer_as_mark(p);
++  assert(m->decode_pointer() == p, "encoding must be reversable");
++  markOop old_markoop = relax_cas_set_mark(m, compare);
++  // If CAS succeeded, we must ensure the copy visible to threads reading the forwardee.
++  // (We might delay the fence insertion till pushing contents to task stack as other threads
++  // only need to touch the copied object after stolen the task.)
++  if (old_markoop == compare) {
++    // Once the CAS succeeds, leaf object never needs to be visible to other threads (finished
++    // collection by current thread), so we can save the fence.
++    if (!p->klass()->oop_is_gc_leaf()) {
++      OrderAccess::fence();
++    }
++    return true;
++  }
++  return false;
++}
++#endif
++
+ // Note that the forwardee is not the same thing as the displaced_mark.
+ // The forwardee is used when copying during scavenge and mark-sweep.
+ // It does need to clear the low two locking- and GC-related bits.
+diff --git a/hotspot/src/share/vm/runtime/atomic.hpp b/hotspot/src/share/vm/runtime/atomic.hpp
+index 9ca5fce97..015178b61 100644
+--- a/hotspot/src/share/vm/runtime/atomic.hpp
++++ b/hotspot/src/share/vm/runtime/atomic.hpp
+@@ -94,6 +94,10 @@ class Atomic : AllStatic {
+                                      unsigned int compare_value);
+ 
+   inline static intptr_t cmpxchg_ptr(intptr_t exchange_value, volatile intptr_t* dest, intptr_t compare_value);
++#ifdef AARCH64
++  inline static intptr_t relax_cmpxchg_ptr(intptr_t exchange_value, volatile intptr_t* dest, intptr_t compare_value);
++#endif
++
+   inline static void*    cmpxchg_ptr(void*    exchange_value, volatile void*     dest, void*    compare_value);
+ };
+ 
