@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 0
+Release: 1
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1037,6 +1037,13 @@ Patch95: 8205921-Optimizing-best-of-2-work-stealing-queue-selection.patch
 
 # 8u265
 Patch96: fix-Long-cache-range-and-remove-VM-option-java.lang.IntegerCache.high-by-default.patch
+Patch97: leaf-optimize-in-ParallelScanvageGC.patch
+Patch98: 8046294-Generate-the-4-byte-timestamp-randomly.patch
+Patch100: 8203481-Incorrect-constraint-for-unextended_sp-in-frame-safe_for_sender.patch
+Patch102: fix-LongCache-s-range-when-BoxTypeCachedMax-number-is-bigger-than-Integer.MAX_VALUE.patch
+Patch103: Ddot-intrinsic-implement.patch
+Patch104: 8234003-Improve-IndexSet-iteration.patch
+Patch105: 8220159-Optimize-various-RegMask-operations-by-introducing-watermarks.patch
 
 #############################################
 #
@@ -1432,6 +1439,14 @@ pushd %{top_level_dir_name}
 %patch94 -p1
 %patch95 -p1
 %patch96 -p1
+%patch97 -p1
+%patch98 -p1
+%patch100 -p1
+%patch102 -p1
+%patch103 -p1
+%patch104 -p1
+%patch105 -p1
+
 
 popd
 
@@ -2051,6 +2066,16 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Aug 29 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.265-b10.1
+- Add leaf-optimize-in-ParallelScanvageGC.patch
+- Add 8046294-Generate-the-4-byte-timestamp-randomly.patch
+- Add 8203481-Incorrect-constraint-for-unextended_sp-in-frame-safe_for_sender.patch
+- Add fix-LongCache-s-range-when-BoxTypeCachedMax-number-is-bigger-than-Integer.MAX_VALUE.patch
+- Add Ddot-intrinsic-implement.patch
+- Add 8234003-Improve-IndexSet-iteration.patch
+- Add 8220159-Optimize-various-RegMask-operations-by-introducing-watermarks.patch
+- Remove prohibition-of-irreducible-loop-in-mergers.patch 
+
 * Tue Aug 25 2020 noah <hedongbo@huawei.com> - 1:1.8.0.265-b10.0
 - Update to aarch64-shenandoah-jdk8u-8u265-b01
 - add fix-Long-cache-range-and-remove-VM-option-java.lang.IntegerCache.high-by-default.patch
