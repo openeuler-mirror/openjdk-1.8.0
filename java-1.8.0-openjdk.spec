@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1
+Release: 2
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1031,7 +1031,6 @@ Patch89: 8144993-Elide-redundant-memory-barrier-after-AllocationNode.patch
 Patch90: 8223504-improve-performance-of-forall-loops-by-better.patch
 Patch91: add-vm-option-BoxTypeCachedMax-for-Integer-and-Long-cache.patch
 Patch92: 8080289-8040213-8189067-move-the-store-out-of-the-loop.patch
-Patch93: fast-serializer-jdk8.patch
 Patch94: 8182397-race-in-field-updates.patch
 Patch95: 8205921-Optimizing-best-of-2-work-stealing-queue-selection.patch
 
@@ -1435,7 +1434,6 @@ pushd %{top_level_dir_name}
 %patch90 -p1
 %patch91 -p1
 %patch92 -p1
-%patch93 -p1
 %patch94 -p1
 %patch95 -p1
 %patch96 -p1
@@ -2066,6 +2064,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Mon Sep 1 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.265-b10.2
+- Remove fast-serializer-jdk8.patch
+
 * Tue Aug 29 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.265-b10.1
 - Add leaf-optimize-in-ParallelScanvageGC.patch
 - Add 8046294-Generate-the-4-byte-timestamp-randomly.patch
