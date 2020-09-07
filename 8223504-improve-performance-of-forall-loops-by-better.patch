@@ -1,13 +1,10 @@
 From c1d5b7c044ba418848c98d36ec21358a1dac568e Mon Sep 17 00:00:00 2001
-From: sunjianye <sunjianye@huawei.com>
 Date: Sat, 23 May 2020 17:18:39 +0800
 Subject: [PATCH] 8223504:improve performance of forall loops by better
  inlining of "iterator()" methods
 
-DTS/AR: AR.SR.IREQ02373832.002.001
 Summary: <C2>  : improve performance of forall loops by better inlining of "iterator()" methods
 LLT: NA
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8223504
 ---
  hotspot/src/share/vm/classfile/systemDictionary.hpp | 3 +++

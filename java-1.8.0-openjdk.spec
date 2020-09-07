@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 2
+Release: 3
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2064,6 +2064,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Mon Sep 7 2020 noah <hedongbo@huawei.com> - 1:1.8.0.265-b10.3
+- Delete some file header information
+
 * Mon Sep 1 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.265-b10.2
 - Remove fast-serializer-jdk8.patch
 
