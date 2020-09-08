@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 2
+Release: 4
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1043,6 +1043,7 @@ Patch102: fix-LongCache-s-range-when-BoxTypeCachedMax-number-is-bigger-than-Inte
 Patch103: Ddot-intrinsic-implement.patch
 Patch104: 8234003-Improve-IndexSet-iteration.patch
 Patch105: 8220159-Optimize-various-RegMask-operations-by-introducing-watermarks.patch
+Patch106: fast-serializer-jdk8.patch
 
 #############################################
 #
@@ -1444,6 +1445,7 @@ pushd %{top_level_dir_name}
 %patch103 -p1
 %patch104 -p1
 %patch105 -p1
+%patch106 -p1
 
 
 popd
@@ -2064,6 +2066,12 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Sep 8 2020 noah <hedongbo@huawei.com> - 1:1.8.0.265-b10.4
+- add fast-serializer-jdk8.patch
+
+* Mon Sep 7 2020 noah <hedongbo@huawei.com> - 1:1.8.0.265-b10.3
+- Delete some file header information
+
 * Mon Sep 1 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.265-b10.2
 - Remove fast-serializer-jdk8.patch
 
