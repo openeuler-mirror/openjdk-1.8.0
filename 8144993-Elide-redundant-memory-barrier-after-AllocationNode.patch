@@ -1,13 +1,10 @@
 From e938b66397096f88ef40f4fc3522a543f938267d Mon Sep 17 00:00:00 2001
-From: sunjianye <sunjianye@huawei.com>
 Date: Sat, 23 May 2020 18:10:45 +0800
 Subject: [PATCH] 8144993:Elide redundant memory barrier after AllocationNode
  and JDK:8139758
 
-DTS/AR: AR.SR.IREQ02373832.002.001
 Summary: <C2> : Elide redundant memory barrier after AllocationNode
 LLT: NA
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8144993  https://bugs.openjdk.java.net/browse/JDK-8139758
 ---
  hotspot/src/share/vm/opto/callnode.cpp        |  18 ++++
