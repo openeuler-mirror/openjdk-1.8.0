@@ -1,0 +1,37 @@
+From 0cf95d445b1f6854249987ec55591e26cc21c6a1 Mon Sep 17 00:00:00 2001
+Date: Thu, 14 May 2020 09:59:34 +0800
+Subject: [PATCH] Test8167409.sh fails to run with 32bit jdk on 64bit system
+
+Summary: <test case>: Test8167409.sh fails to run with 32bit jdk on 64bit system
+LLT: jdk8u/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
+Bug url: 
+---
+ .../criticalnatives/argumentcorruption/Test8167409.sh       | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh b/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
+index 81695e75..1108aaf9 100644
+--- a/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
++++ b/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
+@@ -61,13 +61,17 @@ case "$OS" in
+     exit 0;
+     ;;
+ esac
++${TESTJAVA}${FS}bin${FS}java -XshowSettings 2>&1 | grep sun.arch.data.model | grep 32
++if [ 0 -eq $? ] ; then
++    M32="-m32"
++fi
+ 
+ THIS_DIR=.
+ 
+ cp ${TESTSRC}${FS}*.java ${THIS_DIR}
+ ${TESTJAVA}${FS}bin${FS}javac *.java
+ 
+-$cc_cmd -fPIC -shared -o libCNCheckLongArgs.so \
++$cc_cmd ${M32} -fPIC -shared -o libCNCheckLongArgs.so \
+     -I${TESTJAVA}${FS}include -I${TESTJAVA}${FS}include${FS}linux \
+     ${TESTSRC}${FS}libCNCheckLongArgs.c
+ 
+-- 
+2.19.0
+

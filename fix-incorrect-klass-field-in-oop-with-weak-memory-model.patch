@@ -1,0 +1,32 @@
+diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
+index b7b3da6..1a915aa 100644
+--- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
++++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
+@@ -994,6 +994,8 @@ size_t CompactibleFreeListSpace::block_size(const HeapWord* p) const {
+         return res;
+       }
+     } else {
++      OrderAccess::acquire();
++
+       // Ensure klass read before size.
+       Klass* k = oop(p)->klass_or_null_acquire();
+       if (k != NULL) {
+@@ -1044,6 +1046,8 @@ const {
+         return res;
+       }
+     } else {
++      OrderAccess::acquire();
++
+       // Ensure klass read before size.
+       Klass* k = oop(p)->klass_or_null_acquire();
+       if (k != NULL) {
+@@ -1098,6 +1102,9 @@ bool CompactibleFreeListSpace::block_is_obj(const HeapWord* p) const {
+   // assert(CollectedHeap::use_parallel_gc_threads() || _bt.block_start(p) == p,
+   //        "Should be a block boundary");
+   if (FreeChunk::indicatesFreeChunk(p)) return false;
++
++  OrderAccess::acquire();
++
+   Klass* k = oop(p)->klass_or_null_acquire();
+   if (k != NULL) {
+     // Ignore mark word because it may have been used to
