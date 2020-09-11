@@ -1,0 +1,24 @@
+From 82250c7c4978bf7591299e8635fb183f36d3546f Mon Sep 17 00:00:00 2001
+Date: Fri, 19 Apr 2019 16:30:04 +0000
+Subject: [PATCH] fix crash in JVMTI debug
+
+---
+ hotspot/src/share/vm/prims/jvmtiEnvBase.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hotspot/src/share/vm/prims/jvmtiEnvBase.cpp b/hotspot/src/share/vm/prims/jvmtiEnvBase.cpp
+index fe2a3811..5db41567 100644
+--- a/hotspot/src/share/vm/prims/jvmtiEnvBase.cpp
++++ b/hotspot/src/share/vm/prims/jvmtiEnvBase.cpp
+@@ -1092,7 +1092,7 @@ JvmtiEnvBase::get_object_monitor_usage(JavaThread* calling_thread, jobject objec
+           // If the monitor has no owner, then a non-suspended contending
+           // thread could potentially change the state of the monitor by
+           // entering it. The JVM/TI spec doesn't allow this.
+-          if (owning_thread == NULL && !at_safepoint &
++          if (owning_thread == NULL && !at_safepoint &&
+               !JvmtiEnv::is_thread_fully_suspended(pending_thread, true, &debug_bits)) {
+             if (ret.owner != NULL) {
+               destroy_jni_reference(calling_thread, ret.owner);
+-- 
+2.19.0
+
