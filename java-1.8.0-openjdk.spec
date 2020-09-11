@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 4
+Release: 5
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1044,6 +1044,26 @@ Patch103: Ddot-intrinsic-implement.patch
 Patch104: 8234003-Improve-IndexSet-iteration.patch
 Patch105: 8220159-Optimize-various-RegMask-operations-by-introducing-watermarks.patch
 Patch106: fast-serializer-jdk8.patch
+Patch107: 6896810-Pin.java-fails-with-OOME-during-System.out.p.patch
+Patch108: 8231631-sun-net-ftp-FtpURLConnectionLeak.java-fails-.patch
+Patch109: Test8167409.sh-fails-to-run-with-32bit-jdk-on-64bit-.patch
+Patch110: Test-SSLSocketSSLEngineTemplate.java-intermittent-fa.patch
+Patch111: The-runok-method-retrying-another-port-does-not-take.patch
+Patch112: 8048210-8056152-fix-assert-fail-for-an-InnocuousThre.patch
+Patch113: 8160425-Vectorization-with-signalling-NaN-returns-wr.patch
+Patch114: 8181503-Can-t-compile-hotspot-with-c-11.patch
+Patch115: 8243670-Unexpected-test-result-caused-by-C2-MergeMem.patch
+Patch116: fix-crash-in-JVMTI-debug.patch
+Patch117: fix-incorrect-klass-field-in-oop-with-weak-memory-model.patch
+Patch118: Fix-LineBuffer-vappend-when-buffer-too-small.patch
+Patch119: make-disable-precompiled-headers-work.patch
+Patch120: fix-CompactibleFreeListSpace-block_size-crash.patch
+Patch121: Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
+Patch122: optimize-jmap-F-dump-xxx.patch
+Patch123: recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
+Patch124: Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
+Patch125: Extend-CDS-to-support-app-class-metadata-sharing.patch
+Patch126: zlib-optimization.patch
 
 #############################################
 #
@@ -1446,7 +1466,26 @@ pushd %{top_level_dir_name}
 %patch104 -p1
 %patch105 -p1
 %patch106 -p1
-
+%patch107 -p1
+%patch108 -p1
+%patch109 -p1
+%patch110 -p1
+%patch111 -p1
+%patch112 -p1
+%patch113 -p1
+%patch114 -p1
+%patch115 -p1
+%patch116 -p1
+%patch117 -p1
+%patch118 -p1
+%patch119 -p1
+%patch120 -p1
+%patch121 -p1
+%patch122 -p1
+%patch123 -p1
+%patch124 -p1
+%patch125 -p1
+%patch126 -p1
 
 popd
 
@@ -2066,6 +2105,28 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Sep 11 2020 noah <hedongbo@huawei.com> -:1.8.0.265-b10.5
+- add 6896810-Pin.java-fails-with-OOME-during-System.out.p.patch
+- add 8231631-sun-net-ftp-FtpURLConnectionLeak.java-fails-.patch
+- add Test8167409.sh-fails-to-run-with-32bit-jdk-on-64bit-.patch
+- add Test-SSLSocketSSLEngineTemplate.java-intermittent-fa.patch
+- add The-runok-method-retrying-another-port-does-not-take.patch
+- add 8048210-8056152-fix-assert-fail-for-an-InnocuousThre.patch
+- add 8160425-Vectorization-with-signalling-NaN-returns-wr.patch
+- add 8181503-Can-t-compile-hotspot-with-c-11.patch
+- add 8243670-Unexpected-test-result-caused-by-C2-MergeMem.patch
+- add fix-crash-in-JVMTI-debug.patch
+- add fix-incorrect-klass-field-in-oop-with-weak-memory-model.patch
+- add Fix-LineBuffer-vappend-when-buffer-too-small.patch
+- add make-disable-precompiled-headers-work.patch
+- add fix-CompactibleFreeListSpace-block_size-crash.patch
+- add Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
+- add optimize-jmap-F-dump-xxx.patch
+- add recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
+- add Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
+- add Extend-CDS-to-support-app-class-metadata-sharing.patch
+- add zlib-optimization.patch
+
 * Tue Sep 8 2020 noah <hedongbo@huawei.com> - 1:1.8.0.265-b10.4
 - add fast-serializer-jdk8.patch
 

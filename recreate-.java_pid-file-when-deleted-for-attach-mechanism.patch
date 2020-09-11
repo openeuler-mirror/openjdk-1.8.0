@@ -1,0 +1,75 @@
+From 9f8ee6d44e254da38605d3ceb527d412a208c862 Mon Sep 17 00:00:00 2001
+Date: Wed, 12 Aug 2020 12:09:15 +0000
+Subject: [PATCH] recreate .java_pid file when deleted for attach mechanism
+
+Summary: <hotspot>: <enable attach mechanism when .java_pid is lost>
+LLT:
+Bug url:
+---
+ hotspot/src/os/linux/vm/attachListener_linux.cpp | 20 ++++++++++++++++----
+ hotspot/src/share/vm/services/attachListener.cpp |  1 +
+ hotspot/src/share/vm/services/attachListener.hpp |  2 +-
+ 3 files changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/hotspot/src/os/linux/vm/attachListener_linux.cpp b/hotspot/src/os/linux/vm/attachListener_linux.cpp
+index 700a09ff0..1ca089740 100644
+--- a/hotspot/src/os/linux/vm/attachListener_linux.cpp
++++ b/hotspot/src/os/linux/vm/attachListener_linux.cpp
+@@ -485,13 +485,25 @@ bool AttachListener::init_at_startup() {
+ // If the file .attach_pid<pid> exists in the working directory
+ // or /tmp then this is the trigger to start the attach mechanism
+ bool AttachListener::is_init_trigger() {
+-  if (init_at_startup() || is_initialized()) {
+-    return false;               // initialized at startup or already initialized
++  if (init_at_startup()) {
++    return false;               // initialized at startup
+   }
+-  char fn[PATH_MAX+1];
+-  sprintf(fn, ".attach_pid%d", os::current_process_id());
++
++  char fn[PATH_MAX + 1];
+   int ret;
+   struct stat64 st;
++
++  // check initialized
++  if (is_initialized()) {
++    // check .java_pid file exists
++    RESTARTABLE(::stat64(LinuxAttachListener::path(), &st), ret);
++    if (ret == -1) {
++      ::shutdown(LinuxAttachListener::listener(), SHUT_RDWR);
++    }
++    return false;
++  }
++
++  sprintf(fn, ".attach_pid%d", os::current_process_id());
+   RESTARTABLE(::stat64(fn, &st), ret);
+   if (ret == -1) {
+     snprintf(fn, sizeof(fn), "%s/.attach_pid%d",
+diff --git a/hotspot/src/share/vm/services/attachListener.cpp b/hotspot/src/share/vm/services/attachListener.cpp
+index 59b2f5483..0f51378dd 100644
+--- a/hotspot/src/share/vm/services/attachListener.cpp
++++ b/hotspot/src/share/vm/services/attachListener.cpp
+@@ -425,6 +425,7 @@ static void attach_listener_thread_entry(JavaThread* thread, TRAPS) {
+   for (;;) {
+     AttachOperation* op = AttachListener::dequeue();
+     if (op == NULL) {
++      AttachListener::set_initialized(false);
+       return;   // dequeue failed or shutdown
+     }
+ 
+diff --git a/hotspot/src/share/vm/services/attachListener.hpp b/hotspot/src/share/vm/services/attachListener.hpp
+index 5204c4c62..11ec525c6 100644
+--- a/hotspot/src/share/vm/services/attachListener.hpp
++++ b/hotspot/src/share/vm/services/attachListener.hpp
+@@ -71,7 +71,7 @@ class AttachListener: AllStatic {
+ 
+  public:
+   static bool is_initialized()                  { return _initialized; }
+-  static void set_initialized()                 { _initialized = true; }
++  static void set_initialized(bool init = true) { _initialized = init; }
+ 
+   // indicates if this VM supports attach-on-demand
+   static bool is_attach_supported()             { return !DisableAttachMechanism; }
+-- 
+2.12.3
+

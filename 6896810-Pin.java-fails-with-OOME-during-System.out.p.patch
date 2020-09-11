@@ -1,0 +1,26 @@
+From 5462717718cd9d3bed0d866ae47fe5ab9fdcf5e6 Mon Sep 17 00:00:00 2001
+Date: Fri, 28 Aug 2020 15:02:16 +0800
+Subject: [PATCH] 6896810: Pin.java fails with OOME during System.out.println
+
+Summary: <java.lang>: Pin.java fails with OOME during System.out.println
+LLT: jdk8u/jdk/test/java/lang/ref/SoftReference/Pin.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-6896810 huaweijdk/jdk8u-dev#2472
+---
+ jdk/test/java/lang/ref/SoftReference/Pin.java | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/jdk/test/java/lang/ref/SoftReference/Pin.java b/jdk/test/java/lang/ref/SoftReference/Pin.java
+index dbdf9be1b..38cd56da2 100644
+--- a/jdk/test/java/lang/ref/SoftReference/Pin.java
++++ b/jdk/test/java/lang/ref/SoftReference/Pin.java
+@@ -76,6 +76,7 @@ public class Pin {
+                 Thread.sleep(100);              // yield, for what it's worth
+             }
+         } catch (OutOfMemoryError e) {
++            chain = null; // Free memory for further work.
+             System.err.println("Got OutOfMemoryError, as expected.");
+         }
+ 
+-- 
+2.12.3
+

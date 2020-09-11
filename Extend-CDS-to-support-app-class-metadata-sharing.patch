@@ -1,0 +1,748 @@
+diff --git a/hotspot/src/share/vm/classfile/classFileParser.cpp b/hotspot/src/share/vm/classfile/classFileParser.cpp
+index 6d62380..58d9116 100644
+--- a/hotspot/src/share/vm/classfile/classFileParser.cpp
++++ b/hotspot/src/share/vm/classfile/classFileParser.cpp
+@@ -3939,7 +3939,8 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
+ #if INCLUDE_CDS
+     if (DumpLoadedClassList != NULL && cfs->source() != NULL && classlist_file->is_open()) {
+       // Only dump the classes that can be stored into CDS archive
+-      if (SystemDictionaryShared::is_sharing_possible(loader_data)) {
++      // unless AppCDS is enabled
++      if (_host_klass == NULL && SystemDictionaryShared::is_sharing_possible(loader_data)) {
+         if (name != NULL) {
+           ResourceMark rm(THREAD);
+           classlist_file->print_cr("%s", name->as_C_string());
+diff --git a/hotspot/src/share/vm/classfile/classLoader.cpp b/hotspot/src/share/vm/classfile/classLoader.cpp
+index b9f46df..c7c0f53 100644
+--- a/hotspot/src/share/vm/classfile/classLoader.cpp
++++ b/hotspot/src/share/vm/classfile/classLoader.cpp
+@@ -1203,8 +1203,8 @@ instanceKlassHandle ClassLoader::load_classfile(Symbol* h_name, TRAPS) {
+ 
+     h = context.record_result(classpath_index, e, result, THREAD);
+   } else {
+-    if (DumpSharedSpaces) {
+-      tty->print_cr("Preload Warning: Cannot find %s", class_name);
++    if (!UseAppCDS && DumpSharedSpaces) {
++      tty->print_cr("Preload Warning: Cannot find %s", class_name); // No need for AppCDS
+     }
+   }
+ 
+diff --git a/hotspot/src/share/vm/classfile/systemDictionary.cpp b/hotspot/src/share/vm/classfile/systemDictionary.cpp
+index 5c6b094..61140d3 100644
+--- a/hotspot/src/share/vm/classfile/systemDictionary.cpp
++++ b/hotspot/src/share/vm/classfile/systemDictionary.cpp
+@@ -175,6 +175,16 @@ bool SystemDictionary::is_ext_class_loader(Handle class_loader) {
+   return (class_loader->klass()->name() == vmSymbols::sun_misc_Launcher_ExtClassLoader());
+ }
+ 
++/**
++ * Returns true if the passed class loader is the application class loader.
++ */
++bool SystemDictionary::is_app_class_loader(Handle class_loader) {
++  if (class_loader.is_null()) {
++    return false;
++  }
++  return (class_loader->klass()->name() == vmSymbols::sun_misc_Launcher_AppClassLoader());
++}
++
+ // ----------------------------------------------------------------------------
+ // Resolving of classes
+ 
+@@ -336,7 +346,8 @@ Klass* SystemDictionary::resolve_super_or_fail(Symbol* child_name,
+   // Bugs 4643874, 4715493
+   // compute_hash can have a safepoint
+ 
+-  ClassLoaderData* loader_data = class_loader_data(class_loader);
++  // class loader may be not registered yet, so use register_loader, which will return a valid classloaderData anyway.
++  ClassLoaderData* loader_data = register_loader(class_loader, CHECK_NULL);
+   unsigned int d_hash = dictionary()->compute_hash(child_name, loader_data);
+   int d_index = dictionary()->hash_to_index(d_hash);
+   unsigned int p_hash = placeholders()->compute_hash(child_name, loader_data);
+@@ -526,7 +537,8 @@ instanceKlassHandle SystemDictionary::handle_parallel_super_load(
+     Handle protection_domain, Handle lockObject, TRAPS) {
+ 
+   instanceKlassHandle nh = instanceKlassHandle(); // null Handle
+-  ClassLoaderData* loader_data = class_loader_data(class_loader);
++  // class loader may be not registered yet, so use register_loader, which will return a valid classloaderData anyway.
++  ClassLoaderData* loader_data = register_loader(class_loader, CHECK_NULL);
+   unsigned int d_hash = dictionary()->compute_hash(name, loader_data);
+   int d_index = dictionary()->hash_to_index(d_hash);
+   unsigned int p_hash = placeholders()->compute_hash(name, loader_data);
+@@ -1072,6 +1084,19 @@ Klass* SystemDictionary::parse_stream(Symbol* class_name,
+   return k();
+ }
+ 
++static char* convert_into_package_name(char* name) {
++  char* index = strrchr(name, '/');
++  if (index == NULL) {
++    return NULL;
++  } else {  
++    *index = '\0'; // chop to just the package name
++    while ((index = strchr(name, '/')) != NULL) {
++      *index = '.'; // replace '/' with '.' in package name
++    }
++    return name;
++  }
++}
++
+ // Add a klass to the system from a stream (called by jni_DefineClass and
+ // JVM_DefineClass).
+ // Note: class_name can be NULL. In that case we do not know the name of
+@@ -1125,12 +1150,10 @@ Klass* SystemDictionary::resolve_from_stream(Symbol* class_name,
+     // JVM_DefineClass or jni_DefineClass unless you're the bootclassloader
+     ResourceMark rm(THREAD);
+     char* name = parsed_name->as_C_string();
+-    char* index = strrchr(name, '/');
+-    assert(index != NULL, "must be");
+-    *index = '\0'; // chop to just the package name
+-    while ((index = strchr(name, '/')) != NULL) {
+-      *index = '.'; // replace '/' with '.' in package name
+-    }
++
++    name = convert_into_package_name(name);
++    assert(name != NULL, "must be");
++    
+     const char* fmt = "Prohibited package name: %s";
+     size_t len = strlen(fmt) + strlen(name);
+     char* message = NEW_RESOURCE_ARRAY(char, len);
+@@ -1217,12 +1240,62 @@ Klass* SystemDictionary::find_shared_class(Symbol* class_name) {
+ 
+ instanceKlassHandle SystemDictionary::load_shared_class(
+                  Symbol* class_name, Handle class_loader, TRAPS) {
+-  instanceKlassHandle ik (THREAD, find_shared_class(class_name));
+-  // Make sure we only return the boot class for the NULL classloader.
+-  if (ik.not_null() &&
+-      SharedClassUtil::is_shared_boot_class(ik()) && class_loader.is_null()) {
+-    Handle protection_domain;
+-    return load_shared_class(ik, class_loader, protection_domain, THREAD);
++  if (!(class_loader.is_null() ||  SystemDictionary::is_app_class_loader(class_loader) ||
++                                  SystemDictionary::is_ext_class_loader(class_loader))) {
++    return instanceKlassHandle();
++  }
++
++  instanceKlassHandle ik (THREAD, find_shared_class(class_name)); // InstanceKlass is find with null class loader.
++  if (ik.not_null()) {
++    if (!UseAppCDS) {
++      // CDS logic
++      if (SharedClassUtil::is_shared_boot_class(ik()) && class_loader.is_null()) {
++        // CDS record boot class load index.
++        Handle protection_domain;
++        return load_shared_class(ik, class_loader, protection_domain, THREAD);
++      }
++    } else {
++      // AppCDS logic. Only use null loader only to load classes that
++      // have been dumped by null loader. For non-null class loaders,
++      // either the class loader data is not initialized (but also not
++      // null) or the same class loader is used to load previously
++      // defined class
++      bool bFound = false;
++        if (class_loader.is_null()) {
++          // condition1: Bootstrap class loader loaded
++          bFound = (ik()->class_loader_data() == NULL || ik()->class_loader_data()->is_the_null_class_loader_data());
++        } else if (ik()->class_loader_data() != NULL) {
++          // condition2: App Class Loader
++          // condition3: ExtClass Loader
++          // Condition4: not fake class Loader, real one
++          bFound = ((ik->has_fake_loader_data_App() && SystemDictionary::is_app_class_loader(class_loader)) ||
++                    (ik->has_fake_loader_data_Ext() && SystemDictionary::is_ext_class_loader(class_loader)) ||
++                    (!ik->has_fake_loader_data() && ik()->class_loader() == class_loader()));
++          }
++          if (!bFound) {
++            return instanceKlassHandle();
++          }
++
++          // get protection domain for this class if not loaded by null class loader
++          if (class_loader.not_null()) {
++            ResourceMark rm(THREAD);
++            char* name = ik->name()->as_C_string();
++            Handle klass_name = java_lang_String::create_from_str(name, CHECK_0);
++            JavaValue result(T_OBJECT);
++
++            // ClassLoaderData* loader_data = ClassLoaderData::class_loader_data(class_loader());
++            JavaCalls::call_virtual(&result,
++                                    class_loader,
++                                    KlassHandle(THREAD, SystemDictionary::URLClassLoader_klass()),
++                                    vmSymbols::getProtectionDomainInternal_name(),
++                                    vmSymbols::getProtectionDomainInternal_signature(),
++                                    klass_name,
++                                    THREAD);
++            return load_shared_class(ik, class_loader, Handle(THREAD, (oop) result.get_jobject()), THREAD);
++          } else {
++            return load_shared_class(ik, class_loader, Handle(), THREAD);
++          }
++      }
+   }
+   return instanceKlassHandle();
+ }
+@@ -1298,6 +1371,7 @@ instanceKlassHandle SystemDictionary::load_shared_class(instanceKlassHandle ik,
+ 
+     if (DumpLoadedClassList != NULL && classlist_file->is_open()) {
+       // Only dump the classes that can be stored into CDS archive
++      // unless AppCDS is enabled
+       if (SystemDictionaryShared::is_sharing_possible(loader_data)) {
+         ResourceMark rm(THREAD);
+         classlist_file->print_cr("%s", ik->name()->as_C_string());
+@@ -1308,6 +1382,32 @@ instanceKlassHandle SystemDictionary::load_shared_class(instanceKlassHandle ik,
+     // notify a class loaded from shared object
+     ClassLoadingService::notify_class_loaded(InstanceKlass::cast(ik()),
+                                              true /* shared class */);
++
++     // register package for this class, if necessary
++    if (UseAppCDS && class_loader.not_null()) {
++
++      ResourceMark rm(THREAD);
++      char* name = ik->name()->as_C_string();
++      name = convert_into_package_name(name);
++      if (name != NULL) {
++        // not a default package
++        Handle package_name = java_lang_String::create_from_str(name, CHECK_0);
++        // The digital 4 is used only once, indicating the parameter number of
++        // the method invoked in JavaCalls::call_virtual
++        JavaCallArguments args(4);
++        args.push_oop(class_loader);
++        args.push_oop(package_name);
++        args.push_oop(Handle());
++        args.push_oop(Handle());
++        JavaValue result(T_VOID);
++        JavaCalls::call_virtual(&result,
++                                KlassHandle(THREAD, SystemDictionary::URLClassLoader_klass()),
++                                vmSymbols::definePackageInternal_name(),
++                                vmSymbols::definePackageInternal_signature(),
++                                &args,
++                                CHECK_0);
++      }
++    }
+   }
+   return ik;
+ }
+@@ -2167,7 +2267,6 @@ void SystemDictionary::update_dictionary(int d_index, unsigned int d_hash,
+ // yet and these will be ignored.
+ Klass* SystemDictionary::find_constrained_instance_or_array_klass(
+                     Symbol* class_name, Handle class_loader, TRAPS) {
+-
+   // First see if it has been loaded directly.
+   // Force the protection domain to be null.  (This removes protection checks.)
+   Handle no_protection_domain;
+diff --git a/hotspot/src/share/vm/classfile/systemDictionary.hpp b/hotspot/src/share/vm/classfile/systemDictionary.hpp
+index 6f0b38a..cab7381 100644
+--- a/hotspot/src/share/vm/classfile/systemDictionary.hpp
++++ b/hotspot/src/share/vm/classfile/systemDictionary.hpp
+@@ -649,6 +649,7 @@ public:
+                                                Handle class_loader,
+                                                TRAPS);
+   static bool is_ext_class_loader(Handle class_loader);
++  static bool is_app_class_loader(Handle class_loader);
+ 
+ protected:
+   static Klass* find_shared_class(Symbol* class_name);
+diff --git a/hotspot/src/share/vm/classfile/systemDictionaryShared.hpp b/hotspot/src/share/vm/classfile/systemDictionaryShared.hpp
+index e1adf8b..a8dbda2 100644
+--- a/hotspot/src/share/vm/classfile/systemDictionaryShared.hpp
++++ b/hotspot/src/share/vm/classfile/systemDictionaryShared.hpp
+@@ -35,13 +35,25 @@ public:
+   static instanceKlassHandle find_or_load_shared_class(Symbol* class_name,
+                                                        Handle class_loader,
+                                                        TRAPS) {
++    if (UseAppCDS) {
++      instanceKlassHandle ik = load_shared_class(class_name, class_loader, CHECK_NULL);
++      if (!ik.is_null()) {
++        instanceKlassHandle nh = instanceKlassHandle(); // null Handle
++        ik = find_or_define_instance_class(class_name, class_loader, ik, CHECK_(nh));
++      }
++      return ik;
++    }
+     return instanceKlassHandle();
+   }
+   static void roots_oops_do(OopClosure* blk) {}
+   static void oops_do(OopClosure* f) {}
++  
+   static bool is_sharing_possible(ClassLoaderData* loader_data) {
+     oop class_loader = loader_data->class_loader();
+-    return (class_loader == NULL);
++    return (class_loader == NULL ||
++            (UseAppCDS && (SystemDictionary::is_app_class_loader(class_loader) ||
++                           SystemDictionary::is_ext_class_loader(class_loader)))
++            );
+   }
+ 
+   static size_t dictionary_entry_size() {
+diff --git a/hotspot/src/share/vm/classfile/vmSymbols.hpp b/hotspot/src/share/vm/classfile/vmSymbols.hpp
+index f72a948..6bd8dbe 100644
+--- a/hotspot/src/share/vm/classfile/vmSymbols.hpp
++++ b/hotspot/src/share/vm/classfile/vmSymbols.hpp
+@@ -418,8 +418,8 @@
+   template(getFileURL_signature,                      "(Ljava/io/File;)Ljava/net/URL;")           \
+   template(definePackageInternal_name,                "definePackageInternal")                    \
+   template(definePackageInternal_signature,           "(Ljava/lang/String;Ljava/util/jar/Manifest;Ljava/net/URL;)V") \
+-  template(getProtectionDomain_name,                  "getProtectionDomain")                      \
+-  template(getProtectionDomain_signature,             "(Ljava/security/CodeSource;)Ljava/security/ProtectionDomain;") \
++  template(getProtectionDomainInternal_name,          "getProtectionDomainInternal")              \
++  template(getProtectionDomainInternal_signature,     "(Ljava/lang/String;)Ljava/security/ProtectionDomain;") \
+   template(url_code_signer_array_void_signature,      "(Ljava/net/URL;[Ljava/security/CodeSigner;)V") \
+   template(resolved_references_name,                  "<resolved_references>")                    \
+   template(referencequeue_null_name,                  "NULL")                                     \
+diff --git a/hotspot/src/share/vm/memory/filemap.cpp b/hotspot/src/share/vm/memory/filemap.cpp
+index 644e3b1..0f3c076 100644
+--- a/hotspot/src/share/vm/memory/filemap.cpp
++++ b/hotspot/src/share/vm/memory/filemap.cpp
+@@ -344,12 +344,12 @@ bool FileMapInfo::init_from_file(int fd) {
+ 
+ // Read the FileMapInfo information from the file.
+ bool FileMapInfo::open_for_read() {
+-  _full_path = Arguments::GetSharedArchivePath();
++  _full_path = make_log_name(Arguments::GetSharedArchivePath(), NULL);
+   int fd = open(_full_path, O_RDONLY | O_BINARY, 0);
+   if (fd < 0) {
+     if (errno == ENOENT) {
+       // Not locating the shared archive is ok.
+-      fail_continue("Specified shared archive not found.");
++      fail_continue("Specified shared archive not found. archive file path:%s", _full_path);
+     } else {
+       fail_continue("Failed to open shared archive file (%s).",
+                     strerror(errno));
+@@ -366,7 +366,7 @@ bool FileMapInfo::open_for_read() {
+ // Write the FileMapInfo information to the file.
+ 
+ void FileMapInfo::open_for_write() {
+- _full_path = Arguments::GetSharedArchivePath();
++ _full_path = make_log_name(Arguments::GetSharedArchivePath(), NULL);
+   if (PrintSharedSpaces) {
+     tty->print_cr("Dumping shared data to file: ");
+     tty->print_cr("   %s", _full_path);
+diff --git a/hotspot/src/share/vm/memory/metaspaceShared.cpp b/hotspot/src/share/vm/memory/metaspaceShared.cpp
+index d5826d6..f3c3c51 100644
+--- a/hotspot/src/share/vm/memory/metaspaceShared.cpp
++++ b/hotspot/src/share/vm/memory/metaspaceShared.cpp
+@@ -677,14 +677,9 @@ void MetaspaceShared::link_and_cleanup_shared_classes(TRAPS) {
+       SystemDictionary::classes_do(check_one_shared_class);
+     } while (_check_classes_made_progress);
+ 
+-    if (IgnoreUnverifiableClassesDuringDump) {
+-      // This is useful when running JCK or SQE tests. You should not
+-      // enable this when running real apps.
+-      SystemDictionary::remove_classes_in_error_state();
+-    } else {
+-      tty->print_cr("Please remove the unverifiable classes from your class list and try again");
+-      exit(1);
+-    }
++    // record error message, remove error state, and continue to dump jsa file
++    tty->print_cr("Please remove the unverifiable classes from your class list and try again");
++    SystemDictionary::remove_classes_in_error_state();
+   }
+ 
+   // Copy the dependencies from C_HEAP-alloced GrowableArrays to RO-alloced
+@@ -803,8 +798,12 @@ int MetaspaceShared::preload_and_dump(const char * class_list_path,
+       // Got a class name - load it.
+       TempNewSymbol class_name_symbol = SymbolTable::new_permanent_symbol(class_name, THREAD);
+       guarantee(!HAS_PENDING_EXCEPTION, "Exception creating a symbol.");
++
++      Handle loader = UseAppCDS ? SystemDictionary::java_system_loader() : Handle();
+       Klass* klass = SystemDictionary::resolve_or_null(class_name_symbol,
+-                                                         THREAD);
++                                                       loader,
++                                                       Handle(),
++                                                       THREAD);
+       CLEAR_PENDING_EXCEPTION;
+       if (klass != NULL) {
+         if (PrintSharedSpaces && Verbose && WizardMode) {
+@@ -824,8 +823,8 @@ int MetaspaceShared::preload_and_dump(const char * class_list_path,
+         guarantee(!HAS_PENDING_EXCEPTION, "exception in link_class");
+ 
+         class_count++;
+-      } else {
+-        //tty->print_cr("Preload failed: %s", class_name);
++      } else if (UseAppCDS) {
++        tty->print_cr("Preload failed: %s", class_name);
+       }
+     }
+     fclose(file);
+diff --git a/hotspot/src/share/vm/oops/arrayKlass.cpp b/hotspot/src/share/vm/oops/arrayKlass.cpp
+index 2d2e44b..129bce6 100644
+--- a/hotspot/src/share/vm/oops/arrayKlass.cpp
++++ b/hotspot/src/share/vm/oops/arrayKlass.cpp
+@@ -195,6 +195,12 @@ void ArrayKlass::remove_unshareable_info() {
+   Klass::remove_unshareable_info();
+   // Clear the java mirror
+   set_component_mirror(NULL);
++
++  if (_higher_dimension != NULL) {
++    ArrayKlass *ak = ArrayKlass::cast(higher_dimension());
++    ak->remove_unshareable_info();
++  }
++  _higher_dimension = NULL;
+ }
+ 
+ void ArrayKlass::restore_unshareable_info(ClassLoaderData* loader_data, Handle protection_domain, TRAPS) {
+diff --git a/hotspot/src/share/vm/oops/constantPool.cpp b/hotspot/src/share/vm/oops/constantPool.cpp
+index 98a11fe..4502a01 100644
+--- a/hotspot/src/share/vm/oops/constantPool.cpp
++++ b/hotspot/src/share/vm/oops/constantPool.cpp
+@@ -180,6 +180,20 @@ void ConstantPool::restore_unshareable_info(TRAPS) {
+ }
+ 
+ void ConstantPool::remove_unshareable_info() {
++  if (UseAppCDS) {
++    if (cache() != NULL) {
++      cache()->reset();
++    }
++    for (int i = 0; i < _length; i++) {
++      if (tag_at(i).is_klass()) {
++        Klass* resolvedKlass = resolved_klass_at(i);
++        ResourceMark rm;
++        char* name = resolvedKlass->name()->as_C_string();
++        int len = strlen(name);
++        unresolved_klass_at_put(i, resolvedKlass->name());
++      }
++    }
++  }
+   // Resolved references are not in the shared archive.
+   // Save the length for restoration.  It is not necessarily the same length
+   // as reference_map.length() if invokedynamic is saved.
+diff --git a/hotspot/src/share/vm/oops/cpCache.cpp b/hotspot/src/share/vm/oops/cpCache.cpp
+index cda9a4e..ebcf3d6 100644
+--- a/hotspot/src/share/vm/oops/cpCache.cpp
++++ b/hotspot/src/share/vm/oops/cpCache.cpp
+@@ -673,3 +673,16 @@ void ConstantPoolCache::verify_on(outputStream* st) {
+   // print constant pool cache entries
+   for (int i = 0; i < length(); i++) entry_at(i)->verify(st);
+ }
++
++void ConstantPoolCache::reset() {
++  for (int i = 0; i < length(); i++) {
++    ConstantPoolCacheEntry* entry = entry_at(i);
++    int cp_index = entry->constant_pool_index();
++    if (!entry->is_initial_resolved_ref_index()) {
++      // constant pool cache after initialization contains
++      // placeholders fr handling invokedynamic and invokehandle -
++      // these need to be preserved and all other entries reset
++      entry->initialize_entry(cp_index);
++    }
++  }
++}
+diff --git a/hotspot/src/share/vm/oops/cpCache.hpp b/hotspot/src/share/vm/oops/cpCache.hpp
+index a4a6c3f..48f9bbd 100644
+--- a/hotspot/src/share/vm/oops/cpCache.hpp
++++ b/hotspot/src/share/vm/oops/cpCache.hpp
+@@ -360,7 +360,14 @@ class ConstantPoolCacheEntry VALUE_OBJ_CLASS_SPEC {
+   bool is_double() const                         { return flag_state() == dtos; }
+   TosState flag_state() const                    { assert((uint)number_of_states <= (uint)tos_state_mask+1, "");
+                                                    return (TosState)((_flags >> tos_state_shift) & tos_state_mask); }
+-
++  bool is_initial_resolved_ref_index() const {
++    if (_flags == 0 && _f1 == NULL && bytecode_1() == Bytecodes::_nop && bytecode_2() == Bytecodes::_nop) {
++      return true;
++    } else {
++      return false;
++    }
++  }
++  
+   // Code generation support
+   static WordSize size()                         { return in_WordSize(sizeof(ConstantPoolCacheEntry) / HeapWordSize); }
+   static ByteSize size_in_bytes()                { return in_ByteSize(sizeof(ConstantPoolCacheEntry)); }
+@@ -480,6 +487,8 @@ class ConstantPoolCache: public MetaspaceObj {
+   void dump_cache();
+ #endif // INCLUDE_JVMTI
+ 
++  void reset();
++  
+   // Deallocate - no fields to deallocate
+   DEBUG_ONLY(bool on_stack() { return false; })
+   void deallocate_contents(ClassLoaderData* data) {}
+diff --git a/hotspot/src/share/vm/oops/instanceKlass.cpp b/hotspot/src/share/vm/oops/instanceKlass.cpp
+index 6f881ac..6d67113 100644
+--- a/hotspot/src/share/vm/oops/instanceKlass.cpp
++++ b/hotspot/src/share/vm/oops/instanceKlass.cpp
+@@ -2452,6 +2452,22 @@ void InstanceKlass::remove_unshareable_info() {
+     m->remove_unshareable_info();
+   }
+ 
++  if (UseAppCDS) {
++    if (_oop_map_cache != NULL) {
++      delete _oop_map_cache;
++      _oop_map_cache = NULL;
++    }
++    
++    JNIid::deallocate(jni_ids());
++    set_jni_ids(NULL);
++    
++    jmethodID* jmeths = methods_jmethod_ids_acquire();
++    if (jmeths != (jmethodID*)NULL) {
++      release_set_methods_jmethod_ids(NULL);
++      FreeHeap(jmeths);
++    }
++  }
++
+   // do array classes also.
+   array_klasses_do(remove_unshareable_in_class);
+ }
+diff --git a/hotspot/src/share/vm/oops/klass.cpp b/hotspot/src/share/vm/oops/klass.cpp
+index ba20471..399290f 100644
+--- a/hotspot/src/share/vm/oops/klass.cpp
++++ b/hotspot/src/share/vm/oops/klass.cpp
+@@ -63,6 +63,9 @@ void Klass::set_is_cloneable() {
+   }
+ }
+ 
++ClassLoaderData *Klass::_fake_loader_data_App = reinterpret_cast<ClassLoaderData *>(0xFDFDFDFA);
++ClassLoaderData *Klass::_fake_loader_data_Ext = reinterpret_cast<ClassLoaderData *>(0xFDFDFDFB);
++
+ void Klass::set_name(Symbol* n) {
+   _name = n;
+   if (_name != NULL) _name->increment_refcount();
+@@ -536,8 +539,21 @@ void Klass::remove_unshareable_info() {
+   set_java_mirror(NULL);
+   set_next_link(NULL);
+ 
+-  // Null out class_loader_data because we don't share that yet.
+-  set_class_loader_data(NULL);
++  if (!UseAppCDS) {
++    // CDS logic
++    set_class_loader_data(NULL);
++  } else if (class_loader_data() != NULL) {
++    // AppCDS logic
++    if (class_loader() == NULL) {
++      // Null out class loader data for classes loaded by bootstrap (null) loader
++      set_class_loader_data(NULL);
++    } else if(SystemDictionary::is_ext_class_loader(class_loader())) {
++      // Mark class loaded by system class loader
++      set_class_loader_data(_fake_loader_data_Ext);
++    } else {
++      set_class_loader_data(_fake_loader_data_App);
++    }
++  }
+ }
+ 
+ void Klass::restore_unshareable_info(ClassLoaderData* loader_data, Handle protection_domain, TRAPS) {
+@@ -545,7 +561,10 @@ void Klass::restore_unshareable_info(ClassLoaderData* loader_data, Handle protec
+   // If an exception happened during CDS restore, some of these fields may already be
+   // set.  We leave the class on the CLD list, even if incomplete so that we don't
+   // modify the CLD list outside a safepoint.
+-  if (class_loader_data() == NULL) {
++  if (class_loader_data() == NULL || has_fake_loader_data()) {
++    // CDS should not set fake loader data
++    assert(!has_fake_loader_data() || (has_fake_loader_data() && UseAppCDS),
++        "setting fake loader data possible only with AppCDS enabled");
+     // Restore class_loader_data
+     set_class_loader_data(loader_data);
+ 
+diff --git a/hotspot/src/share/vm/oops/klass.hpp b/hotspot/src/share/vm/oops/klass.hpp
+index 428df42..cb7640c 100644
+--- a/hotspot/src/share/vm/oops/klass.hpp
++++ b/hotspot/src/share/vm/oops/klass.hpp
+@@ -188,6 +188,10 @@ private:
+   // -1.
+   jshort _shared_class_path_index;
+ 
++  // This is used only during AppCDS to mark classes that have non-null class loader
++  static  ClassLoaderData* _fake_loader_data_App;
++  static  ClassLoaderData* _fake_loader_data_Ext;
++
+   friend class SharedClassUtil;
+ protected:
+ 
+@@ -202,6 +206,10 @@ protected:
+   enum StaticLookupMode   { find_static,   skip_static };
+   enum PrivateLookupMode  { find_private,  skip_private };
+ 
++  bool has_fake_loader_data_App() { return class_loader_data() == _fake_loader_data_App; }
++  bool has_fake_loader_data_Ext()  { return class_loader_data() == _fake_loader_data_Ext; }
++  bool has_fake_loader_data() { return (has_fake_loader_data_App() || has_fake_loader_data_Ext()); }
++  
+   bool is_klass() const volatile { return true; }
+ 
+   // super
+diff --git a/hotspot/src/share/vm/runtime/arguments.cpp b/hotspot/src/share/vm/runtime/arguments.cpp
+index f9b6bd3..a04dcac 100644
+--- a/hotspot/src/share/vm/runtime/arguments.cpp
++++ b/hotspot/src/share/vm/runtime/arguments.cpp
+@@ -3020,6 +3020,23 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
+   // Remaining part of option string
+   const char* tail;
+ 
++  // Special handling for UseAppCDS flag - it has to enable
++  // SharedArviveFile flag no matter where it's located in the
++  // argument list (and in order to enable UseAppCDS)
++  for (int index = 0; index < args->nOptions; index++) {
++    const JavaVMOption* option = args->options + index;
++    if (match_option(option, "-XX:+UseAppCDS", &tail)) {
++      if (!process_argument("+UseAppCDS", args->ignoreUnrecognized, origin)) {
++        return JNI_EINVAL;
++      } else {
++        const char* n = "SharedArchiveFile";
++        Flag* shared_archive_flag = Flag::find_flag(n, strlen(n), true, true);
++        shared_archive_flag->unlock_diagnostic();
++        FLAG_SET_CMDLINE(bool, UseAppCDS, true);
++      }
++    }
++  }
++
+   // iterate over arguments
+   for (int index = 0; index < args->nOptions; index++) {
+     bool is_absolute_path = false;  // for -agentpath vs -agentlib
+diff --git a/hotspot/src/share/vm/runtime/globals.hpp b/hotspot/src/share/vm/runtime/globals.hpp
+index 46bbfb4..520cc31 100644
+--- a/hotspot/src/share/vm/runtime/globals.hpp
++++ b/hotspot/src/share/vm/runtime/globals.hpp
+@@ -4010,6 +4010,9 @@ class CommandLineFlags {
+   product(ccstr, ExtraSharedClassListFile, NULL,                            \
+           "Extra classlist for building the CDS archive file")              \
+                                                                             \
++  product(bool, UseAppCDS, false,                                           \
++          "Enable Application Class Data Sharing (AppCDS)")                 \
++                                                                            \
+   experimental(uintx, ArrayAllocatorMallocLimit,                            \
+           SOLARIS_ONLY(64*K) NOT_SOLARIS(max_uintx),                        \
+           "Allocation less than this value will be allocated "              \
+diff --git a/hotspot/src/share/vm/runtime/javaCalls.cpp b/hotspot/src/share/vm/runtime/javaCalls.cpp
+index 12925a9..217b8ff 100644
+--- a/hotspot/src/share/vm/runtime/javaCalls.cpp
++++ b/hotspot/src/share/vm/runtime/javaCalls.cpp
+@@ -310,7 +310,7 @@ void JavaCalls::call(JavaValue* result, methodHandle method, JavaCallArguments*
+ void JavaCalls::call_helper(JavaValue* result, methodHandle* m, JavaCallArguments* args, TRAPS) {
+   // During dumping, Java execution environment is not fully initialized. Also, Java execution
+   // may cause undesirable side-effects in the class metadata.
+-  assert(!DumpSharedSpaces, "must not execute Java bytecodes when dumping");
++  assert(!DumpSharedSpaces || UseAppCDS, "must not execute Java bytecodes when dumping");
+ 
+   methodHandle method = *m;
+   JavaThread* thread = (JavaThread*)THREAD;
+diff --git a/hotspot/src/share/vm/runtime/thread.cpp b/hotspot/src/share/vm/runtime/thread.cpp
+index 03b6aaf..03c1098 100644
+--- a/hotspot/src/share/vm/runtime/thread.cpp
++++ b/hotspot/src/share/vm/runtime/thread.cpp
+@@ -3428,6 +3428,14 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
+     os::pause();
+   }
+ 
++  if (DumpSharedSpaces) {
++    // when dumping shared spaces for AppCDS we must disable bytecode
++    // rewriting as it initializes internal (cached) meta-data that
++    // would be stored in the archive but cannot be carried over to
++    // the next execution
++    RewriteBytecodes = false;
++  }
++
+ #ifndef USDT2
+   HS_DTRACE_PROBE(hotspot, vm__init__begin);
+ #else /* USDT2 */
+@@ -3554,8 +3562,8 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
+ 
+   // At this point, the Universe is initialized, but we have not executed
+   // any byte code.  Now is a good time (the only time) to dump out the
+-  // internal state of the JVM for sharing.
+-  if (DumpSharedSpaces) {
++  // internal state of the JVM for sharing, unless AppCDS is enabled.
++  if (!UseAppCDS && DumpSharedSpaces) {
+     MetaspaceShared::preload_and_dump(CHECK_0);
+     ShouldNotReachHere();
+   }
+@@ -3682,6 +3690,11 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
+     vm_exit_during_initialization(Handle(THREAD, PENDING_EXCEPTION));
+   }
+ 
++  if (UseAppCDS && DumpSharedSpaces) {
++    MetaspaceShared::preload_and_dump(CHECK_0);
++    ShouldNotReachHere();
++  }
++
+ #if INCLUDE_ALL_GCS
+   // Support for ConcurrentMarkSweep. This should be cleaned up
+   // and better encapsulated. The ugly nested if test would go away
+diff --git a/hotspot/src/share/vm/utilities/ostream.cpp b/hotspot/src/share/vm/utilities/ostream.cpp
+index fc17aeb..2b458fe 100644
+--- a/hotspot/src/share/vm/utilities/ostream.cpp
++++ b/hotspot/src/share/vm/utilities/ostream.cpp
+@@ -495,7 +495,7 @@ static const char* make_log_name_internal(const char* log_name, const char* forc
+ // -XX:DumpLoadedClassList=<file_name>
+ // in log_name, %p => pid1234 and
+ //              %t => YYYY-MM-DD_HH-MM-SS
+-static const char* make_log_name(const char* log_name, const char* force_directory) {
++const char* make_log_name(const char* log_name, const char* force_directory) {
+   char timestr[32];
+   get_datetime_string(timestr, sizeof(timestr));
+   return make_log_name_internal(log_name, force_directory, os::current_process_id(),
+diff --git a/hotspot/src/share/vm/utilities/ostream.hpp b/hotspot/src/share/vm/utilities/ostream.hpp
+index fbcb299..530c523 100644
+--- a/hotspot/src/share/vm/utilities/ostream.hpp
++++ b/hotspot/src/share/vm/utilities/ostream.hpp
+@@ -332,4 +332,6 @@ class networkStream : public bufferedStream {
+ 
+ #endif
+ 
++const char* make_log_name(const char* log_name, const char* force_directory);
++
+ #endif // SHARE_VM_UTILITIES_OSTREAM_HPP
+diff --git a/jdk/src/share/classes/java/lang/ClassLoader.java b/jdk/src/share/classes/java/lang/ClassLoader.java
+index 2e98092..f305c1e 100644
+--- a/jdk/src/share/classes/java/lang/ClassLoader.java
++++ b/jdk/src/share/classes/java/lang/ClassLoader.java
+@@ -2182,6 +2182,10 @@ public abstract class ClassLoader {
+ 
+     // Retrieves the assertion directives from the VM.
+     private static native AssertionStatusDirectives retrieveDirectives();
++
++    protected ProtectionDomain getProtectionDomainInternal(String name) {
++        return null;
++    }
+ }
+ 
+ 
+diff --git a/jdk/src/share/classes/java/net/URLClassLoader.java b/jdk/src/share/classes/java/net/URLClassLoader.java
+index 416941c..e82cb6d 100644
+--- a/jdk/src/share/classes/java/net/URLClassLoader.java
++++ b/jdk/src/share/classes/java/net/URLClassLoader.java
+@@ -38,6 +38,7 @@ import java.security.Permission;
+ import java.security.PermissionCollection;
+ import java.security.PrivilegedAction;
+ import java.security.PrivilegedExceptionAction;
++import java.security.ProtectionDomain;
+ import java.security.SecureClassLoader;
+ import java.util.Enumeration;
+ import java.util.List;
+@@ -343,6 +344,25 @@ public class URLClassLoader extends SecureClassLoader implements Closeable {
+         return ucp.getURLs();
+     }
+ 
++    /*
++     * Retrieve protection domain using the specified class name.
++     * Called from the VM to support AppCDS
++     */
++    protected ProtectionDomain getProtectionDomainInternal(String name) {
++        String path = name.replace('.', '/').concat(".class");
++        Resource res = ucp.getResource(path, false);
++
++        if(res == null)
++        {
++            // Should never happen
++            throw new AssertionError("Cannot find resource fpr path  " + path);
++        }
++        URL url = res.getCodeSourceURL();
++        CodeSigner[] signers = res.getCodeSigners();
++        CodeSource cs = new CodeSource(url, signers);
++        return getProtectionDomain(cs);
++    }
++    
+     /**
+      * Finds and loads the class with the specified name from the URL search
+      * path. Any URLs referring to JAR files are loaded and opened as needed
+diff --git a/jdk/src/share/classes/java/security/SecureClassLoader.java b/jdk/src/share/classes/java/security/SecureClassLoader.java
+index 145f4fc..cb5f017 100644
+--- a/jdk/src/share/classes/java/security/SecureClassLoader.java
++++ b/jdk/src/share/classes/java/security/SecureClassLoader.java
+@@ -195,7 +195,7 @@ public class SecureClassLoader extends ClassLoader {
+     /*
+      * Returned cached ProtectionDomain for the specified CodeSource.
+      */
+-    private ProtectionDomain getProtectionDomain(CodeSource cs) {
++    protected ProtectionDomain getProtectionDomain(CodeSource cs) {
+         if (cs == null)
+             return null;
+ 
+@@ -215,6 +215,7 @@ public class SecureClassLoader extends ClassLoader {
+         return pd;
+     }
+ 
++
+     /*
+      * Check to make sure the class loader has been initialized.
+      */
