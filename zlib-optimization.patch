@@ -1,0 +1,882 @@
+diff --git a/jdk/make/lib/CoreLibraries.gmk b/jdk/make/lib/CoreLibraries.gmk
+index c8e4815..c36ac39 100644
+--- a/jdk/make/lib/CoreLibraries.gmk
++++ b/jdk/make/lib/CoreLibraries.gmk
+@@ -257,6 +257,9 @@ ifeq ($(USE_EXTERNAL_LIBZ), true)
+   LIBZIP_EXCLUDES += zlib
+ else
+   ZLIB_CPPFLAGS := -I$(JDK_TOPDIR)/src/share/native/java/util/zip/zlib
++  ifeq ($(OPENJDK_TARGET_CPU), aarch64)
++    ZLIB_CPPFLAGS += -DCRC32_ARMV8_CRC32 -DHASH_ARMV8_CRC32 -march=armv8-a+crc -DUNALIGNED_OK -DADLER32_SIMD_NEON -DSLIDE_HASH_NEON -DINFLATE_CHUNK_SIMD_NEON -O3
++  endif
+ endif
+ 
+ BUILD_LIBZIP_REORDER :=
+@@ -274,7 +277,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBZIP, \
+     LIBRARY := zip, \
+     OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
+     LANG := C, \
+-    OPTIMIZATION := LOW, \
++    OPTIMIZATION := HIGHEST, \
+     SRC := $(JDK_TOPDIR)/src/share/native/java/util/zip, \
+     EXCLUDES := $(LIBZIP_EXCLUDES), \
+     CFLAGS := $(CFLAGS_JDKLIB) \
+diff --git a/jdk/src/share/native/java/util/zip/zlib/deflate.c b/jdk/src/share/native/java/util/zip/zlib/deflate.c
+index f30f71b..c018064 100644
+--- a/jdk/src/share/native/java/util/zip/zlib/deflate.c
++++ b/jdk/src/share/native/java/util/zip/zlib/deflate.c
+@@ -184,8 +184,16 @@ local const config configuration_table[10] = {
+  *    characters, so that a running hash key can be computed from the previous
+  *    key instead of complete recalculation each time.
+  */
+-#define UPDATE_HASH(s,h,c) (h = (((h)<<s->hash_shift) ^ (c)) & s->hash_mask)
++#if defined(HASH_ARMV8_CRC32)
++#include <arm_acle.h>
++#define UPDATE_HASH_CRC_INTERNAL(s, h, c) \
++	(h = __crc32w(0, (c) & 0xFFFFFF) & ((deflate_state *)s)->hash_mask)
+ 
++#define UPDATE_HASH(s, h, c) \
++    UPDATE_HASH_CRC_INTERNAL(s, h, *(unsigned *)((uintptr_t)(&c) - (MIN_MATCH-1)))
++#else
++#define UPDATE_HASH(s,h,c) (h = (((h)<<s->hash_shift) ^ (c)) & s->hash_mask)
++#endif
+ 
+ /* ===========================================================================
+  * Insert string str in the dictionary and set match_head to the previous head
+@@ -222,6 +230,46 @@ local const config configuration_table[10] = {
+  * bit values at the expense of memory usage). We slide even when level == 0 to
+  * keep the hash table consistent if we switch back to level > 0 later.
+  */
++
++#if defined(SLIDE_HASH_NEON)
++#include <arm_neon.h>
++static inline void slide_hash_chain(Pos *table, unsigned int entries, uint16_t window_size) {
++    register uint16x8_t v, *p;
++    register size_t n;
++
++    size_t size = entries * sizeof(table[0]); /* the size of hash table */
++    Assert((size % (sizeof(uint16x8_t) * 8) == 0), "hash table size err"); /* if it's not 0, size err occurs */
++
++    Assert(sizeof(Pos) == 2, "Wrong Pos size"); /* if size of Pos is not 2, release wrong size error */
++    v = vdupq_n_u16(window_size);
++
++    p = (uint16x8_t *)table;
++    n = size / (sizeof(uint16x8_t) * 8);
++    do {
++        p[0] = vqsubq_u16(p[0], v);
++        p[1] = vqsubq_u16(p[1], v);
++        p[2] = vqsubq_u16(p[2], v);
++        p[3] = vqsubq_u16(p[3], v);
++        p[4] = vqsubq_u16(p[4], v);
++        p[5] = vqsubq_u16(p[5], v);
++        p[6] = vqsubq_u16(p[6], v);
++        p[7] = vqsubq_u16(p[7], v);
++        p += 8;
++    } while (--n);
++}
++
++local void slide_hash(s)
++    deflate_state *s;
++{
++    const size_t size = s->hash_size * sizeof(s->head[0]);
++    Assert(sizeof(Pos) == 2, "Wrong Pos size."); /* if size of Pos is not 2, release wrong size error */
++    Assert((size % (sizeof(uint16x8_t)*2)) == 0, "Hash table size error."); /* if it's not 0, size err occurs */
++    slide_hash_chain(s->head, s->hash_size, s->w_size);
++#ifndef FASTEST
++    slide_hash_chain(s->prev, s->w_size, s->w_size);
++#endif
++}
++#else
+ local void slide_hash(s)
+     deflate_state *s;
+ {
+@@ -247,6 +295,7 @@ local void slide_hash(s)
+     } while (--n);
+ #endif
+ }
++#endif
+ 
+ /* ========================================================================= */
+ int ZEXPORT deflateInit_(strm, level, version, stream_size)
+@@ -1198,14 +1247,15 @@ local unsigned read_buf(strm, buf, size)
+     strm->avail_in  -= len;
+ 
+     zmemcpy(buf, strm->next_in, len);
+-    if (strm->state->wrap == 1) {
+-        strm->adler = adler32(strm->adler, buf, len);
+-    }
+ #ifdef GZIP
+-    else if (strm->state->wrap == 2) {
++    if (strm->state->wrap == 2) { /* use crc32 algo */
+         strm->adler = crc32(strm->adler, buf, len);
+-    }
++    } else 
+ #endif
++    if (strm->state->wrap == 1) {
++        strm->adler = adler32(strm->adler, buf, len);
++    }
++
+     strm->next_in  += len;
+     strm->total_in += len;
+ 
+diff --git a/jdk/src/share/native/java/util/zip/zlib/inffast.c b/jdk/src/share/native/java/util/zip/zlib/inffast.c
+index 4bfc995..2084739 100644
+--- a/jdk/src/share/native/java/util/zip/zlib/inffast.c
++++ b/jdk/src/share/native/java/util/zip/zlib/inffast.c
+@@ -81,6 +81,9 @@ unsigned start;         /* inflate()'s starting value for strm->avail_out */
+     unsigned char FAR *out;     /* local strm->next_out */
+     unsigned char FAR *beg;     /* inflate()'s initial strm->next_out */
+     unsigned char FAR *end;     /* while out < end, enough space available */
++#if defined(INFLATE_CHUNK_SIMD_NEON)
++    unsigned char FAR *limit;   /* safety limit for chunky copies */
++#endif
+ #ifdef INFLATE_STRICT
+     unsigned dmax;              /* maximum distance from zlib header */
+ #endif
+@@ -113,7 +116,12 @@ unsigned start;         /* inflate()'s starting value for strm->avail_out */
+ #endif
+     wsize = state->wsize;
+     whave = state->whave;
++#if defined(INFLATE_CHUNK_SIMD_NEON)    
++    limit = out + strm->avail_out;
++    wnext = (state->wnext == 0 && whave >= wsize) ? wsize : state->wnext;
++#else
+     wnext = state->wnext;
++#endif
+     window = state->window;
+     hold = state->hold;
+     bits = state->bits;
+@@ -221,6 +229,45 @@ unsigned start;         /* inflate()'s starting value for strm->avail_out */
+ #endif
+                     }
+                     from = window;
++#if defined(INFLATE_CHUNK_SIMD_NEON)
++                    if (wnext >= op) {          /* contiguous in window */
++                        from += wnext - op;
++                    }
++                    else {                      /* wrap around window */
++                        op -= wnext;
++                        from += wsize - op;
++                        if (op < len) {         /* some from end of window */
++                            len -= op;
++                            out = chunkcopy_safe(out, from, op, limit);
++                            from = window;      /* more from start of window */
++                            op = wnext;
++                            /* This (rare) case can create a situation where
++                               the first chunkcopy below must be checked.
++                             */
++                        }
++                    }
++                    if (op < len) {             /* still need some from output */
++                        out = chunkcopy_safe(out, from, op, limit);
++                        len -= op;
++                        /* When dist is small the amount of data that can be
++                           copied from the window is also small, and progress
++                           towards the dangerous end of the output buffer is
++                           also small.  This means that for trivial memsets and
++                           for chunkunroll_relaxed() a safety check is
++                           unnecessary.  However, these conditions may not be
++                           entered at all, and in that case it's possible that
++                           the main copy is near the end.
++                          */
++                        out = chunkunroll_relaxed(out, &dist, &len);
++                        out = chunkcopy_safe(out, out - dist, len, limit);
++                    }
++                    else {
++                        /* from points to window, so there is no risk of
++                           overlapping pointers requiring memset-like behaviour
++                         */
++                        out = chunkcopy_safe(out, from, len, limit);
++                    }
++#else
+                     if (wnext == 0) {           /* very common case */
+                         from += wsize - op;
+                         if (op < len) {         /* some from window */
+@@ -271,8 +318,18 @@ unsigned start;         /* inflate()'s starting value for strm->avail_out */
+                         if (len > 1)
+                             *out++ = *from++;
+                     }
++#endif
+                 }
+-                else {
++                else { 
++#if defined(INFLATE_CHUNK_SIMD_NEON)
++                    /* Whole reference is in range of current output.  No
++                       range checks are necessary because we start with room
++                       for at least 258 bytes of output, so unroll and roundoff
++                       operations can write beyond `out+len` so long as they
++                       stay within 258 bytes of `out`.
++                     */
++                    out = chunkcopy_lapped_relaxed(out, dist, len);
++#else
+                     from = out - dist;          /* copy direct from output */
+                     do {                        /* minimum length is three */
+                         *out++ = *from++;
+@@ -284,7 +341,8 @@ unsigned start;         /* inflate()'s starting value for strm->avail_out */
+                         *out++ = *from++;
+                         if (len > 1)
+                             *out++ = *from++;
+-                    }
++                    }                   
++#endif
+                 }
+             }
+             else if ((op & 64) == 0) {          /* 2nd level distance code */
+diff --git a/jdk/src/share/native/java/util/zip/zlib/inffast.h b/jdk/src/share/native/java/util/zip/zlib/inffast.h
+index b8da8bb..0def2e3 100644
+--- a/jdk/src/share/native/java/util/zip/zlib/inffast.h
++++ b/jdk/src/share/native/java/util/zip/zlib/inffast.h
+@@ -32,4 +32,374 @@
+    subject to change. Applications should only use zlib.h.
+  */
+ 
++/*
++ * The chunk-copy code below deals with writing the decoded DEFLATE data to
++ * the output with SIMD methods to increase decode speed. Reading the input
++ * to the DEFLATE decoder with a wide, SIMD method can also increase decode
++ * speed. This option is supported on little endian machines, and reads the
++ * input data in 64-bit (8 byte) chunks.
++ */
++
+ void ZLIB_INTERNAL inflate_fast OF((z_streamp strm, unsigned start));
++
++#if defined(INFLATE_CHUNK_SIMD_NEON)
++
++#include <stdint.h>
++#include "zutil.h"
++#include <arm_neon.h>
++
++typedef uint8x16_t z_vec128i_t;
++
++#define Z_STATIC_ASSERT(name, assert) typedef char name[(assert) ? 1 : -1]
++
++#if __STDC_VERSION__ >= 199901L
++#define Z_RESTRICT restrict
++#else
++#define Z_RESTRICT
++#endif
++
++#if defined(__clang__) || defined(__GNUC__) || defined(__llvm__)
++#define Z_BUILTIN_MEMCPY __builtin_memcpy
++#else
++#define Z_BUILTIN_MEMCPY zmemcpy
++#endif
++
++/*
++ * chunk copy type: the z_vec128i_t type size should be exactly 128-bits
++ * and equal to CHUNKCOPY_CHUNK_SIZE.
++ */
++#define CHUNKCOPY_CHUNK_SIZE sizeof(z_vec128i_t)
++
++Z_STATIC_ASSERT(vector_128_bits_wide,
++                CHUNKCOPY_CHUNK_SIZE == sizeof(int8_t) * 16);
++
++/*
++ * Ask the compiler to perform a wide, unaligned load with a machinevst1q_u8
++ * instruction appropriate for the z_vec128i_t type.
++ */
++static inline z_vec128i_t loadchunk(
++    const unsigned char FAR* s)
++{
++    z_vec128i_t v;
++    Z_BUILTIN_MEMCPY(&v, s, sizeof(v));
++    return v;
++}
++
++/*
++ * Ask the compiler to perform a wide, unaligned store with a machine
++ * instruction appropriate for the z_vec128i_t type.
++ */
++static inline void storechunk(
++    unsigned char FAR* d,
++    const z_vec128i_t v)
++{
++    Z_BUILTIN_MEMCPY(d, &v, sizeof(v));
++}
++
++/*
++ * Perform a memcpy-like operation, assuming that length is non-zero and that
++ * it's OK to overwrite at least CHUNKCOPY_CHUNK_SIZE bytes of output even if
++ * the length is shorter than this.
++ *
++ * It also guarantees that it will properly unroll the data if the distance
++ * between `out` and `from` is at least CHUNKCOPY_CHUNK_SIZE, which we rely on
++ * in chunkcopy_relaxed().
++ *
++ * Aside from better memory bus utilisation, this means that short copies
++ * (CHUNKCOPY_CHUNK_SIZE bytes or fewer) will fall straight through the loop
++ * without iteration, which will hopefully make the branch prediction more
++ * reliable.
++ */
++static inline unsigned char FAR* chunkcopy_core(
++    unsigned char FAR* out,
++    const unsigned char FAR* from,
++    unsigned len)
++{
++    const int bump = (--len % CHUNKCOPY_CHUNK_SIZE) + 1;
++    storechunk(out, loadchunk(from));
++    out += bump;
++    from += bump;
++    len /= CHUNKCOPY_CHUNK_SIZE;
++    while (len-- > 0) {
++        storechunk(out, loadchunk(from));
++        out += CHUNKCOPY_CHUNK_SIZE;
++        from += CHUNKCOPY_CHUNK_SIZE;
++    }
++    return out;
++}
++
++/*
++ * Like chunkcopy_core(), but avoid writing beyond of legal output.
++ *
++ * Accepts an additional pointer to the end of safe output.  A generic safe
++ * copy would use (out + len), but it's normally the case that the end of the
++ * output buffer is beyond the end of the current copy, and this can still be
++ * exploited.
++ */
++static inline unsigned char FAR* chunkcopy_core_safe(
++    unsigned char FAR* out,
++    const unsigned char FAR* from,
++    unsigned len,
++    unsigned char FAR* limit)
++{
++    Assert(out + len <= limit, "chunk copy exceeds safety limit");
++    if ((limit - out) < (ptrdiff_t) CHUNKCOPY_CHUNK_SIZE) {
++        const unsigned char FAR* Z_RESTRICT rfrom = from;
++        if (len & 8) {
++            Z_BUILTIN_MEMCPY(out, rfrom, 8);
++            out += 8;
++            rfrom += 8;
++        }
++        if (len & 4) {
++            Z_BUILTIN_MEMCPY(out, rfrom, 4);
++            out += 4;
++            rfrom += 4;
++        }
++        if (len & 2) {
++            Z_BUILTIN_MEMCPY(out, rfrom, 2);
++            out += 2;
++            rfrom += 2;
++        }
++        if (len & 1) {
++            *out++ = *rfrom++;
++        }
++        return out;
++    }
++    return chunkcopy_core(out, from, len);
++}
++
++/*
++ * Perform short copies until distance can be rewritten as being at least
++ * CHUNKCOPY_CHUNK_SIZE.
++ *
++ * Assumes it's OK to overwrite at least the first 2*CHUNKCOPY_CHUNK_SIZE
++ * bytes of output even if the copy is shorter than this.  This assumption
++ * holds within zlib inflate_fast(), which starts every iteration with at
++ * least 258 bytes of output space available (258 being the maximum length
++ * output from a single token; see inffast.c).
++ */
++static inline unsigned char FAR* chunkunroll_relaxed(
++    unsigned char FAR* out,
++    unsigned FAR* dist,
++    unsigned FAR* len)
++{
++    const unsigned char FAR* from = out - *dist;
++    while (*dist < *len && *dist < CHUNKCOPY_CHUNK_SIZE) {
++        storechunk(out, loadchunk(from));
++        out += *dist;
++        *len -= *dist;
++        *dist += *dist;
++    }
++    return out;
++}
++
++/*
++ * v_load64_dup(): load *src as an unaligned 64-bit int and duplicate it in
++ * every 64-bit component of the 128-bit result (64-bit int splat).
++ */
++static inline z_vec128i_t v_load64_dup(const void* src)
++{
++    return vcombine_u8(vld1_u8(src), vld1_u8(src));
++}
++
++/*
++ * v_load32_dup(): load *src as an unaligned 32-bit int and duplicate it in
++ * every 32-bit component of the 128-bit result (32-bit int splat).
++ */
++static inline z_vec128i_t v_load32_dup(const void* src)
++{
++    int32_t i32;
++    Z_BUILTIN_MEMCPY(&i32, src, sizeof(i32));
++    return vreinterpretq_u8_s32(vdupq_n_s32(i32));
++}
++
++/*
++ * v_load16_dup(): load *src as an unaligned 16-bit int and duplicate it in
++ * every 16-bit component of the 128-bit result (16-bit int splat).
++ */
++static inline z_vec128i_t v_load16_dup(const void* src)
++{
++    int16_t i16;
++    Z_BUILTIN_MEMCPY(&i16, src, sizeof(i16));
++    return vreinterpretq_u8_s16(vdupq_n_s16(i16));
++}
++
++/*
++ * v_load8_dup(): load the 8-bit int *src and duplicate it in every 8-bit
++ * component of the 128-bit result (8-bit int splat).
++ */
++static inline z_vec128i_t v_load8_dup(const void* src)
++{
++    return vld1q_dup_u8((const uint8_t*) src);
++}
++
++/*
++ * v_store_128(): store the 128-bit vec in a memory destination (that might
++ * not be 16-byte aligned) void* out.
++ */
++static inline void v_store_128(unsigned char* out, const z_vec128i_t vec)
++{
++    vst1q_u8(out, vec);
++}
++
++/*
++ * Perform an overlapping copy which behaves as a memset() operation, but
++ * supporting periods other than one, and assume that length is non-zero and
++ * that it's OK to overwrite at least CHUNKCOPY_CHUNK_SIZE*3 bytes of output
++ * even if the length is shorter than this.
++ */
++static inline unsigned char FAR* chunkset_store_result(
++    unsigned len,
++    unsigned char FAR* out,
++    z_vec128i_t v)
++{
++    do {
++        v_store_128(out, v);
++        out += sizeof(v);
++        len -= sizeof(v);
++    } while (len > 0);
++    return out;
++}
++
++static inline unsigned char FAR* chunkset_core(unsigned char FAR* out, unsigned period, unsigned len)
++{
++    z_vec128i_t v;
++    const int bump = ((len - 1) % sizeof(v)) + 1;
++    switch (period) {
++        case 1:
++            v = v_load8_dup(out - 1);
++            v_store_128(out, v);
++            out += bump;
++            len -= bump;
++            while (len > 0) {
++                v_store_128(out, v);
++                out += sizeof(v);
++                len -= sizeof(v);
++            }
++            return out;
++        case 2:
++            v = v_load16_dup(out - 2);
++            v_store_128(out, v);
++            out += bump;
++            len -= bump;
++            if (len > 0) {
++                v = v_load16_dup(out - 2);
++                out = chunkset_store_result(len, out, v);
++            }
++            return out;
++        case 4:
++            v = v_load32_dup(out - 4);
++            v_store_128(out, v);
++            out += bump;
++            len -= bump;
++            if (len > 0) {
++                v = v_load32_dup(out - 4);
++                out = chunkset_store_result(len, out, v);
++            }
++            return out;
++        case 8:
++            v = v_load64_dup(out - 8);
++            v_store_128(out, v);
++            out += bump;
++            len -= bump;
++            if (len > 0) {
++                v = v_load64_dup(out - 8);
++                out = chunkset_store_result(len, out, v);
++            }
++            return out;
++    }
++    out = chunkunroll_relaxed(out, &period, &len);
++    return chunkcopy_core(out, out - period, len);
++}
++
++/*
++ * Perform a memcpy-like operation, but assume that length is non-zero and that
++ * it's OK to overwrite at least CHUNKCOPY_CHUNK_SIZE bytes of output even if
++ * the length is shorter than this.
++ *
++ * Unlike chunkcopy_core() above, no guarantee is made regarding the behaviour
++ * of overlapping buffers, regardless of the distance between the pointers.
++ * This is reflected in the `restrict`-qualified pointers, allowing the
++ * compiler to re-order loads and stores.
++ */
++static inline unsigned char FAR* chunkcopy_relaxed(
++    unsigned char FAR* Z_RESTRICT out,
++    const unsigned char FAR* Z_RESTRICT from,
++    unsigned len)
++{
++    return chunkcopy_core(out, from, len);
++}
++
++/*
++ * Like chunkcopy_relaxed(), but avoid writing beyond of legal output.
++ *
++ * Unlike chunkcopy_core_safe() above, no guarantee is made regarding the
++ * behaviour of overlapping buffers, regardless of the distance between the
++ * pointers.  This is reflected in the `restrict`-qualified pointers, allowing
++ * the compiler to re-order loads and stores.
++ *
++ * Accepts an additional pointer to the end of safe output.  A generic safe
++ * copy would use (out + len), but it's normally the case that the end of the
++ * output buffer is beyond the end of the current copy, and this can still be
++ * exploited.
++ */
++static inline unsigned char FAR* chunkcopy_safe(
++    unsigned char FAR* out,
++    const unsigned char FAR* Z_RESTRICT from,
++    unsigned len,
++    unsigned char FAR* limit)
++{
++    Assert(out + len <= limit, "chunk copy exceeds safety limit");
++    return chunkcopy_core_safe(out, from, len, limit);
++}
++
++/*
++ * Perform chunky copy within the same buffer, where the source and destination
++ * may potentially overlap.
++ *
++ * Assumes that len > 0 on entry, and that it's safe to write at least
++ * CHUNKCOPY_CHUNK_SIZE*3 bytes to the output.
++ */
++static inline unsigned char FAR* chunkcopy_lapped_relaxed(
++    unsigned char FAR* out,
++    unsigned dist,
++    unsigned len)
++{
++    if (dist < len && dist < CHUNKCOPY_CHUNK_SIZE) {
++        return chunkset_core(out, dist, len);
++    }
++    return chunkcopy_core(out, out - dist, len);
++}
++
++/*
++ * Behave like chunkcopy_lapped_relaxed(), but avoid writing beyond of legal
++ * output.
++ *
++ * Accepts an additional pointer to the end of safe output.  A generic safe
++ * copy would use (out + len), but it's normally the case that the end of the
++ * output buffer is beyond the end of the current copy, and this can still be
++ * exploited.
++ */
++static inline unsigned char FAR* chunkcopy_lapped_safe(
++    unsigned char FAR* out,
++    unsigned dist,
++    unsigned len,
++    unsigned char FAR* limit)
++{
++    Assert(out + len <= limit, "chunk copy exceeds safety limit");
++    if ((limit - out) < (ptrdiff_t) (3 * CHUNKCOPY_CHUNK_SIZE)) {
++        while (len-- > 0) {
++            *out = *(out - dist);
++            out++;
++        }
++        return out;
++    }
++    return chunkcopy_lapped_relaxed(out, dist, len);
++}
++
++
++#undef Z_STATIC_ASSERT
++#undef Z_RESTRICT
++#undef Z_BUILTIN_MEMCPY
++
++#endif //defined(INFLATE_CHUNK_SIMD_NEON)
+diff --git a/jdk/src/share/native/java/util/zip/zlib/inflate.c b/jdk/src/share/native/java/util/zip/zlib/inflate.c
+index ca904e7..c78e05b 100644
+--- a/jdk/src/share/native/java/util/zip/zlib/inflate.c
++++ b/jdk/src/share/native/java/util/zip/zlib/inflate.c
+@@ -429,9 +429,16 @@ unsigned copy;
+ 
+     /* if it hasn't been done already, allocate space for the window */
+     if (state->window == Z_NULL) {
++#if defined(INFLATE_CHUNK_SIMD_NEON)
++        unsigned wsize = 1U << state->wbits;
++        state->window = (unsigned char FAR *)
++                        ZALLOC(strm, CHUNKCOPY_CHUNK_SIZE + wsize,
++                               sizeof(unsigned char));
++#else
+         state->window = (unsigned char FAR *)
+                         ZALLOC(strm, 1U << state->wbits,
+                                sizeof(unsigned char));
++#endif
+         if (state->window == Z_NULL) return 1;
+     }
+ 
+diff --git a/jdk/src/share/native/java/util/zip/zlib/zadler32.c b/jdk/src/share/native/java/util/zip/zlib/zadler32.c
+index e148022..e024a15 100644
+--- a/jdk/src/share/native/java/util/zip/zlib/zadler32.c
++++ b/jdk/src/share/native/java/util/zip/zlib/zadler32.c
+@@ -83,7 +83,169 @@ local uLong adler32_combine_ OF((uLong adler1, uLong adler2, z_off64_t len2));
+ #  define MOD63(a) a %= BASE
+ #endif
+ 
+-/* ========================================================================= */
++#if defined(ADLER32_SIMD_NEON)
++#include <arm_neon.h>
++/*
++ * Multiply-add bytes by [ 32, 31, 30, ... ] for s2.
++ */
++uint32x4_t ZLIB_INTERNAL mul_add_bytes(
++    uint32x4_t v_s2,
++    uint16x8_t v_column_sum_1,
++    uint16x8_t v_column_sum_2,
++    uint16x8_t v_column_sum_3,
++    uint16x8_t v_column_sum_4)
++{
++    v_s2 = vshlq_n_u32(v_s2, 5);
++
++    v_s2 = vmlal_u16(v_s2, vget_low_u16 (v_column_sum_1),
++        (uint16x4_t) { 32, 31, 30, 29 });
++    v_s2 = vmlal_u16(v_s2, vget_high_u16(v_column_sum_1),
++        (uint16x4_t) { 28, 27, 26, 25 });
++    v_s2 = vmlal_u16(v_s2, vget_low_u16 (v_column_sum_2),
++        (uint16x4_t) { 24, 23, 22, 21 });
++    v_s2 = vmlal_u16(v_s2, vget_high_u16(v_column_sum_2),
++        (uint16x4_t) { 20, 19, 18, 17 });
++    v_s2 = vmlal_u16(v_s2, vget_low_u16 (v_column_sum_3),
++        (uint16x4_t) { 16, 15, 14, 13 });
++    v_s2 = vmlal_u16(v_s2, vget_high_u16(v_column_sum_3),
++        (uint16x4_t) { 12, 11, 10,  9 });
++    v_s2 = vmlal_u16(v_s2, vget_low_u16 (v_column_sum_4),
++        (uint16x4_t) {  8,  7,  6,  5 });
++    v_s2 = vmlal_u16(v_s2, vget_high_u16(v_column_sum_4),
++        (uint16x4_t) {  4,  3,  2,  1 });
++    return v_s2;
++}
++
++/*
++ * Handle leftover data.
++ */
++uLong ZLIB_INTERNAL leftover_handler(uint32_t s1, uint32_t s2, const Bytef *buf, z_size_t len)
++{
++    if (len) {
++        if (len >= 16) {
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++            s2 += (s1 += *buf++);
++
++            len -= 16;
++        }
++
++        while (len--) {
++            s2 += (s1 += *buf++);
++        }
++
++        if (s1 >= BASE)
++            s1 -= BASE;
++        s2 %= BASE;
++    }
++
++    /*
++     * Return the recombined sums.
++     */
++    return s1 | (s2 << 16);
++}
++
++uLong ZLIB_INTERNAL adler32_simd_(uLong adler, const Bytef *buf, z_size_t len)
++{
++    /*
++     * Split Adler-32 into component sums.
++     */
++    uint32_t s1 = adler & 0xffff;
++    uint32_t s2 = adler >> 16;
++    /*
++     * Serially compute s1 & s2, until the data is 16-byte aligned.
++     */
++    if ((uintptr_t)buf & 0xf) {
++        while ((uintptr_t)buf & 0xf) {
++            s2 += (s1 += *buf++);
++            --len;
++        }
++        if (s1 >= BASE)
++            s1 -= BASE;
++        s2 %= BASE;
++    }
++    /*
++     * Process the data in blocks.
++     */
++    const unsigned BLOCK_SIZE = 1 << 5;
++    z_size_t blocks = len / BLOCK_SIZE;
++    len -= blocks * BLOCK_SIZE;
++    while (blocks) {
++        unsigned n = NMAX / BLOCK_SIZE;  /* The NMAX constraint. */
++        if (n > blocks)
++            n = (unsigned) blocks;
++        blocks -= n;
++        /*
++         * Process n blocks of data. At most NMAX data bytes can be
++         * processed before s2 must be reduced modulo BASE.
++         */
++        uint32x4_t v_s2 = (uint32x4_t) { 0, 0, 0, s1 * n };
++        uint32x4_t v_s1 = (uint32x4_t) { 0, 0, 0, 0 };
++
++        uint16x8_t v_column_sum_1 = vdupq_n_u16(0);
++        uint16x8_t v_column_sum_2 = vdupq_n_u16(0);
++        uint16x8_t v_column_sum_3 = vdupq_n_u16(0);
++        uint16x8_t v_column_sum_4 = vdupq_n_u16(0);
++        do {
++            /*
++             * Load 32 input bytes.
++             */
++            const uint8x16_t bytes1 = vld1q_u8((uint8_t*)(buf));
++            const uint8x16_t bytes2 = vld1q_u8((uint8_t*)(buf + 16));
++            /*
++             * Add previous block byte sum to v_s2.
++             */
++            v_s2 = vaddq_u32(v_s2, v_s1);
++            /*
++             * Horizontally add the bytes for s1.
++             */
++            v_s1 = vpadalq_u16(v_s1, vpadalq_u8(vpaddlq_u8(bytes1), bytes2));
++            /*
++             * Vertically add the bytes for s2.
++             */
++            v_column_sum_1 = vaddw_u8(v_column_sum_1, vget_low_u8 (bytes1));
++            v_column_sum_2 = vaddw_u8(v_column_sum_2, vget_high_u8(bytes1));
++            v_column_sum_3 = vaddw_u8(v_column_sum_3, vget_low_u8 (bytes2));
++            v_column_sum_4 = vaddw_u8(v_column_sum_4, vget_high_u8(bytes2));
++            buf += BLOCK_SIZE;
++        } while (--n);
++        v_s2 = mul_add_bytes(v_s2, v_column_sum_1, v_column_sum_2, v_column_sum_3, v_column_sum_4);
++        /*
++         * Sum epi32 ints v_s1(s2) and accumulate in s1(s2).
++         */
++        uint32x2_t sum1 = vpadd_u32(vget_low_u32(v_s1), vget_high_u32(v_s1));
++        uint32x2_t sum2 = vpadd_u32(vget_low_u32(v_s2), vget_high_u32(v_s2));
++        uint32x2_t s1s2 = vpadd_u32(sum1, sum2);
++
++        s1 += vget_lane_u32(s1s2, 0);
++        s2 += vget_lane_u32(s1s2, 1);
++        /*
++         * Reduce.
++         */
++        s1 %= BASE;
++        s2 %= BASE;
++    }
++    return leftover_handler(s1, s2, buf, len);
++
++}
++#endif
++
+ uLong ZEXPORT adler32_z(adler, buf, len)
+     uLong adler;
+     const Bytef *buf;
+@@ -92,6 +254,11 @@ uLong ZEXPORT adler32_z(adler, buf, len)
+     unsigned long sum2;
+     unsigned n;
+ 
++#if defined(ADLER32_SIMD_NEON)
++    if (buf && len >= 64)
++        return adler32_simd_(adler, buf, len);
++#endif
++
+     /* split Adler-32 into component sums */
+     sum2 = (adler >> 16) & 0xffff;
+     adler &= 0xffff;
+diff --git a/jdk/src/share/native/java/util/zip/zlib/zcrc32.c b/jdk/src/share/native/java/util/zip/zlib/zcrc32.c
+index c1965fd..ee4e440 100644
+--- a/jdk/src/share/native/java/util/zip/zlib/zcrc32.c
++++ b/jdk/src/share/native/java/util/zip/zlib/zcrc32.c
+@@ -257,7 +257,56 @@ uLong ZEXPORT crc32_z(crc, buf, len)
+     return crc ^ 0xffffffffUL;
+ }
+ 
+-/* ========================================================================= */
++
++#ifdef CRC32_ARMV8_CRC32
++#include <arm_acle.h>
++
++uLong ZEXPORT crc32(crc, buf, len)
++    uLong crc;
++    const unsigned char FAR *buf;
++    uInt len;
++{
++    
++    uint32_t c = (uint32_t) ~crc;
++
++    if (buf == Z_NULL) return 0UL; 
++
++    while (len && ((uintptr_t)buf & 7)) {
++        c = __crc32b(c, *buf++);
++        --len;
++    }
++
++    const uint64_t *buf8 = (const uint64_t *)buf;
++
++    while (len >= 64) {
++        c = __crc32d(c, *buf8++);
++        c = __crc32d(c, *buf8++);
++        c = __crc32d(c, *buf8++);
++        c = __crc32d(c, *buf8++);
++
++        c = __crc32d(c, *buf8++);
++        c = __crc32d(c, *buf8++);
++        c = __crc32d(c, *buf8++);
++        c = __crc32d(c, *buf8++);
++        len -= 64;
++    }
++
++    while (len >= 8) {
++        c = __crc32d(c, *buf8++);
++        len -= 8;
++    }
++
++    buf = (const unsigned char *)buf8;
++
++    while (len--) {
++        c = __crc32b(c, *buf++);
++    }
++
++    return ~c;
++}
++
++#else
++
+ uLong ZEXPORT crc32(crc, buf, len)
+     uLong crc;
+     const unsigned char FAR *buf;
+@@ -266,6 +315,8 @@ uLong ZEXPORT crc32(crc, buf, len)
+     return crc32_z(crc, buf, len);
+ }
+ 
++#endif
++
+ #ifdef BYFOUR
+ 
+ /*

@@ -1,0 +1,27 @@
+From a409bdd4982a6a463b65b529ed3aedb0c3e29144 Mon Sep 17 00:00:00 2001
+Date: Mon, 17 Aug 2020 19:32:33 +0000
+Subject: [PATCH] Fix LineBuffer::vappend when buffer too small
+
+Summary: <runtime>: fix LineBuffer::vappend when buffer too small
+LLT: NA
+Bug url: NA
+---
+ hotspot/src/share/vm/gc_implementation/g1/g1GCPhaseTimes.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1GCPhaseTimes.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1GCPhaseTimes.cpp
+index 75a9a5f95..185b7d67e 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1GCPhaseTimes.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1GCPhaseTimes.cpp
+@@ -42,7 +42,7 @@ private:
+ 
+   void vappend(const char* format, va_list ap)  ATTRIBUTE_PRINTF(2, 0) {
+     int res = os::vsnprintf(&_buffer[_cur], BUFFER_LEN - _cur, format, ap);
+-    if (res > BUFFER_LEN) {
++    if (_cur + res > BUFFER_LEN) {
+       DEBUG_ONLY(warning("buffer too small in LineBuffer");)
+       _buffer[BUFFER_LEN -1] = 0;
+       _cur = BUFFER_LEN; // vsnprintf above should not add to _buffer if we are called again
+-- 
+2.12.3
+
