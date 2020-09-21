@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 5
+Release: 6
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1064,6 +1064,7 @@ Patch123: recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
 Patch124: Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
 Patch125: Extend-CDS-to-support-app-class-metadata-sharing.patch
 Patch126: zlib-optimization.patch
+Patch127: add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
 
 #############################################
 #
@@ -1486,6 +1487,7 @@ pushd %{top_level_dir_name}
 %patch124 -p1
 %patch125 -p1
 %patch126 -p1
+%patch127 -p1
 
 popd
 
@@ -2105,6 +2107,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Mon Sep 21 2020 noah <hedongbo@huawei.com> -:1.8.0.265-b10.6
+- add add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
+
 * Fri Sep 11 2020 noah <hedongbo@huawei.com> -:1.8.0.265-b10.5
 - add 6896810-Pin.java-fails-with-OOME-during-System.out.p.patch
 - add 8231631-sun-net-ftp-FtpURLConnectionLeak.java-fails-.patch
