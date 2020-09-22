@@ -1,0 +1,25 @@
+commit e1db4422be08222e4d5cf9fbfe8b8a61583976d2
+Date:   Tue Sep 15 20:58:00 2020 +0800
+
+    add DumpSharedSpace guarantee when create anonymous classes
+    
+    Summary: < JDK> : add DumpSharedSpace guarantee when create anonymous classes
+    LLT: NA
+    Bug url: NA
+
+diff --git a/hotspot/src/share/vm/prims/unsafe.cpp b/hotspot/src/share/vm/prims/unsafe.cpp
+index f20bf3d2b..3ab82c5c4 100644
+--- a/hotspot/src/share/vm/prims/unsafe.cpp
++++ b/hotspot/src/share/vm/prims/unsafe.cpp
+@@ -1058,6 +1058,11 @@ Unsafe_DefineAnonymousClass_impl(JNIEnv *env,
+                                  HeapWord* *temp_alloc,
+                                  TRAPS) {
+ 
++  if (DumpSharedSpaces) {
++    tty->print_cr("failed: must not create anonymous classes when dumping.");
++    JVM_Exit(0);
++  }
++
+   if (UsePerfData) {
+     ClassLoader::unsafe_defineClassCallCounter()->inc();
+   }
