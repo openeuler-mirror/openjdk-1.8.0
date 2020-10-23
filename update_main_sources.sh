@@ -31,11 +31,10 @@ if [ "x$REPO_NAME" = "x" ] ; then
     REPO_NAME="jdk8u-shenandoah"
 fi
 if [ "x$VERSION" = "x" ] ; then
-    VERSION="aarch64-shenandoah-jdk8u262-b10"
+    VERSION="aarch64-shenandoah-jdk8u272-b10"
 fi
 
 if [ "x$COMPRESSION" = "x" ] ; then
-# rhel 5 needs tar.gz
     COMPRESSION=xz
 fi
 if [ "x$FILE_NAME_ROOT" = "x" ] ; then
@@ -82,7 +81,7 @@ spec_date=`date +"%a %b %d %Y"`
 revision_helper=`echo ${MAIN_VERSION%-*}`
 updatever=`echo ${revision_helper##*u}`
 buildver=`echo ${MAIN_VERSION##*-}`
-echo "* $spec_date $user_full_name <$user_name@redhat.com> - 1:1.8.0.$updatever-$RELEASE.$buildver" 
+echo "* $spec_date $user_full_name <$user_name@huawei.com> - 1:1.8.0.$updatever-$RELEASE.$buildver" 
 echo "- updated to $MAIN_VERSION (from $PROJECT_NAME/$MAIN_REPO_NAME)"
 echo "- updated to $VERSION (from $PROJECT_NAME/$REPO_NAME) of hotspot"
 echo "- used $FILENAME as new sources"

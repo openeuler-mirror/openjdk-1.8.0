@@ -92,12 +92,12 @@ diff --git a/jdk/src/share/classes/java/io/ObjectInputStream.java b/jdk/src/shar
 index 5d30f2a01..b67f01719 100644
 --- a/jdk/src/share/classes/java/io/ObjectInputStream.java
 +++ b/jdk/src/share/classes/java/io/ObjectInputStream.java
-@@ -49,6 +49,7 @@ import sun.misc.SharedSecrets;
- import sun.misc.JavaOISAccess;
+@@ -52,6 +52,7 @@ import sun.misc.JavaOISAccess;
  import sun.util.logging.PlatformLogger;
  import sun.security.action.GetBooleanAction;
+ import sun.security.action.GetIntegerAction;
 +import sun.misc.Unsafe;
- 
+
  /**
   * An ObjectInputStream deserializes primitive data and objects previously
 @@ -284,6 +285,22 @@ public class ObjectInputStream

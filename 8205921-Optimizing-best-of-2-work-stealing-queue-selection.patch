@@ -174,9 +174,9 @@ index 28dd5aad..271b33a5 100644
          if (_cm->verbose_medium()) {
            gclog_or_tty->print_cr("[%u] stolen " PTR_FORMAT " successfully",
                                   _worker_id, p2i((void*) obj));
-@@ -4605,7 +4605,7 @@ CMTask::CMTask(uint worker_id,
-   : _g1h(G1CollectedHeap::heap()),
+@@ -4612,7 +4614,7 @@ CMTask::CMTask(uint worker_id,
      _worker_id(worker_id), _cm(cm),
+     _objArray_processor(this),
      _claimed(false),
 -    _nextMarkBitMap(NULL), _hash_seed(17),
 +    _nextMarkBitMap(NULL),
