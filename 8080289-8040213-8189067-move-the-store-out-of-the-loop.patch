@@ -1,12 +1,9 @@
 From c2d7c271a60a6892bbbf7a2d585aa5b50c85bef1 Mon Sep 17 00:00:00 2001
-From: sunjianye <sunjianye@huawei.com>
 Date: Sat, 23 May 2020 17:40:00 +0800
 Subject: [PATCH] 8080289 8040213 8189067: move the store out of the loop
 
-DTS/AR: AR.SR.IREQ02373832.002.001
 Summary: <superWord>  : move the store out of the loop
 LLT: NA
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8080289 https://bugs.openjdk.java.net/browse/JDK-8040213 https://bugs.openjdk.java.net/browse/JDK-8189067
 ---
  hotspot/src/share/vm/opto/loopnode.cpp        |   2 +-

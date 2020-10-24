@@ -1,0 +1,193 @@
+From 3276b4d8d066703d3abc81e3a7815d1c03474af2 Mon Sep 17 00:00:00 2001
+Date: Wed, 19 Aug 2020 17:43:46 +0000
+Subject: [PATCH] 8243670:Unexpected test result caused by C2
+ MergeMemNode::Ideal
+
+Summary: <c2>: <Unexpected test result caused by C2 MergeMemNode>
+LLT: hotspot/test/compiler/c2/TestReplaceEquivPhis.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8243670
+---
+ hotspot/src/share/vm/opto/cfgnode.cpp              | 24 +++++++
+ hotspot/src/share/vm/opto/memnode.cpp              | 20 +-----
+ hotspot/src/share/vm/opto/type.hpp                 |  7 ++
+ hotspot/test/compiler/c2/TestReplaceEquivPhis.java | 77 ++++++++++++++++++++++
+ 4 files changed, 109 insertions(+), 19 deletions(-)
+ create mode 100644 hotspot/test/compiler/c2/TestReplaceEquivPhis.java
+
+diff --git a/hotspot/src/share/vm/opto/cfgnode.cpp b/hotspot/src/share/vm/opto/cfgnode.cpp
+index dd5a5ec41..f3d223fbd 100644
+--- a/hotspot/src/share/vm/opto/cfgnode.cpp
++++ b/hotspot/src/share/vm/opto/cfgnode.cpp
+@@ -1156,6 +1156,30 @@ Node *PhiNode::Identity( PhaseTransform *phase ) {
+     if (id != NULL)  return id;
+   }
+ 
++  // Looking for phis with identical inputs.  If we find one that has
++  // type TypePtr::BOTTOM, replace the current phi with the bottom phi.
++  if (phase->is_IterGVN() && type() == Type::MEMORY && adr_type() !=
++      TypePtr::BOTTOM && !adr_type()->is_known_instance()) {
++    uint phi_len = req();
++    Node* phi_reg = region();
++    for (DUIterator_Fast imax, i = phi_reg->fast_outs(imax); i < imax; i++) {
++      Node* u = phi_reg->fast_out(i);
++      if (u->is_Phi() && u->as_Phi()->type() == Type::MEMORY &&
++          u->adr_type() == TypePtr::BOTTOM && u->in(0) == phi_reg &&
++          u->req() == phi_len) {
++        for (uint j = 1; j < phi_len; j++) {
++          if (in(j) != u->in(j)) {
++            u = NULL;
++            break;
++          }
++        }
++        if (u != NULL) {
++          return u;
++        }
++      }
++    }
++  }
++
+   return this;                     // No identity
+ }
+ 
+diff --git a/hotspot/src/share/vm/opto/memnode.cpp b/hotspot/src/share/vm/opto/memnode.cpp
+index 68a13dbd8..f2a2ee6a2 100644
+--- a/hotspot/src/share/vm/opto/memnode.cpp
++++ b/hotspot/src/share/vm/opto/memnode.cpp
+@@ -4418,25 +4418,7 @@ Node *MergeMemNode::Ideal(PhaseGVN *phase, bool can_reshape) {
+       new_mem = old_mmem->memory_at(i);
+     }
+     // else preceding memory was not a MergeMem
+-
+-    // replace equivalent phis (unfortunately, they do not GVN together)
+-    if (new_mem != NULL && new_mem != new_base &&
+-        new_mem->req() == phi_len && new_mem->in(0) == phi_reg) {
+-      if (new_mem->is_Phi()) {
+-        PhiNode* phi_mem = new_mem->as_Phi();
+-        for (uint i = 1; i < phi_len; i++) {
+-          if (phi_base->in(i) != phi_mem->in(i)) {
+-            phi_mem = NULL;
+-            break;
+-          }
+-        }
+-        if (phi_mem != NULL) {
+-          // equivalent phi nodes; revert to the def
+-          new_mem = new_base;
+-        }
+-      }
+-    }
+-
++    
+     // maybe store down a new value
+     Node* new_in = new_mem;
+     if (new_in == new_base)  new_in = empty_mem;
+diff --git a/hotspot/src/share/vm/opto/type.hpp b/hotspot/src/share/vm/opto/type.hpp
+index a9352345e..321d79914 100644
+--- a/hotspot/src/share/vm/opto/type.hpp
++++ b/hotspot/src/share/vm/opto/type.hpp
+@@ -431,6 +431,8 @@ public:
+     return exact_kls != NULL;
+   }
+ 
++  virtual bool is_known_instance() const { return false; }
++
+ private:
+   // support arrays
+   static const Type*        _zero_type[T_CONFLICT+1];
+@@ -1332,6 +1334,11 @@ public:
+     return _ptrtype;
+   }
+ 
++  bool is_known_instance() const {
++    return _ptrtype->is_known_instance();
++  }
++
++
+ #ifndef PRODUCT
+   virtual void dump2( Dict &d, uint depth, outputStream *st ) const;
+ #endif
+diff --git a/hotspot/test/compiler/c2/TestReplaceEquivPhis.java b/hotspot/test/compiler/c2/TestReplaceEquivPhis.java
+new file mode 100644
+index 000000000..d4c93b390
+--- /dev/null
++++ b/hotspot/test/compiler/c2/TestReplaceEquivPhis.java
+@@ -0,0 +1,77 @@
++/*
++ * Copyright (c) 2020, Huawei Technologies Co. Ltd. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++
++/**
++ * @test
++ * @bug 8243670
++ * @summary Unexpected test result caused by C2 MergeMemNode::Ideal
++ *
++ * @run main/othervm -Xcomp -XX:-SplitIfBlocks
++ *      -XX:CompileOnly=compiler.c2.TestReplaceEquivPhis::test
++ *      -XX:-BackgroundCompilation compiler.c2.TestReplaceEquivPhis
++ */
++
++package compiler.c2;
++
++public class TestReplaceEquivPhis {
++
++    public static final int N = 400;
++    public static volatile int instanceCount = 0;
++    public int iFld = 0;
++    public static int iArrFld[] = new int[N];
++
++    public int test() {
++        int v = 0;
++        boolean bArr[] = new boolean[N];
++
++        for (int i = 1; i < 344; i++) {
++            iFld = i;
++            for (int j = 2; j <177 ; j++) {
++                v = iFld;
++                iFld = TestReplaceEquivPhis.instanceCount;
++                TestReplaceEquivPhis.iArrFld[i] = 0;
++                iFld += TestReplaceEquivPhis.instanceCount;
++                TestReplaceEquivPhis.iArrFld[i] = 0;
++                bArr[j] = false;
++                TestReplaceEquivPhis.instanceCount = 1;
++
++                for (int k = 1; k < 3; k++) {
++                    // do nothing
++                }
++            }
++        }
++        return v;
++    }
++
++    public static void main(String[] args) {
++            TestReplaceEquivPhis obj = new TestReplaceEquivPhis();
++            for (int i = 0; i < 5; i++) {
++                int result = obj.test();
++                if (result != 2) {
++                    throw new RuntimeException("Test failed.");
++                }
++            }
++            System.out.println("Test passed.");
++    }
++
++}
+-- 
+2.12.3
+

@@ -1,12 +1,9 @@
 From b5c192bb3dc57021996545b0bac822d73c75ec19 Mon Sep 17 00:00:00 2001
-From: sunjianye <sunjianye@huawei.com>
 Date: Thu, 23 Apr 2020 16:12:34 +0800
 Subject: [PATCH] add vm option BoxTypeCachedMax for Integer and Long cache
 
-DTS/AR: AR.SR.IREQ02373832.002.001
 Summary: < JDK>  : add vm option BoxTypeCachedMax for Integer and Long cache
 LLT: NA
-Patch Type: huawei
 Bug url: NA
 ---
  hotspot/src/share/vm/opto/c2_globals.hpp   |  3 ++

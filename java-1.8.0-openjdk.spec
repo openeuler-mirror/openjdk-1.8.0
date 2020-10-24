@@ -77,7 +77,7 @@
 %global bootstrap_build 0
 %endif
 
-%global release_targets images zip-docs
+%global release_targets images docs-zip
 # No docs nor bootcycle for debug builds
 %global debug_targets images
 
@@ -148,7 +148,7 @@
 # Define old aarch64/jdk8u tree variables for compatibility
 %global project		aarch64-port
 %global repo		jdk8u-shenandoah
-%global revision    	aarch64-shenandoah-jdk8u265-b01
+%global revision    	aarch64-shenandoah-jdk8u272-b10
 %global full_revision	%{project}-%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 2
+Release: 0
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -973,12 +973,9 @@ Patch1:	 8160300.patch
 Patch8:	 replace-vector-to-improve-performance-of-xml.validat.patch
 Patch9:	 AARCH64-fix-itable-stub-code-size-limit.patch
 Patch10: 8221658.patch
-Patch11: 8148754-C2-loop-unrolling-fails-due-to-unexpected-gr.patch
 Patch12: add-debuginfo-for-libsaproc-on-aarch64.patch
-Patch13: 8171537.patch
 Patch18: fix-vendor-info.patch
 Patch21: 8202952-C2-Unexpected-dead-nodes-after-matching.patch
-Patch22: 8161072.patch
 Patch24: 8134883.patch
 Patch25: FromCardCache-default-card-index-can-cause.patch
 Patch26: disable-UseLSE-on-ARMv8.1-by-default.patch
@@ -987,7 +984,6 @@ Patch28: 8194246.patch
 Patch29: 8214345.patch
 Patch30: 8191483.patch
 Patch31: 8141356.patch
-Patch32: 8151788.patch
 Patch33: 8166253.patch
 Patch34: 8191955.patch
 Patch35: 8186042-OopmapCache-implementation.patch
@@ -995,13 +991,10 @@ Patch36: 8060463.patch
 Patch37: 8131600.patch
 Patch38: 8138971.patch
 Patch40: 8129626.patch
-Patch41: 8203699-java-lang-invoke-SpecialInte.patch
 Patch45: 8191129.patch
 Patch46: 8182036.patch
 Patch47: 8166197.patch
-Patch48: 8158946-JDK-8165808-JDK-8166583-JDK-.patch
 Patch51: add-with-company-name-option.patch
-Patch56: 8160369.patch
 Patch57: 8031085.patch
 Patch58: Reduce-the-probability-of-the-crash-related-to-ciObj.patch
 Patch62: 8165857-CMS-_overflow_list-is-missing-volatile-speci.patch
@@ -1012,7 +1005,6 @@ Patch70: 8164948.patch
 Patch72: inline-optimize-for-aarch64.patch
 
 # 8u242
-Patch73: PS-GC-adding-acquire_size-method-for-PSParallelCompa.patch
 Patch74: 8191915-java.lang.Math.multiplyExact-not-throw-an-ex.patch
 Patch75: Add-ability-to-configure-third-port-for-remote-JMX.patch
 Patch76: 8203196-C1-emits-incorrect-code-due-to-integer-overf.patch
@@ -1037,12 +1029,28 @@ Patch95: 8205921-Optimizing-best-of-2-work-stealing-queue-selection.patch
 # 8u265
 Patch96: fix-Long-cache-range-and-remove-VM-option-java.lang.IntegerCache.high-by-default.patch
 Patch97: leaf-optimize-in-ParallelScanvageGC.patch
-Patch98: 8046294-Generate-the-4-byte-timestamp-randomly.patch
-Patch100: 8203481-Incorrect-constraint-for-unextended_sp-in-frame-safe_for_sender.patch
 Patch102: fix-LongCache-s-range-when-BoxTypeCachedMax-number-is-bigger-than-Integer.MAX_VALUE.patch
 Patch103: Ddot-intrinsic-implement.patch
 Patch104: 8234003-Improve-IndexSet-iteration.patch
 Patch105: 8220159-Optimize-various-RegMask-operations-by-introducing-watermarks.patch
+Patch106: fast-serializer-jdk8.patch
+Patch107: 6896810-Pin.java-fails-with-OOME-during-System.out.p.patch
+Patch108: 8231631-sun-net-ftp-FtpURLConnectionLeak.java-fails-.patch
+Patch109: Test8167409.sh-fails-to-run-with-32bit-jdk-on-64bit-.patch
+Patch111: The-runok-method-retrying-another-port-does-not-take.patch
+Patch112: 8048210-8056152-fix-assert-fail-for-an-InnocuousThre.patch
+Patch113: 8160425-Vectorization-with-signalling-NaN-returns-wr.patch
+Patch114: 8181503-Can-t-compile-hotspot-with-c-11.patch
+Patch115: 8243670-Unexpected-test-result-caused-by-C2-MergeMem.patch
+Patch116: fix-crash-in-JVMTI-debug.patch
+Patch118: Fix-LineBuffer-vappend-when-buffer-too-small.patch
+Patch121: Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
+Patch122: optimize-jmap-F-dump-xxx.patch
+Patch123: recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
+Patch124: Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
+Patch125: Extend-CDS-to-support-app-class-metadata-sharing.patch
+Patch126: zlib-optimization.patch
+Patch127: add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
 
 #############################################
 #
@@ -1066,7 +1074,6 @@ Patch539: pr2888-openjdk_should_check_for_system_cacerts_database_eg_etc_pki_jav
 # to OpenJDK 8u.
 #############################################
 # S8154313: Generated javadoc scattered all over the place
-Patch578: jdk8154313-generated_javadoc_scattered_all_over_the_place.patch
 # 8035341: Allow using a system installed libpng
 # Patch202: jdk8035341-allow_using_system_installed_libpng.patch
 # 8042159: Allow using a system-installed lcms2
@@ -1382,12 +1389,9 @@ pushd %{top_level_dir_name}
 %patch8  -p1
 %patch9  -p1
 %patch10 -p1
-%patch11 -p1
 %patch12 -p1
-%patch13 -p1
 %patch18 -p1
 %patch21 -p1
-%patch22 -p1
 %patch24 -p1
 %patch25 -p1
 %patch26 -p1
@@ -1396,7 +1400,6 @@ pushd %{top_level_dir_name}
 %patch29 -p1
 %patch30 -p1
 %patch31 -p1
-%patch32 -p1
 %patch33 -p1
 %patch34 -p1
 %patch35 -p1
@@ -1404,13 +1407,10 @@ pushd %{top_level_dir_name}
 %patch37 -p1
 %patch38 -p1
 %patch40 -p1
-%patch41 -p1
 %patch45 -p1
 %patch46 -p1
 %patch47 -p1
-%patch48 -p1
 %patch51 -p1
-%patch56 -p1
 %patch57 -p1
 %patch58 -p1
 %patch62 -p1
@@ -1419,7 +1419,6 @@ pushd %{top_level_dir_name}
 %patch68 -p1
 %patch70 -p1
 %patch72 -p1
-%patch73 -p1
 %patch74 -p1
 %patch75 -p1
 %patch76 -p1
@@ -1438,13 +1437,28 @@ pushd %{top_level_dir_name}
 %patch95 -p1
 %patch96 -p1
 %patch97 -p1
-%patch98 -p1
-%patch100 -p1
 %patch102 -p1
 %patch103 -p1
 %patch104 -p1
 %patch105 -p1
-
+%patch106 -p1
+%patch107 -p1
+%patch108 -p1
+%patch109 -p1
+%patch111 -p1
+%patch112 -p1
+%patch113 -p1
+%patch114 -p1
+%patch115 -p1
+%patch116 -p1
+%patch118 -p1
+%patch121 -p1
+%patch122 -p1
+%patch123 -p1
+%patch124 -p1
+%patch125 -p1
+%patch126 -p1
+%patch127 -p1
 
 popd
 
@@ -1452,9 +1466,6 @@ popd
 # %patch201
 # %patch202
 # %patch203
-
-# Upstreamable fixes
-%patch578
 
 # RPM-only fixes
 %patch1000
@@ -2064,6 +2075,52 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Oct 23 2020  <guoge1@huawei.com> - 1:1.8.0.272-b10.0
+- updated to aarch64-shenandoah-jdk8u272-b10 (from aarch64-port/jdk8u-shenandoah)
+- deleted:    8046294-Generate-the-4-byte-timestamp-randomly.patch
+- deleted:    8148754-C2-loop-unrolling-fails-due-to-unexpected-gr.patch
+- deleted:    8151788.patch
+- deleted:    8161072.patch
+- deleted:    8171537.patch
+- deleted:    8203481-Incorrect-constraint-for-unextended_sp-in-frame-safe_for_sender.patch
+- deleted:    8203699-java-lang-invoke-SpecialInte.patch
+- modified:   Extend-CDS-to-support-app-class-metadata-sharing.patch
+- deleted:    Test-SSLSocketSSLEngineTemplate.java-intermittent-fa.patch
+- modified:   fast-serializer-jdk8.patch
+- deleted:    fix-CompactibleFreeListSpace-block_size-crash.patch
+- deleted:    fix-incorrect-klass-field-in-oop-with-weak-memory-model.patch
+
+* Mon Sep 21 2020 noah <hedongbo@huawei.com> -:1.8.0.265-b10.6
+- add add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
+
+* Fri Sep 11 2020 noah <hedongbo@huawei.com> -:1.8.0.265-b10.5
+- add 6896810-Pin.java-fails-with-OOME-during-System.out.p.patch
+- add 8231631-sun-net-ftp-FtpURLConnectionLeak.java-fails-.patch
+- add Test8167409.sh-fails-to-run-with-32bit-jdk-on-64bit-.patch
+- add Test-SSLSocketSSLEngineTemplate.java-intermittent-fa.patch
+- add The-runok-method-retrying-another-port-does-not-take.patch
+- add 8048210-8056152-fix-assert-fail-for-an-InnocuousThre.patch
+- add 8160425-Vectorization-with-signalling-NaN-returns-wr.patch
+- add 8181503-Can-t-compile-hotspot-with-c-11.patch
+- add 8243670-Unexpected-test-result-caused-by-C2-MergeMem.patch
+- add fix-crash-in-JVMTI-debug.patch
+- add fix-incorrect-klass-field-in-oop-with-weak-memory-model.patch
+- add Fix-LineBuffer-vappend-when-buffer-too-small.patch
+- add make-disable-precompiled-headers-work.patch
+- add fix-CompactibleFreeListSpace-block_size-crash.patch
+- add Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
+- add optimize-jmap-F-dump-xxx.patch
+- add recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
+- add Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
+- add Extend-CDS-to-support-app-class-metadata-sharing.patch
+- add zlib-optimization.patch
+
+* Tue Sep 8 2020 noah <hedongbo@huawei.com> - 1:1.8.0.265-b10.4
+- add fast-serializer-jdk8.patch
+
+* Mon Sep 7 2020 noah <hedongbo@huawei.com> - 1:1.8.0.265-b10.3
+- Delete some file header information
+
 * Mon Sep 1 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.265-b10.2
 - Remove fast-serializer-jdk8.patch
 
