@@ -68,15 +68,15 @@ index 5c6b094..61140d3 100644
    unsigned int d_hash = dictionary()->compute_hash(name, loader_data);
    int d_index = dictionary()->hash_to_index(d_hash);
    unsigned int p_hash = placeholders()->compute_hash(name, loader_data);
-@@ -1072,6 +1084,19 @@ Klass* SystemDictionary::parse_stream(Symbol* class_name,
+@@ -1074,6 +1086,19 @@ Klass* SystemDictionary::parse_stream(Symbol* class_name,
    return k();
  }
- 
+
 +static char* convert_into_package_name(char* name) {
 +  char* index = strrchr(name, '/');
 +  if (index == NULL) {
 +    return NULL;
-+  } else {  
++  } else {
 +    *index = '\0'; // chop to just the package name
 +    while ((index = strchr(name, '/')) != NULL) {
 +      *index = '.'; // replace '/' with '.' in package name
@@ -85,26 +85,25 @@ index 5c6b094..61140d3 100644
 +  }
 +}
 +
- // Add a klass to the system from a stream (called by jni_DefineClass and
- // JVM_DefineClass).
- // Note: class_name can be NULL. In that case we do not know the name of
-@@ -1125,12 +1150,10 @@ Klass* SystemDictionary::resolve_from_stream(Symbol* class_name,
-     // JVM_DefineClass or jni_DefineClass unless you're the bootclassloader
-     ResourceMark rm(THREAD);
-     char* name = parsed_name->as_C_string();
--    char* index = strrchr(name, '/');
--    assert(index != NULL, "must be");
--    *index = '\0'; // chop to just the package name
--    while ((index = strchr(name, '/')) != NULL) {
--      *index = '.'; // replace '/' with '.' in package name
--    }
+ static bool is_prohibited_package_slow(Symbol* class_name) {
+   // Caller has ResourceMark
+   int length;
+@@ -1147,12 +1172,9 @@ Klass* SystemDictionary::resolve_from_stream(Symbol* class_name,
+       // It is illegal to define classes in the "java." package from
+       // JVM_DefineClass or jni_DefineClass unless you're the bootclassloader
+       char* name = parsed_name->as_C_string();
+-      char* index = strrchr(name, '/');
+-      assert(index != NULL, "must be");
+-      *index = '\0'; // chop to just the package name
+-      while ((index = strchr(name, '/')) != NULL) {
+-        *index = '.'; // replace '/' with '.' in package name
+-      }
++      name = convert_into_package_name(name);
++      assert(name != NULL, "must be");
 +
-+    name = convert_into_package_name(name);
-+    assert(name != NULL, "must be");
-+    
-     const char* fmt = "Prohibited package name: %s";
-     size_t len = strlen(fmt) + strlen(name);
-     char* message = NEW_RESOURCE_ARRAY(char, len);
+       const char* fmt = "Prohibited package name: %s";
+       size_t len = strlen(fmt) + strlen(name);
+       char* message = NEW_RESOURCE_ARRAY(char, len);
 @@ -1217,12 +1240,62 @@ Klass* SystemDictionary::find_shared_class(Symbol* class_name) {
  
  instanceKlassHandle SystemDictionary::load_shared_class(
