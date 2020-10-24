@@ -1,5 +1,5 @@
 #!/bin/bash
-# Generates the 'source tarball' for JDK 8 projects.
+# Generates the 'source tarball' for jdk8u projects.
 #
 # Example:
 # When used from local repo set REPO_ROOT pointing to file:// with your repo
@@ -111,31 +111,31 @@ do
     hg clone ${REPO_ROOT}/${subrepo} -r ${VERSION}
 done
 
-if [ -d jdk ]; then 
-echo "Removing EC source code we don't build"
-rm -vf jdk/src/share/native/sun/security/ec/impl/ec2.h
-rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_163.c
-rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_193.c
-rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_233.c
-rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_aff.c
-rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_mont.c
-rm -vf jdk/src/share/native/sun/security/ec/impl/ecp_192.c
-rm -vf jdk/src/share/native/sun/security/ec/impl/ecp_224.c
-
-echo "Syncing EC list with NSS"
-
-if [ "x$PR3756" = "x" ] ; then
-# get pr3756.patch (from http://icedtea.classpath.org/hg/icedtea8) from most correct tag
-# Do not push it or publish it (see http://icedtea.classpath.org/bugzilla/show_bug.cgi?id=3756)
-    wget http://icedtea.classpath.org/hg/icedtea8/raw-file/tip/patches/pr3756.patch
-    patch -Np1 < pr3756.patch
-    rm pr3756.patch
-else
-    echo "Applying ${PR3756}"
-    patch -Np1 < $PR3756
-fi;
-fi
-find . -name '*.orig' -exec rm -vf '{}' ';'
+#if [ -d jdk ]; then 
+#echo "Removing EC source code we don't build"
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2.h
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_163.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_193.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_233.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_aff.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_mont.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ecp_192.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ecp_224.c
+#
+#echo "Syncing EC list with NSS"
+#
+#if [ "x$PR3756" = "x" ] ; then
+## get pr3756.patch (from http://icedtea.classpath.org/hg/icedtea8) from most correct tag
+## Do not push it or publish it (see http://icedtea.classpath.org/bugzilla/show_bug.cgi?id=3756)
+#    wget http://icedtea.classpath.org/hg/icedtea8/raw-file/tip/patches/pr3756.patch
+#    patch -Np1 < pr3756.patch
+#    rm pr3756.patch
+#else
+#    echo "Applying ${PR3756}"
+#    patch -Np1 < $PR3756
+#fi;
+#fi
+#find . -name '*.orig' -exec rm -vf '{}' ';'
 
 popd
 echo "Compressing remaining forest"
@@ -150,5 +150,3 @@ mv ${TARBALL_NAME} ..
 
 popd
 echo "Done. You may want to remove the uncompressed version."
-
-
