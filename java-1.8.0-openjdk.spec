@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 0
+Release: 1
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1561,8 +1561,8 @@ bash ${top_srcdir_abs_path}/configure \
     --with-milestone="fcs" \
     --with-update-version=%{updatever} \
     --with-build-number=%{buildver} \
-    --with-company-name="Boole" \
-    --with-vendor-name="Boole" \
+    --with-company-name="Bisheng" \
+    --with-vendor-name="Bisheng" \
     --with-vendor-url="https://openeuler.org/" \
     --with-vendor-bug-url="https://gitee.com/src-openeuler/openjdk-1.8.0/issues/" \
     --with-vendor-vm-bug-url="https://gitee.com/src-openeuler/openjdk-1.8.0/issues/" \
@@ -2075,6 +2075,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Sat Oct 24 2020 noah <hedongbo@huawei.com> - 1:1.8.0.272-b10.1
+- rename Boole to Bisheng
+
 * Fri Oct 23 2020  <guoge1@huawei.com> - 1:1.8.0.272-b10.0
 - updated to aarch64-shenandoah-jdk8u272-b10 (from aarch64-port/jdk8u-shenandoah)
 - deleted:    8046294-Generate-the-4-byte-timestamp-randomly.patch
