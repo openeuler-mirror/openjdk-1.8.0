@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 2
+Release: 3
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1054,6 +1054,7 @@ Patch127: add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
 
 # 8u272
 Patch128: 8214440-ldap-over-a-TLS-connection-negotiate-fail.patch
+Patch129: 8248336-AArch64-C2-offset-overflow-in-BoxLockNode-em.patch
 
 #############################################
 #
@@ -1463,6 +1464,7 @@ pushd %{top_level_dir_name}
 %patch126 -p1
 %patch127 -p1
 %patch128 -p1
+%patch129 -p1
 
 popd
 
@@ -2079,6 +2081,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Nov 06 2020 wuyan <wuyan34@huawei.com> - 1:1.8.0.272-b10.2
+- add 8248336-AArch64-C2-offset-overflow-in-BoxLockNode-em.patch
+
 * Fri Nov 06 2020 xiezhaokun <xiezhaokun@huawei.com> - 1:1.8.0.272-b10.2
 - add 8214440-ldap-over-a-TLS-connection-negotiate-fail.patch
 
