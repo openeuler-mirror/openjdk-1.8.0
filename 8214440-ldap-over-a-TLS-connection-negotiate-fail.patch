@@ -1,0 +1,28 @@
+From cad64c28ba497ba1165a5ce4530ce53c4ac6263c Mon Sep 17 00:00:00 2001
+Date: Sat, 31 Oct 2020 22:05:05 +0800
+Subject: [PATCH] 8214440:ldap over a TLS connection negotiate fail
+
+Summary: <java.naming>: ldap over a TLS connection negotiate failed with "javax.net.ssl.SSLPeerUnverifiedException: hostname of the server '' does not match the hostname in the server's certificate"
+LLT: NA
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8214440
+---
+ .../classes/com/sun/jndi/ldap/ext/StartTlsResponseImpl.java    | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/jdk/src/share/classes/com/sun/jndi/ldap/ext/StartTlsResponseImpl.java b/jdk/src/share/classes/com/sun/jndi/ldap/ext/StartTlsResponseImpl.java
+index d9c22b075..2e090fecb 100644
+--- a/jdk/src/share/classes/com/sun/jndi/ldap/ext/StartTlsResponseImpl.java
++++ b/jdk/src/share/classes/com/sun/jndi/ldap/ext/StartTlsResponseImpl.java
+@@ -288,7 +288,8 @@ final public class StartTlsResponseImpl extends StartTlsResponse {
+      */
+     public void setConnection(Connection ldapConnection, String hostname) {
+         this.ldapConnection = ldapConnection;
+-        this.hostname = (hostname != null) ? hostname : ldapConnection.host;
++        this.hostname = (hostname == null || hostname.isEmpty())
++            ? ldapConnection.host : hostname;
+         originalInputStream = ldapConnection.inStream;
+         originalOutputStream = ldapConnection.outStream;
+     }
+-- 
+2.19.0
+
