@@ -1,0 +1,142 @@
+# HG changeset patch
+# User kbarrett
+# Date 1477103211 14400
+#      Fri Oct 21 22:26:51 2016 -0400
+# Node ID 053ad011aea25994e337f1c5dc9bd4dcc63f38cb
+# Parent  7f7c1e1fbc8a70f9730339872ddf56fee812304c
+8166862: CMS needs klass_or_null_acquire
+Summary: Change CMS non-assert uses of klass_or_null to klass_or_null_acquire.
+Reviewed-by: tschatzl, mgerdin
+
+diff --git a/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp b/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
+--- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
++++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/compactibleFreeListSpace.cpp
+@@ -998,18 +998,13 @@
+       // and the klass read.
+       OrderAccess::loadload();
+ 
+-      // must read from what 'p' points to in each loop.
+-      Klass* k = ((volatile oopDesc*)p)->klass_or_null();
++      // Ensure klass read before size.
++      Klass* k = oop(p)->klass_or_null_acquire();
+       if (k != NULL) {
+         assert(k->is_klass(), "Should really be klass oop.");
+         oop o = (oop)p;
+         assert(o->is_oop(true /* ignore mark word */), "Should be an oop.");
+ 
+-        // Bugfix for systems with weak memory model (PPC64/IA64).
+-        // The object o may be an array. Acquire to make sure that the array
+-        // size (third word) is consistent.
+-        OrderAccess::acquire();
+-
+         size_t res = o->size_given_klass(k);
+         res = adjustObjectSize(res);
+         assert(res != 0, "Block size should not be 0");
+@@ -1057,21 +1052,13 @@
+       // and the klass read.
+       OrderAccess::loadload();
+ 
+-      // must read from what 'p' points to in each loop.
+-      Klass* k = ((volatile oopDesc*)p)->klass_or_null();
+-      // We trust the size of any object that has a non-NULL
+-      // klass and (for those in the perm gen) is parsable
+-      // -- irrespective of its conc_safe-ty.
++      // Ensure klass read before size.
++      Klass* k = oop(p)->klass_or_null_acquire();
+       if (k != NULL) {
+         assert(k->is_klass(), "Should really be klass oop.");
+         oop o = (oop)p;
+         assert(o->is_oop(), "Should be an oop");
+ 
+-        // Bugfix for systems with weak memory model (PPC64/IA64).
+-        // The object o may be an array. Acquire to make sure that the array
+-        // size (third word) is consistent.
+-        OrderAccess::acquire();
+-
+         size_t res = o->size_given_klass(k);
+         res = adjustObjectSize(res);
+         assert(res != 0, "Block size should not be 0");
+@@ -1124,7 +1111,7 @@
+   // and the klass read.
+   OrderAccess::loadload();
+ 
+-  Klass* k = oop(p)->klass_or_null();
++  Klass* k = oop(p)->klass_or_null_acquire();
+   if (k != NULL) {
+     // Ignore mark word because it may have been used to
+     // chain together promoted objects (the last one
+diff --git a/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp b/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
+--- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
++++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
+@@ -6728,7 +6728,7 @@
+ HeapWord* CMSCollector::next_card_start_after_block(HeapWord* addr) const {
+   size_t sz = 0;
+   oop p = (oop)addr;
+-  if (p->klass_or_null() != NULL) {
++  if (p->klass_or_null_acquire() != NULL) {
+     sz = CompactibleFreeListSpace::adjustObjectSize(p->size());
+   } else {
+     sz = block_size_using_printezis_bits(addr);
+@@ -7186,7 +7186,7 @@
+   }
+   if (_bitMap->isMarked(addr)) {
+     // it's marked; is it potentially uninitialized?
+-    if (p->klass_or_null() != NULL) {
++    if (p->klass_or_null_acquire() != NULL) {
+         // an initialized object; ignore mark word in verification below
+         // since we are running concurrent with mutators
+         assert(p->is_oop(true), "should be an oop");
+@@ -7227,7 +7227,7 @@
+     }
+   } else {
+     // Either a not yet marked object or an uninitialized object
+-    if (p->klass_or_null() == NULL) {
++    if (p->klass_or_null_acquire() == NULL) {
+       // An uninitialized object, skip to the next card, since
+       // we may not be able to read its P-bits yet.
+       assert(size == 0, "Initial value");
+@@ -7438,7 +7438,7 @@
+     assert(_skipBits == 0, "tautology");
+     _skipBits = 2;  // skip next two marked bits ("Printezis-marks")
+     oop p = oop(addr);
+-    if (p->klass_or_null() == NULL) {
++    if (p->klass_or_null_acquire() == NULL) {
+       DEBUG_ONLY(if (!_verifying) {)
+         // We re-dirty the cards on which this object lies and increase
+         // the _threshold so that we'll come back to scan this object
+@@ -7458,7 +7458,7 @@
+           if (_threshold < end_card_addr) {
+             _threshold = end_card_addr;
+           }
+-          if (p->klass_or_null() != NULL) {
++          if (p->klass_or_null_acquire() != NULL) {
+             // Redirty the range of cards...
+             _mut->mark_range(redirty_range);
+           } // ...else the setting of klass will dirty the card anyway.
+@@ -7609,7 +7609,7 @@
+     assert(_skip_bits == 0, "tautology");
+     _skip_bits = 2;  // skip next two marked bits ("Printezis-marks")
+     oop p = oop(addr);
+-    if (p->klass_or_null() == NULL) {
++    if (p->klass_or_null_acquire() == NULL) {
+       // in the case of Clean-on-Enter optimization, redirty card
+       // and avoid clearing card by increasing  the threshold.
+       return true;
+@@ -8596,7 +8596,7 @@
+            "alignment problem");
+ 
+ #ifdef ASSERT
+-      if (oop(addr)->klass_or_null() != NULL) {
++      if (oop(addr)->klass_or_null_acquire() != NULL) {
+         // Ignore mark word because we are running concurrent with mutators
+         assert(oop(addr)->is_oop(true), "live block should be an oop");
+         assert(size ==
+@@ -8607,7 +8607,7 @@
+ 
+   } else {
+     // This should be an initialized object that's alive.
+-    assert(oop(addr)->klass_or_null() != NULL,
++    assert(oop(addr)->klass_or_null_acquire() != NULL,
+            "Should be an initialized object");
+     // Ignore mark word because we are running concurrent with mutators
+     assert(oop(addr)->is_oop(true), "live block should be an oop");
