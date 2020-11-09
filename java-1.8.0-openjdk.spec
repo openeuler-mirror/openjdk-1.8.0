@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 2
+Release: 4
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1054,6 +1054,12 @@ Patch127: add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
 
 # 8u272
 Patch128: 8214440-ldap-over-a-TLS-connection-negotiate-fail.patch
+Patch129: 8248336-AArch64-C2-offset-overflow-in-BoxLockNode-em.patch
+Patch130: 8165808-Add-release-barriers-when-allocating-objects-with-concurrent-collection.patch
+Patch131: 8166583-Add-oopDesc-klass_or_null_acquire.patch
+Patch132: 8166862-CMS-needs-klass_or_null_acquire.patch
+Patch133: 8160369.patch
+Patch134: PS-GC-adding-acquire_size-method-for-PSParallelCompa.patch
 
 #############################################
 #
@@ -1463,6 +1469,12 @@ pushd %{top_level_dir_name}
 %patch126 -p1
 %patch127 -p1
 %patch128 -p1
+%patch129 -p1
+%patch130 -p1
+%patch131 -p1
+%patch132 -p1
+%patch133 -p1
+%patch134 -p1
 
 popd
 
@@ -2079,6 +2091,16 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Nov 06 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.272-b10.4
+- add 8165808-Add-release-barriers-when-allocating-objects-with-concurrent-collection.patch
+- add 8166583-Add-oopDesc-klass_or_null_acquire.patch
+- add 8166862-CMS-needs-klass_or_null_acquire.patch
+- add 8160369.patch
+- add PS-GC-adding-acquire_size-method-for-PSParallelCompa.patch
+
+* Fri Nov 06 2020 wuyan <wuyan34@huawei.com> - 1:1.8.0.272-b10.3
+- add 8248336-AArch64-C2-offset-overflow-in-BoxLockNode-em.patch
+
 * Fri Nov 06 2020 xiezhaokun <xiezhaokun@huawei.com> - 1:1.8.0.272-b10.2
 - add 8214440-ldap-over-a-TLS-connection-negotiate-fail.patch
 
