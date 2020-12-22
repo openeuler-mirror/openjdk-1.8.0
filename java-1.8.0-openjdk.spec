@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 9
+Release: 10
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1065,6 +1065,7 @@ Patch136: 8236512-PKCS11-Connection-closed-after-Cipher.doFinal-and-NoPadding.pa
 Patch137: 8250861-Crash-in-MinINode-Ideal-PhaseGVN-bool.patch
 Patch138: add-appcds-file-lock.patch
 Patch139: G1-memory-uncommit.patch
+Patch140: 8015927-Class-reference-duplicates-in-constant-pool.patch
 
 #############################################
 #
@@ -1485,6 +1486,7 @@ pushd %{top_level_dir_name}
 %patch137 -p1
 %patch138 -p1
 %patch139 -p1
+%patch140 -p1
 
 popd
 
@@ -2101,6 +2103,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Dec 22 2020 miaozhuojun <mouzhuojun@huawei.com> - 1:1.8.0.272-b10.10
+- add 8015927-Class-reference-duplicates-in-constant-pool.patch
+
 * Thu Dec 22 2020 cruise01 <hexuejin2@huawei.com> - 1:1.8.0.272-b10.9
 - add G1-memory-uncommit.patch
 
