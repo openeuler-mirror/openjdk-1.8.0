@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 6
+Release: 7
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2097,6 +2097,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Mon Dec 21 2020 noah <hedongbo@huawei.com> - 1:1.8.0.272-b10.7
+- add a license to this repo
+
 * Tue Nov 10 2020 ow_wo <fengshijie2@huawei.com> - 1:1.8.0.272-b10.6
 - add 8236512-PKCS11-Connection-closed-after-Cipher.doFinal-and-NoPadding.patch
 - add 8250861-Crash-in-MinINode-Ideal-PhaseGVN-bool.patch 
