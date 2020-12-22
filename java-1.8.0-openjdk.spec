@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 4
+Release: 7
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1060,6 +1060,9 @@ Patch131: 8166583-Add-oopDesc-klass_or_null_acquire.patch
 Patch132: 8166862-CMS-needs-klass_or_null_acquire.patch
 Patch133: 8160369.patch
 Patch134: PS-GC-adding-acquire_size-method-for-PSParallelCompa.patch
+Patch135: 8223940-Private-key-not-supported-by-chosen-signature.patch
+Patch136: 8236512-PKCS11-Connection-closed-after-Cipher.doFinal-and-NoPadding.patch
+Patch137: 8250861-Crash-in-MinINode-Ideal-PhaseGVN-bool.patch
 
 #############################################
 #
@@ -1475,6 +1478,9 @@ pushd %{top_level_dir_name}
 %patch132 -p1
 %patch133 -p1
 %patch134 -p1
+%patch135 -p1
+%patch136 -p1
+%patch137 -p1
 
 popd
 
@@ -2091,6 +2097,16 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Mon Dec 21 2020 noah <hedongbo@huawei.com> - 1:1.8.0.272-b10.7
+- add a license to this repo
+
+* Tue Nov 10 2020 ow_wo <fengshijie2@huawei.com> - 1:1.8.0.272-b10.6
+- add 8236512-PKCS11-Connection-closed-after-Cipher.doFinal-and-NoPadding.patch
+- add 8250861-Crash-in-MinINode-Ideal-PhaseGVN-bool.patch 
+
+* Mon Nov 09 2020 ow_wo <fengshijie2@huawei.com> - 1:1.8.0.272-b10.5
+- add 8223940-Private-key-not-supported-by-chosen-signature.patch
+
 * Fri Nov 06 2020 jdkboy <guoge1@huawei.com> - 1:1.8.0.272-b10.4
 - add 8165808-Add-release-barriers-when-allocating-objects-with-concurrent-collection.patch
 - add 8166583-Add-oopDesc-klass_or_null_acquire.patch
