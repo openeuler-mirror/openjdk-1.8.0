@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 10
+Release: 11
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1066,6 +1066,7 @@ Patch137: 8250861-Crash-in-MinINode-Ideal-PhaseGVN-bool.patch
 Patch138: add-appcds-file-lock.patch
 Patch139: G1-memory-uncommit.patch
 Patch140: 8015927-Class-reference-duplicates-in-constant-pool.patch
+Patch141: 8040327-Eliminate-AnnotatedType-8040319-Clean-up-type-annotation-exception-index.patch
 
 #############################################
 #
@@ -1487,6 +1488,7 @@ pushd %{top_level_dir_name}
 %patch138 -p1
 %patch139 -p1
 %patch140 -p1
+%patch141 -p1
 
 popd
 
@@ -2103,6 +2105,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Wed Dec 23 2020 DataAndOperation <mashoubing1@huawei.com> - 1:1.8.0.272-b10.11
+- add 8040327-Eliminate-AnnotatedType-8040319-Clean-up-type-annotation-exception-index.patch
+
 * Thu Dec 22 2020 miaozhuojun <mouzhuojun@huawei.com> - 1:1.8.0.272-b10.10
 - add 8015927-Class-reference-duplicates-in-constant-pool.patch
 
