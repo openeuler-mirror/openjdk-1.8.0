@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 12
+Release: 13
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1068,6 +1068,7 @@ Patch139: G1-memory-uncommit.patch
 Patch140: 8015927-Class-reference-duplicates-in-constant-pool.patch
 Patch141: 8040327-Eliminate-AnnotatedType-8040319-Clean-up-type-annotation-exception-index.patch
 Patch142: 8207160-ClassReader-adjustMethodParams-can-potentially-return-null-if-the-args-list-is-empty.patch
+Patch143: delete-untrustworthy-cacert.patch 
 
 #############################################
 #
@@ -1491,6 +1492,7 @@ pushd %{top_level_dir_name}
 %patch140 -p1
 %patch141 -p1
 %patch142 -p1
+%patch143 -p1
 
 popd
 
@@ -2107,6 +2109,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Wed Dec 23 2020 hubodao <hubodao@huawei.com> - 1:1.8.0.272-b10.12
+- add delete-untrustworthy-cacert.patch
+
 * Wed Dec 23 2020 wujiahua <wujiahua3@huawei.com> - 1:1.8.0.272-b10.12
 - add 8207160-ClassReader-adjustMethodParams-can-potentially-return-null-if-the-args-list-is-empty.patch
 
