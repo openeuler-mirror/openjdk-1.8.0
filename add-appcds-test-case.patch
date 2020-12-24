@@ -1,0 +1,3720 @@
+diff --git a/hotspot/test/runtime/appcds/AppCDSOptions.java b/hotspot/test/runtime/appcds/AppCDSOptions.java
+new file mode 100644
+index 00000000..f5ebb5d5
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/AppCDSOptions.java
+@@ -0,0 +1,46 @@
++/*
++ * Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++// This class represents options used for
++// during creation of the archive and/or running JVM with archive
++
++import com.oracle.java.testlibrary.cds.CDSOptions;
++
++public class AppCDSOptions extends CDSOptions {
++    public String appJar;
++
++    // Application classes to be archived
++    public String[] appClasses;
++
++    public AppCDSOptions setAppJar(String appJar) {
++        this.appJar = appJar;
++        return this;
++    }
++
++    public AppCDSOptions setAppClasses(String[] appClasses) {
++        this.appClasses = appClasses;
++        return this;
++    }
++
++}
+diff --git a/hotspot/test/runtime/appcds/AppendClasspath.java b/hotspot/test/runtime/appcds/AppendClasspath.java
+new file mode 100644
+index 00000000..7ebe7f62
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/AppendClasspath.java
+@@ -0,0 +1,74 @@
++/*
++ * Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary At run time, it is OK to append new elements to the classpath that was used at dump time.
++ * @library /testlibrary
++ * @compile test-classes/Hello.java
++ * @compile test-classes/HelloMore.java
++ * @run main AppendClasspath
++ */
++
++import java.io.File;
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++public class AppendClasspath {
++
++    public static void main(String[] args) throws Exception {
++        String appJar = JarBuilder.getOrCreateHelloJar();
++        System.out.println("appJar = ");
++        System.out.println(appJar);
++        String appJar2 = JarBuilder.build("AppendClasspath_HelloMore", "HelloMore");
++        System.out.println("appJar2 = ");
++        System.out.println(appJar2);
++        // Dump an archive with a specified JAR file in -classpath
++        TestCommon.testDump(appJar, TestCommon.list("Hello"));
++
++        // PASS: 1) runtime with classpath containing the one used in dump time
++        TestCommon.run(
++                "-cp", appJar + File.pathSeparator + appJar2,
++                "HelloMore")
++                .assertNormalExit();
++
++        // PASS: 2) runtime with classpath different from the one used in dump time
++        TestCommon.run(
++                "-cp", appJar2 + File.pathSeparator + appJar,
++                "HelloMore");
++
++        // PASS: 3) runtime with classpath part of the one used in dump time
++        TestCommon.testDump(appJar + File.pathSeparator + appJar2,
++                TestCommon.list("Hello"));
++        TestCommon.run(
++                "-cp", appJar2,
++                "Hello");
++
++        // PASS: 4) runtime with same set of jar files in the classpath but
++        // with different order
++        TestCommon.run(
++                "-cp", appJar2 + File.pathSeparator + appJar,
++                "HelloMore");
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/CaseSensitiveClassPath.java b/hotspot/test/runtime/appcds/CaseSensitiveClassPath.java
+new file mode 100644
+index 00000000..689d2a17
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/CaseSensitiveClassPath.java
+@@ -0,0 +1,83 @@
++/*
++ * Copyright (c) 2016, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++
++/*
++ * @test
++ * @summary Test case sensitive aspect of comparing class paths
++ *     between dump time and archive use time
++ * @library /testlibrary
++ * @compile test-classes/Hello.java
++ * @run main CaseSensitiveClassPath
++ */
++
++import java.nio.file.FileAlreadyExistsException;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.nio.file.Paths;
++import java.nio.file.StandardCopyOption;
++import com.oracle.java.testlibrary.Platform;
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++
++// Excluded from running on MAC: a more comprehensive case sensitivity detection
++// and fix mechanism is needed, which is planned to be implemented in the future.
++public class CaseSensitiveClassPath {
++    public static void main(String[] args) throws Exception {
++        String appJar = JarBuilder.getOrCreateHelloJar();
++        String appJarUpper = appJar.replace("hello", "Hello");
++
++        OutputAnalyzer out = TestCommon.dump(appJar, TestCommon.list("Hello"));
++        TestCommon.checkDump(out);
++
++        Path jarPath = Paths.get(appJar);
++        Path jarPathUpper = null;
++
++        boolean fileExists = false;
++        try {
++            jarPathUpper = Files.createFile(Paths.get(appJarUpper));
++        } catch (FileAlreadyExistsException faee) {
++            fileExists = true;
++        }
++
++        if (!fileExists) {
++            try {
++                Files.copy(jarPath, jarPathUpper, StandardCopyOption.REPLACE_EXISTING);
++            } catch (Exception e) {
++                throw new java.lang.RuntimeException(
++                        "Failed copying file from " + appJar + " to " + appJarUpper + ".", e);
++            }
++        } else {
++            jarPathUpper = Paths.get(appJarUpper);
++        }
++        boolean isSameFile = Files.isSameFile(jarPath, jarPathUpper);
++
++        TestCommon.run("-cp", appJarUpper, "Hello", "-Xlog:class+path=info",
++                "-Xlog:cds")
++                .ifNoMappingFailure(output -> {
++                    output.shouldContain("Hello World");
++                });
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/CommandLineFlagCombo.java b/hotspot/test/runtime/appcds/CommandLineFlagCombo.java
+new file mode 100644
+index 00000000..7f7ca7bf
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/CommandLineFlagCombo.java
+@@ -0,0 +1,117 @@
++/*
++ * Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test CommandLineFlagCombo
++ * @requires (vm.gc=="null")
++ * @summary Test command line flag combinations that
++ *          could likely affect the behaviour of AppCDS
++ * @library /testlibrary /testlibrary/whitebox
++ * @build sun.hotspot.WhiteBox
++ * @run driver ClassFileInstaller sun.hotspot.WhiteBox sun.hotspot.WhiteBox$WhiteBoxPermission
++ * @compile test-classes/Hello.java
++ * @run main/othervm/timeout=240 -XX:+UnlockDiagnosticVMOptions -XX:+WhiteBoxAPI -Xbootclasspath/a:. CommandLineFlagCombo
++ */
++
++import com.oracle.java.testlibrary.BuildHelper;
++import com.oracle.java.testlibrary.Platform;
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++import sun.hotspot.code.Compiler;
++
++public class CommandLineFlagCombo {
++
++    // shared base address test table
++    private static final String[] testTable = {
++            "-XX:+UseG1GC", "-XX:+UseSerialGC", "-XX:+UseParallelGC", "-XX:+UseConcMarkSweepGC",
++            "-XX:+FlightRecorder",
++            "-XX:+UseLargePages", // may only take effect on machines with large-pages
++            "-XX:+UseCompressedClassPointers",
++            "-XX:+UseCompressedOops",
++            "-XX:ObjectAlignmentInBytes=16",
++            "-XX:ObjectAlignmentInBytes=32",
++            "-XX:ObjectAlignmentInBytes=64"
++    };
++
++    public static void main(String[] args) throws Exception {
++        String appJar = JarBuilder.getOrCreateHelloJar();
++        String classList[] = {"Hello"};
++
++        for (String testEntry : testTable) {
++            System.out.println("CommandLineFlagCombo = " + testEntry);
++
++            if (skipTestCase(testEntry))
++                continue;
++
++            OutputAnalyzer dumpOutput = TestCommon.dump(appJar, classList, testEntry);
++            TestCommon.checkDump(dumpOutput, "Loading classes to share");
++
++            OutputAnalyzer execOutput = TestCommon.exec(appJar, testEntry, "Hello");
++            TestCommon.checkExec(execOutput, "Hello World");
++        }
++
++        for (int i=0; i<2; i++) {
++            String g1Flag, serialFlag;
++
++            // Interned strings are supported only with G1GC. However, we should not crash if:
++            // 0: archive has shared strings, but run time doesn't support shared strings
++            // 1: archive has no shared strings, but run time supports shared strings
++
++            String dump_g1Flag     = "-XX:" + (i == 0 ? "+" : "-") + "UseG1GC";
++            String run_g1Flag      = "-XX:" + (i != 0 ? "+" : "-") + "UseG1GC";
++            String dump_serialFlag = "-XX:" + (i != 0 ? "+" : "-") + "UseSerialGC";
++            String run_serialFlag  = "-XX:" + (i == 0 ? "+" : "-") + "UseSerialGC";
++
++            OutputAnalyzer dumpOutput = TestCommon.dump(
++                    appJar, classList, dump_g1Flag, dump_serialFlag);
++
++            TestCommon.checkDump(dumpOutput, "Loading classes to share");
++
++            OutputAnalyzer execOutput = TestCommon.exec(appJar, run_g1Flag, run_serialFlag, "Hello");
++            TestCommon.checkExec(execOutput, "Hello World");
++        }
++    }
++
++    private static boolean skipTestCase(String testEntry) throws Exception {
++        if (Platform.is32bit())
++        {
++            if (testEntry.equals("-XX:+UseCompressedOops") ||
++                    testEntry.equals("-XX:+UseCompressedClassPointers") ||
++                    testEntry.contains("ObjectAlignmentInBytes") )
++            {
++                System.out.println("Test case not applicable on 32-bit platforms");
++                return true;
++            }
++        }
++
++        if (Compiler.isGraalEnabled() && testEntry.equals("-XX:+UseConcMarkSweepGC"))
++        {
++            System.out.println("Graal does not support CMS");
++            return true;
++        }
++
++        return false;
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/CommandLineFlagComboNegative.java b/hotspot/test/runtime/appcds/CommandLineFlagComboNegative.java
+new file mode 100644
+index 00000000..4fb965ab
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/CommandLineFlagComboNegative.java
+@@ -0,0 +1,102 @@
++/*
++ * Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test CommandLineFlagComboNegative
++ * @summary Test command line flag combinations that differ between
++ *          the dump and execute steps, in such way that they cause errors
++ *          E.g. use compressed oops for creating and archive, but then
++ *               execute w/o compressed oops
++ * @library /testlibrary
++ * @compile test-classes/Hello.java
++ * @run main CommandLineFlagComboNegative
++ */
++
++import java.util.ArrayList;
++import com.oracle.java.testlibrary.Platform;
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++public class CommandLineFlagComboNegative {
++
++    private class TestVector {
++        public String testOptionForDumpStep;
++        public String testOptionForExecuteStep;
++        public String expectedErrorMsg;
++        public int expectedErrorCode;
++
++        public TestVector(String testOptionForDumpStep, String testOptionForExecuteStep,
++                          String expectedErrorMsg, int expectedErrorCode) {
++            this.testOptionForDumpStep=testOptionForDumpStep;
++            this.testOptionForExecuteStep=testOptionForExecuteStep;
++            this.expectedErrorMsg=expectedErrorMsg;
++            this.expectedErrorCode=expectedErrorCode;
++        }
++    }
++
++    private ArrayList<TestVector> testTable = new ArrayList<TestVector>();
++
++    private void initTestTable() {
++        // These options are not applicable on 32-bit platforms
++        if (Platform.is64bit()) {
++            testTable.add( new TestVector("-XX:ObjectAlignmentInBytes=8", "-XX:ObjectAlignmentInBytes=16",
++                    "An error has occurred while processing the shared archive file", 1) );
++            testTable.add( new TestVector("-XX:ObjectAlignmentInBytes=64", "-XX:ObjectAlignmentInBytes=32",
++                    "An error has occurred while processing the shared archive file", 1) );
++            testTable.add( new TestVector("-XX:+UseCompressedOops", "-XX:-UseCompressedOops",
++                    "Class data sharing is inconsistent with other specified options", 1) );
++            testTable.add( new TestVector("-XX:+UseCompressedClassPointers", "-XX:-UseCompressedClassPointers",
++                    "Class data sharing is inconsistent with other specified options", 1) );
++        }
++    }
++
++    private void runTests() throws Exception
++    {
++        for (TestVector testEntry : testTable) {
++            System.out.println("CommandLineFlagComboNegative: dump = " + testEntry.testOptionForDumpStep);
++            System.out.println("CommandLineFlagComboNegative: execute = " + testEntry.testOptionForExecuteStep);
++
++            String appJar = JarBuilder.getOrCreateHelloJar();
++            OutputAnalyzer dumpOutput = TestCommon.dump(
++                    appJar, new String[] {"Hello"}, testEntry.testOptionForDumpStep);
++
++            TestCommon.checkDump(dumpOutput, "Loading classes to share");
++
++            TestCommon.run(
++                    "-cp", appJar,
++                    testEntry.testOptionForExecuteStep,
++                    "Hello")
++                    .assertAbnormalExit(output -> {
++                        output.shouldContain(testEntry.expectedErrorMsg)
++                                .shouldHaveExitValue(testEntry.expectedErrorCode);
++                    });
++        }
++    }
++
++    public static void main(String[] args) throws Exception {
++        CommandLineFlagComboNegative thisClass = new CommandLineFlagComboNegative();
++        thisClass.initTestTable();
++        thisClass.runTests();
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/DirClasspathTest.java b/hotspot/test/runtime/appcds/DirClasspathTest.java
+new file mode 100644
+index 00000000..e2c4e698
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/DirClasspathTest.java
+@@ -0,0 +1,116 @@
++/*
++ * Copyright (c) 2017, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary Handling of directories in -cp is based on the classlist
++ * @library /testlibrary
++ * @compile test-classes/Hello.java
++ * @run main DirClasspathTest
++ */
++
++import com.oracle.java.testlibrary.Platform;
++import com.oracle.java.testlibrary.OutputAnalyzer;
++import java.io.File;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.nio.file.Paths;
++import java.util.Arrays;
++
++public class DirClasspathTest {
++    private static final int MAX_PATH = 260;
++
++    public static void main(String[] args) throws Exception {
++        File dir = new File(System.getProperty("user.dir"));
++        File emptydir = new File(dir, "emptydir");
++        emptydir.mkdir();
++
++        /////////////////////////////////////////////////////////////////
++        // The classlist only contains boot class in following test cases
++        /////////////////////////////////////////////////////////////////
++        String bootClassList[] = {"java/lang/Object"};
++
++        // Empty dir in -cp: should be OK
++        OutputAnalyzer output;
++        output = TestCommon.dump(emptydir.getPath(), bootClassList);
++        TestCommon.checkDump(output);
++
++        // Long path to empty dir in -cp: should be OK
++        Path classDir = Paths.get(System.getProperty("test.classes"));
++        Path destDir = classDir;
++        int subDirLen = MAX_PATH - classDir.toString().length() - 2;
++        if (subDirLen > 0) {
++            char[] chars = new char[subDirLen];
++            Arrays.fill(chars, 'x');
++            String subPath = new String(chars);
++            destDir = Paths.get(System.getProperty("test.classes"), subPath);
++        }
++        File longDir = destDir.toFile();
++        longDir.mkdir();
++        File subDir = new File(longDir, "subdir");
++        subDir.mkdir();
++        output = TestCommon.dump(subDir.getPath(), bootClassList);
++        TestCommon.checkDump(output);
++
++        // Non-empty dir in -cp: should be OK
++        // <dir> is not empty because it has at least one subdirectory, i.e., <emptydir>
++        output = TestCommon.dump(dir.getPath(), bootClassList);
++        TestCommon.checkDump(output);
++
++        // Long path to non-empty dir in -cp: should be OK
++        // <dir> is not empty because it has at least one subdirectory, i.e., <emptydir>
++        output = TestCommon.dump(longDir.getPath(), bootClassList);
++        TestCommon.checkDump(output);
++
++        /////////////////////////////////////////////////////////////////
++        // The classlist contains non-boot class in following test cases
++        /////////////////////////////////////////////////////////////////
++        String appClassList[] = {"java/lang/Object", "com/sun/tools/javac/Main"};
++
++        // Non-empty dir in -cp: should be OK (as long as no classes were loaded from there)
++        output = TestCommon.dump(dir.getPath(), appClassList);
++        TestCommon.checkDump(output);
++
++        // Long path to non-empty dir in -cp: should be OK (as long as no classes were loaded from there)
++        output = TestCommon.dump(longDir.getPath(), appClassList);
++        TestCommon.checkDump(output);
++
++        /////////////////////////////////////////////////////////////////
++        // Loading an app class from a directory
++        /////////////////////////////////////////////////////////////////
++        String appClassList2[] = {"Hello", "java/lang/Object", "com/sun/tools/javac/Main"};
++        // Non-empty dir in -cp: should report error if a class is loaded from it
++        output = TestCommon.dump(classDir.toString(), appClassList2);
++        output.shouldNotHaveExitValue(1);
++        output.shouldContain("Cannot find com/sun/tools/javac/Main");
++        // Long path to non-empty dir in -cp: should report error if a class is loaded from it
++        File srcClass = new File(classDir.toFile(), "Hello.class");
++        File destClass = new File(longDir, "Hello.class");
++        Files.copy(srcClass.toPath(), destClass.toPath());
++        output = TestCommon.dump(longDir.getPath(), appClassList2);
++        output.shouldNotHaveExitValue(1);
++        output.shouldContain("Cannot find Hello");
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/HelloTest.java b/hotspot/test/runtime/appcds/HelloTest.java
+new file mode 100644
+index 00000000..c49179a1
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/HelloTest.java
+@@ -0,0 +1,38 @@
++/*
++ * Copyright (c) 2015, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary Hello World test for AppCDS
++ * @library /testlibrary
++ * @compile test-classes/Hello.java
++ * @run main HelloTest
++ */
++
++public class HelloTest {
++  public static void main(String[] args) throws Exception {
++      TestCommon.test(JarBuilder.getOrCreateHelloJar(),
++          TestCommon.list("Hello"), "Hello");
++  }
++}
+diff --git a/hotspot/test/runtime/appcds/IgnoreEmptyClassPaths.java b/hotspot/test/runtime/appcds/IgnoreEmptyClassPaths.java
+new file mode 100644
+index 00000000..36618b17
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/IgnoreEmptyClassPaths.java
+@@ -0,0 +1,58 @@
++/*
++ * Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary Test the -XX:+IgnoreEmptyClassPaths flag
++ * @library /testlibrary
++ * @compile test-classes/Hello.java
++ * @compile test-classes/HelloMore.java
++ * @run main IgnoreEmptyClassPaths
++ */
++
++import java.io.File;
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++public class IgnoreEmptyClassPaths {
++
++    public static void main(String[] args) throws Exception {
++        String jar1 = JarBuilder.getOrCreateHelloJar();
++        String jar2 = JarBuilder.build("IgnoreEmptyClassPaths_more", "HelloMore");
++
++        String sep = File.pathSeparator;
++        String cp_dump = jar1 + sep + jar2 + sep;
++        String cp_exec = sep + jar1 + sep + sep + jar2 + sep;
++
++        TestCommon.testDump(cp_dump, TestCommon.list("Hello", "HelloMore"),
++                "-XX:+TraceClassPaths", "-XX:+IgnoreEmptyClassPaths");
++
++        TestCommon.run(
++                "-verbose:class",
++                "-cp", cp_exec,
++                "-XX:+IgnoreEmptyClassPaths", // should affect classpath even if placed after the "-cp" argument
++                "-XX:+TraceClassPaths",
++                "HelloMore")
++                .assertNormalExit();
++    }
++}
+diff --git a/hotspot/test/runtime/appcds/JarBuilder.java b/hotspot/test/runtime/appcds/JarBuilder.java
+new file mode 100644
+index 00000000..e06ab2bc
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/JarBuilder.java
+@@ -0,0 +1,270 @@
++/*
++ * Copyright (c) 2015, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @summary Simple jar builder
++ *   Input: jarName className1 className2 ...
++ *     do not specify extensions, just the names
++ *     E.g. prot_domain ProtDomainA ProtDomainB
++ *   Output: A jar containing compiled classes, placed in a test classes folder
++ * @library /open/test/lib
++ */
++
++import java.io.File;
++import java.nio.file.Path;
++import java.util.ArrayList;
++
++import com.oracle.java.testlibrary.JDKToolFinder;
++import com.oracle.java.testlibrary.OutputAnalyzer;
++import com.oracle.java.testlibrary.ProcessTools;
++import com.oracle.java.testlibrary.compiler.CompilerUtils;
++import sun.tools.jar.Main;
++
++public class JarBuilder {
++    // to turn DEBUG on via command line: -DJarBuilder.DEBUG=[true, TRUE]
++    private static final boolean DEBUG = Boolean.parseBoolean(System.getProperty("JarBuilder.DEBUG", "false"));
++    private static final String classDir = System.getProperty("test.classes");
++
++    public static String getJarFilePath(String jarName) {
++        return classDir + File.separator + jarName + ".jar";
++    }
++
++    // jar all files under dir, with manifest file man, with an optional versionArgs
++    // for generating a multi-release jar.
++    // The jar command is as follows:
++    // jar cmf \
++    //  <path to output jar> <path to the manifest file>\
++    //   -C <path to the base classes> .\
++    //    --release 9 -C <path to the versioned classes> .
++    // the last line begins with "--release" corresponds to the optional versionArgs.
++    public static void build(String jarName, File dir, String man, String...versionArgs)
++        throws Exception {
++        ArrayList<String> args = new ArrayList<String>();
++        if (man != null) {
++            args.add("cfm");
++        } else {
++            args.add("cf");
++        }
++        args.add(classDir + File.separator + jarName + ".jar");
++        if (man != null) {
++            args.add(man);
++        }
++        args.add("-C");
++        args.add(dir.getAbsolutePath());
++        args.add(".");
++        for (String verArg : versionArgs) {
++            args.add(verArg);
++        }
++        createJar(args);
++    }
++
++    public static String build(String jarName, String...classNames)
++        throws Exception {
++
++        return createSimpleJar(classDir, getJarFilePath(jarName), classNames);
++    }
++
++    public static String build(boolean classesInWorkDir, String jarName, String...classNames)
++        throws Exception {
++        if (classesInWorkDir) {
++            return createSimpleJar(".", getJarFilePath(jarName), classNames);
++        } else {
++            return build(jarName, classNames);
++        }
++    }
++
++
++    public static String buildWithManifest(String jarName, String manifest,
++                                           String jarClassesDir, String...classNames) throws Exception {
++        String jarPath = getJarFilePath(jarName);
++        ArrayList<String> args = new ArrayList<String>();
++        args.add("cvfm");
++        args.add(jarPath);
++        args.add(System.getProperty("test.src") + File.separator + "test-classes"
++            + File.separator + manifest);
++        addClassArgs(args, jarClassesDir, classNames);
++        createJar(args);
++
++        return jarPath;
++    }
++
++
++    // Execute: jar uvf $jarFile -C $dir .
++    static void update(String jarFile, String dir) throws Exception {
++        String jarExe = JDKToolFinder.getJDKTool("jar");
++
++        ArrayList<String> args = new ArrayList<>();
++        args.add(jarExe);
++        args.add("uvf");
++        args.add(jarFile);
++        args.add("-C");
++        args.add(dir);
++        args.add(".");
++
++        executeProcess(args.toArray(new String[1]));
++    }
++
++
++    private static String createSimpleJar(String jarclassDir, String jarName,
++                                          String[] classNames) throws Exception {
++
++        ArrayList<String> args = new ArrayList<String>();
++        args.add("cf");
++        args.add(jarName);
++        addClassArgs(args, jarclassDir, classNames);
++        createJar(args);
++
++        return jarName;
++    }
++
++    private static void addClassArgs(ArrayList<String> args, String jarclassDir,
++                                     String[] classNames) {
++
++        for (String name : classNames) {
++            args.add("-C");
++            args.add(jarclassDir);
++            args.add(name + ".class");
++        }
++    }
++
++    public static void createModularJar(String jarPath,
++                                        String classesDir,
++                                        String mainClass) throws Exception {
++        ArrayList<String> argList = new ArrayList<String>();
++        argList.add("--create");
++        argList.add("--file=" + jarPath);
++        if (mainClass != null) {
++            argList.add("--main-class=" + mainClass);
++        }
++        argList.add("-C");
++        argList.add(classesDir);
++        argList.add(".");
++        createJar(argList);
++    }
++
++    private static void createJar(ArrayList<String> args) {
++        if (DEBUG) printIterable("createJar args: ", args);
++
++        Main jarTool = new Main(System.out, System.err, "jar");
++        if (!jarTool.run(args.toArray(new String[1]))) {
++            throw new RuntimeException("jar operation failed");
++        }
++    }
++
++    // Many AppCDS tests use the same simple "Hello.jar" which contains
++    // simple Hello.class and does not specify additional attributes.
++    // For this common use case, use this method to get the jar path.
++    // The method will check if the jar already exists
++    // (created by another test or test run), and will create the jar
++    // if it does not exist
++    public static String getOrCreateHelloJar() throws Exception {
++        String jarPath = getJarFilePath("hello");
++
++        File jarFile = new File(jarPath);
++        if (jarFile.exists()) {
++            return jarPath;
++        } else {
++            return build("hello", "Hello");
++        }
++    }
++
++    public static void compile(String dstPath, String source, String... extraArgs) throws Exception {
++        ArrayList<String> args = new ArrayList<String>();
++        args.add(JDKToolFinder.getCompileJDKTool("javac"));
++        args.add("-d");
++        args.add(dstPath);
++        if (extraArgs != null) {
++            for (String s : extraArgs) {
++                args.add(s);
++            }
++        }
++        args.add(source);
++
++        if (DEBUG) printIterable("compile args: ", args);
++
++        ProcessBuilder pb = new ProcessBuilder(args);
++        OutputAnalyzer output = new OutputAnalyzer(pb.start());
++        output.shouldHaveExitValue(0);
++    }
++
++    public static void compileModule(Path src,
++                                     Path dest,
++                                     String modulePathArg // arg to --module-path
++                                     ) throws Exception {
++        boolean compiled = false;
++        if (modulePathArg == null) {
++            compiled = CompilerUtils.compile(src, dest);
++        } else {
++            compiled = CompilerUtils.compile(src, dest,
++                                           "--module-path", modulePathArg);
++        }
++        if (!compiled) {
++            throw new RuntimeException("module did not compile");
++        }
++    }
++
++
++    public static void signJar() throws Exception {
++        String keyTool = JDKToolFinder.getJDKTool("keytool");
++        String jarSigner = JDKToolFinder.getJDKTool("jarsigner");
++        String classDir = System.getProperty("test.classes");
++        String FS = File.separator;
++
++        executeProcess(keyTool,
++            "-genkey", "-keystore", "./keystore", "-alias", "mykey",
++            "-storepass", "abc123", "-keypass", "abc123",
++            "-dname", "CN=jvmtest")
++            .shouldHaveExitValue(0);
++
++        executeProcess(jarSigner,
++           "-keystore", "./keystore", "-storepass", "abc123", "-keypass",
++           "abc123", "-signedjar", classDir + FS + "signed_hello.jar",
++           classDir + FS + "hello.jar", "mykey")
++           .shouldHaveExitValue(0);
++    }
++
++    private static OutputAnalyzer executeProcess(String... cmds)
++        throws Exception {
++
++        JarBuilder.printArray("executeProcess: ", cmds);
++        return ProcessTools.executeProcess(new ProcessBuilder(cmds));
++    }
++
++    // diagnostic
++    public static void printIterable(String msg, Iterable<String> l) {
++        StringBuilder sum = new StringBuilder();
++        for (String s : l) {
++            sum.append(s).append(' ');
++        }
++        System.out.println(msg + sum.toString());
++    }
++
++    public static void printArray(String msg, String[] l) {
++        StringBuilder sum = new StringBuilder();
++        for (String s : l) {
++            sum.append(s).append(' ');
++        }
++        System.out.println(msg + sum.toString());
++    }
++}
+diff --git a/hotspot/test/runtime/appcds/MismatchedUseAppCDS.java b/hotspot/test/runtime/appcds/MismatchedUseAppCDS.java
+new file mode 100644
+index 00000000..7173d6c9
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/MismatchedUseAppCDS.java
+@@ -0,0 +1,76 @@
++/*
++ * Copyright (c) 2015, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary Try different combination of mismatched UseAppCDS between dump time and run time.
++ * @library /testlibrary /testlibrary/whitebox
++ * @compile test-classes/CheckIfShared.java
++ * @build sun.hotspot.WhiteBox
++ * @run driver ClassFileInstaller sun.hotspot.WhiteBox
++ * @run main MismatchedUseAppCDS
++ */
++
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++public class MismatchedUseAppCDS {
++    public static void main(String[] args) throws Exception {
++        String wbJar = JarBuilder.build(true, "WhiteBox", "sun/hotspot/WhiteBox");
++        String use_whitebox_jar = "-Xbootclasspath/a:" + wbJar;
++
++        String appJar = JarBuilder.build("MismatchedUseAppCDS", "CheckIfShared");
++
++        OutputAnalyzer output;
++
++        // (1): dump with -XX:+UseAppCDS, but run with -XX:-UseAppCDS
++        TestCommon.testDump(appJar, TestCommon.list("CheckIfShared"),
++                // command-line arguments ...
++                "-XX:+UseAppCDS",
++                use_whitebox_jar);
++
++        output = TestCommon.exec(appJar,
++                // command-line arguments ...
++                use_whitebox_jar,
++                "-XX:+UnlockDiagnosticVMOptions",
++                "-XX:+WhiteBoxAPI",
++                "CheckIfShared", "false");
++        TestCommon.checkExec(output);
++
++        // (2): dump with -XX:-UseAppCDS, but run with -XX:+UseAppCDS
++        TestCommon.testDump(appJar, TestCommon.list("CheckIfShared"),
++                // command-line arguments ...
++                "-XX:+UseAppCDS",
++                use_whitebox_jar);
++
++        output = TestCommon.exec(appJar,
++                // command-line arguments ...
++                use_whitebox_jar,
++                "-XX:+UseAppCDS",
++                "-XX:+UnlockDiagnosticVMOptions",
++                "-XX:+WhiteBoxAPI",
++                "CheckIfShared", "true");
++        TestCommon.checkExec(output);
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/MissingSuperTest.java b/hotspot/test/runtime/appcds/MissingSuperTest.java
+new file mode 100644
+index 00000000..33a860b4
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/MissingSuperTest.java
+@@ -0,0 +1,47 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary When super class is missing during dumping, no crash should happen.
++ * @library /testlibrary
++ * @compile test-classes/MissingSuper.java
++ * @run main MissingSuperTest
++ */
++
++public class MissingSuperTest {
++
++  public static void main(String[] args) throws Exception {
++    // The classes "MissingSuperSup" and "MissingSuperIntf" are intentionally not
++    // included into the jar to provoke the test condition
++    JarBuilder.build("missing_super", "MissingSuper",
++        "MissingSuperSub", "MissingSuperImpl");
++
++    String appJar = TestCommon.getTestJar("missing_super.jar");
++    TestCommon.test(appJar, TestCommon.list("MissingSuper",
++        "MissingSuperSub",
++        "MissingSuperImpl"),
++        "MissingSuper");
++  }
++}
+diff --git a/hotspot/test/runtime/appcds/PackageSealing.java b/hotspot/test/runtime/appcds/PackageSealing.java
+new file mode 100644
+index 00000000..6c915085
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/PackageSealing.java
+@@ -0,0 +1,56 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary AppCDS handling of package.
++ * @library /testlibrary
++ * @compile test-classes/C1.java
++ * @compile test-classes/C2.java
++ * @compile test-classes/PackageSealingTest.java
++ * @run main PackageSealing
++ */
++
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++public class PackageSealing {
++    public static void main(String args[]) throws Exception {
++        String[] classList = {"sealed/pkg/C1", "pkg/C2", "PackageSealingTest"};
++        String appJar = ClassFileInstaller.writeJar("pkg_seal.jar",
++                ClassFileInstaller.Manifest.fromSourceFile("test-classes/package_seal.mf"),
++                "PackageSealingTest", "sealed/pkg/C1", "pkg/C2");
++
++        // test shared package from -cp path
++        TestCommon.testDump(appJar, TestCommon.list(classList));
++        OutputAnalyzer output;
++        output = TestCommon.exec(appJar, "PackageSealingTest");
++        TestCommon.checkExec(output);
++
++        // test shared package from -Xbootclasspath/a
++        TestCommon.dump(appJar, TestCommon.list(classList),
++                "-Xbootclasspath/a:" + appJar);
++        output = TestCommon.exec(appJar, "-Xbootclasspath/a:" + appJar, "PackageSealingTest");
++        TestCommon.checkExec(output);
++    }
++}
+diff --git a/hotspot/test/runtime/appcds/ParallelLoad2.java b/hotspot/test/runtime/appcds/ParallelLoad2.java
+new file mode 100644
+index 00000000..5709be6a
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/ParallelLoad2.java
+@@ -0,0 +1,60 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary Load app classes from CDS archive in parallel threads. Similar to ParallelLoad.java, but each class in its own JAR
++ * @library /testlibrary
++ * @compile test-classes/ParallelLoad.java
++ * @compile test-classes/ParallelClasses.java
++ * @run main ParallelLoad2
++ */
++
++import java.io.File;
++
++public class ParallelLoad2 {
++    public static int MAX_CLASSES = 40;
++    public static void main(String[] args) throws Exception {
++        JarBuilder.build("parallel_load2", "ParallelLoad", "ParallelLoadThread", "ParallelLoadWatchdog");
++        for (int i=0; i<MAX_CLASSES; i++) {
++            JarBuilder.build("parallel_load2_" + i, "ParallelClass" + i);
++        }
++
++        String cp = TestCommon.getTestJar("parallel_load2.jar");
++        for (int i=0; i<MAX_CLASSES; i++) {
++            cp += File.pathSeparator + TestCommon.getTestJar("parallel_load2_" + i + ".jar");
++        }
++
++        String[] class_list = new String[MAX_CLASSES + 2];
++        for (int i=0; i<MAX_CLASSES; i++) {
++            class_list[i] = "ParallelClass" + i;
++        }
++        class_list[class_list.length - 1] = "ParallelLoad";
++        class_list[class_list.length - 2] = "ParallelLoadThread";
++
++        TestCommon.test(cp, class_list,
++                "ParallelLoad");
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/ParallelLoadTest.java b/hotspot/test/runtime/appcds/ParallelLoadTest.java
+new file mode 100644
+index 00000000..92d17a47
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/ParallelLoadTest.java
+@@ -0,0 +1,60 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary Load app classes from CDS archive in parallel threads
++ * @library /testlibrary
++ * @compile test-classes/ParallelLoad.java
++ * @compile test-classes/ParallelClasses.java
++ * @run main ParallelLoadTest
++ */
++
++public class ParallelLoadTest {
++    public static final int MAX_CLASSES = 40;
++
++    public static void main(String[] args) throws Exception {
++        JarBuilder.build("parallel_load", getClassList(true));
++        String appJar = TestCommon.getTestJar("parallel_load.jar");
++        TestCommon.test(appJar, getClassList(false), "ParallelLoad");
++    }
++
++    private static String[] getClassList(boolean includeWatchdog) {
++        int extra = includeWatchdog ? 3 : 2;
++        String[] classList = new String[MAX_CLASSES + extra];
++
++        int i;
++        for (i=0; i<MAX_CLASSES; i++) {
++            classList[i] = "ParallelClass" + i;
++        }
++
++        classList[i++] = "ParallelLoad";
++        classList[i++] = "ParallelLoadThread";
++        if (includeWatchdog)
++            classList[i++] = "ParallelLoadWatchdog";
++
++        return classList;
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/SharedBaseAddress.java b/hotspot/test/runtime/appcds/SharedBaseAddress.java
+new file mode 100644
+index 00000000..b03b0876
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/SharedBaseAddress.java
+@@ -0,0 +1,61 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test SharedBaseAddress
++ * @summary Test variety of values for SharedBaseAddress, in AppCDS mode,
++ *          making sure VM handles normal values as well as edge values
++ *          w/o a crash.
++ * @library /testlibrary
++ * @compile test-classes/Hello.java
++ * @run main/timeout=240 SharedBaseAddress
++ */
++
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++public class SharedBaseAddress {
++
++    // shared base address test table
++    private static final String[] testTable = {
++            "1g", "8g", "64g","512g", "4t",
++            "32t", "128t", "0",
++            "1", "64k", "64M"
++    };
++
++    public static void main(String[] args) throws Exception {
++        String appJar = JarBuilder.getOrCreateHelloJar();
++
++        for (String testEntry : testTable) {
++            System.out.println("sharedBaseAddress = " + testEntry);
++
++            OutputAnalyzer dumpOutput = TestCommon.dump(
++                    appJar, new String[] {"Hello"}, "-XX:SharedBaseAddress=" + testEntry);
++            TestCommon.checkDump(dumpOutput, "Loading classes to share");
++
++            OutputAnalyzer execOutput = TestCommon.exec(appJar, "Hello");
++            TestCommon.checkExec(execOutput, "Hello World");
++        }
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/TestCommon.java b/hotspot/test/runtime/appcds/TestCommon.java
+new file mode 100644
+index 00000000..4ed416fe
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/TestCommon.java
+@@ -0,0 +1,363 @@
++/*
++ * Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++import com.oracle.java.testlibrary.OutputAnalyzer;
++import com.oracle.java.testlibrary.ProcessTools;
++import com.oracle.java.testlibrary.cds.CDSTestUtils;
++import java.io.File;
++import java.text.SimpleDateFormat;
++import java.util.Arrays;
++import java.util.ArrayList;
++import java.util.Date;
++
++/**
++ * This is a test utility class for common AppCDS test functionality.
++ *
++ * Various methods use (String ...) for passing VM options. Note that the order
++ * of the VM options are important in certain cases. Many methods take arguments like
++ *
++ *    (String prefix[], String suffix[], String... opts)
++ *
++ * Note that the order of the VM options is:
++ *
++ *    prefix + opts + suffix
++ */
++public class TestCommon extends CDSTestUtils {
++    private static final String JSA_FILE_PREFIX = System.getProperty("user.dir") +
++        File.separator + "appcds-";
++
++    private static final SimpleDateFormat timeStampFormat =
++        new SimpleDateFormat("HH'h'mm'm'ss's'SSS");
++
++    private static final String timeoutFactor =
++        System.getProperty("test.timeout.factor", "1.0");
++
++    private static String currentArchiveName;
++
++    // Call this method to start new archive with new unique name
++    public static void startNewArchiveName() {
++        deletePriorArchives();
++        currentArchiveName = JSA_FILE_PREFIX +
++            timeStampFormat.format(new Date()) + ".jsa";
++    }
++
++    // Call this method to get current archive name
++    public static String getCurrentArchiveName() {
++        return currentArchiveName;
++    }
++
++    public static void setCurrentArchiveName(String archiveName) {
++        currentArchiveName = archiveName;
++    }
++
++    // Attempt to clean old archives to preserve space
++    // Archives are large artifacts (20Mb or more), and much larger than
++    // most other artifacts created in jtreg testing.
++    // Therefore it is a good idea to clean the old archives when they are not needed.
++    // In most cases the deletion attempt will succeed; on rare occasion the
++    // delete operation will fail since the system or VM process still holds a handle
++    // to the file; in such cases the File.delete() operation will silently fail, w/o
++    // throwing an exception, thus allowing testing to continue.
++    public static void deletePriorArchives() {
++        File dir = new File(System.getProperty("user.dir"));
++        String files[] = dir.list();
++        for (String name : files) {
++            if (name.startsWith("appcds-") && name.endsWith(".jsa")) {
++                if (!(new File(dir, name)).delete())
++                    System.out.println("deletePriorArchives(): delete failed for file " + name);
++            }
++        }
++    }
++
++
++    // Create AppCDS archive using most common args - convenience method
++    // Legacy name preserved for compatibility
++    public static OutputAnalyzer dump(String appJar, String appClasses[],
++                                      String... suffix) throws Exception {
++        return createArchive(appJar, appClasses, suffix);
++    }
++
++
++    // Create AppCDS archive using most common args - convenience method
++    public static OutputAnalyzer createArchive(String appJar, String appClasses[],
++                                               String... suffix) throws Exception {
++        AppCDSOptions opts = (new AppCDSOptions()).setAppJar(appJar)
++            .setAppClasses(appClasses);
++        opts.addSuffix(suffix);
++        return createArchive(opts);
++    }
++
++    public static String[] makeCommandLineForAppCDS(String... args) throws Exception {
++        return args;
++    }
++
++    // Create AppCDS archive using appcds options
++    public static OutputAnalyzer createArchive(AppCDSOptions opts)
++        throws Exception {
++
++        ArrayList<String> cmd = new ArrayList<String>();
++        File classList = makeClassList(opts.appClasses);
++        startNewArchiveName();
++
++        for (String p : opts.prefix) cmd.add(p);
++
++        if (opts.appJar != null) {
++            cmd.add("-cp");
++            cmd.add(opts.appJar);
++        } else {
++            cmd.add("-cp");
++            cmd.add("\"\"");
++        }
++
++        cmd.add("-Xshare:dump");
++//        cmd.add("-Xlog:cds,cds+hashtables"); comment out because it will be run by jdk1.8
++        cmd.add("-XX:ExtraSharedClassListFile=" + classList.getPath());
++
++        if (opts.archiveName == null)
++            opts.archiveName = getCurrentArchiveName();
++
++        cmd.add("-XX:SharedArchiveFile=" + opts.archiveName);
++
++        for (String s : opts.suffix) cmd.add(s);
++
++        String[] cmdLine = cmd.toArray(new String[cmd.size()]);
++        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder(true, makeCommandLineForAppCDS(cmdLine));
++        return executeAndLog(pb, "dump");
++    }
++
++
++    // Execute JVM using AppCDS archive with specified AppCDSOptions
++    public static OutputAnalyzer runWithArchive(AppCDSOptions opts)
++        throws Exception {
++
++        ArrayList<String> cmd = new ArrayList<String>();
++
++        for (String p : opts.prefix) cmd.add(p);
++
++        cmd.add("-Xshare:" + opts.xShareMode);
++        cmd.add("-showversion");
++        cmd.add("-XX:SharedArchiveFile=" + getCurrentArchiveName());
++        cmd.add("-Dtest.timeout.factor=" + timeoutFactor);
++
++        if (opts.appJar != null) {
++            cmd.add("-cp");
++            cmd.add(opts.appJar);
++        }
++
++        for (String s : opts.suffix) cmd.add(s);
++
++        String[] cmdLine = cmd.toArray(new String[cmd.size()]);
++        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder(true, makeCommandLineForAppCDS(cmdLine));
++        return executeAndLog(pb, "exec");
++    }
++
++
++    public static OutputAnalyzer execCommon(String... suffix) throws Exception {
++        AppCDSOptions opts = (new AppCDSOptions());
++        opts.addSuffix(suffix);
++        return runWithArchive(opts);
++    }
++
++    // This is the new API for running a Java process with CDS enabled.
++    // See comments in the CDSTestUtils.Result class for how to use this method.
++    public static Result run(String... suffix) throws Exception {
++        AppCDSOptions opts = (new AppCDSOptions());
++        opts.addSuffix(suffix);
++        return new Result(opts, runWithArchive(opts));
++    }
++
++    public static OutputAnalyzer exec(String appJar, String... suffix) throws Exception {
++        AppCDSOptions opts = (new AppCDSOptions()).setAppJar(appJar);
++        opts.addSuffix(suffix);
++        return runWithArchive(opts);
++    }
++
++    public static Result runWithModules(String prefix[], String upgrademodulepath, String modulepath,
++                                            String mid, String... testClassArgs) throws Exception {
++        AppCDSOptions opts = makeModuleOptions(prefix, upgrademodulepath, modulepath,
++                                               mid, testClassArgs);
++        return new Result(opts, runWithArchive(opts));
++    }
++
++    public static OutputAnalyzer execAuto(String... suffix) throws Exception {
++        AppCDSOptions opts = (new AppCDSOptions());
++        opts.addSuffix(suffix).setXShareMode("auto");
++        return runWithArchive(opts);
++    }
++
++    public static OutputAnalyzer execOff(String... suffix) throws Exception {
++        AppCDSOptions opts = (new AppCDSOptions());
++        opts.addSuffix(suffix).setXShareMode("off");
++        return runWithArchive(opts);
++    }
++
++
++    private static AppCDSOptions makeModuleOptions(String prefix[], String upgrademodulepath, String modulepath,
++                                            String mid, String testClassArgs[]) {
++        AppCDSOptions opts = (new AppCDSOptions());
++
++        opts.addPrefix(prefix);
++        if (upgrademodulepath == null) {
++            opts.addSuffix("-p", modulepath, "-m", mid);
++        } else {
++            opts.addSuffix("--upgrade-module-path", upgrademodulepath,
++                           "-p", modulepath, "-m", mid);
++        }
++        opts.addSuffix(testClassArgs);
++        return opts;
++    }
++
++    public static OutputAnalyzer execModule(String prefix[], String upgrademodulepath, String modulepath,
++                                            String mid, String... testClassArgs)
++        throws Exception {
++        AppCDSOptions opts = makeModuleOptions(prefix, upgrademodulepath, modulepath,
++                                               mid, testClassArgs);
++        return runWithArchive(opts);
++    }
++
++
++    // A common operation: dump, then check results
++    public static OutputAnalyzer testDump(String appJar, String appClasses[],
++                                          String... suffix) throws Exception {
++        OutputAnalyzer output = dump(appJar, appClasses, suffix);
++        output.shouldContain("Loading classes to share");
++        output.shouldHaveExitValue(0);
++        return output;
++    }
++
++
++    /**
++     * Simple test -- dump and execute appJar with the given appClasses in classlist.
++     */
++    public static OutputAnalyzer test(String appJar, String appClasses[], String... args)
++        throws Exception {
++        testDump(appJar, appClasses);
++
++        OutputAnalyzer output = exec(appJar, args);
++        return checkExec(output);
++    }
++
++
++    public static OutputAnalyzer checkExecReturn(OutputAnalyzer output, int ret,
++                           boolean checkContain, String... matches) throws Exception {
++        try {
++            for (String s : matches) {
++                if (checkContain) {
++                    output.shouldContain(s);
++                } else {
++                    output.shouldNotContain(s);
++                }
++            }
++            output.shouldHaveExitValue(ret);
++        } catch (Exception e) {
++            checkCommonExecExceptions(output, e);
++        }
++
++        return output;
++    }
++
++
++    // Convenience concatenation utils
++    public static String[] list(String ...args) {
++        return args;
++    }
++
++
++    public static String[] list(String arg, int count) {
++        ArrayList<String> stringList = new ArrayList<String>();
++        for (int i = 0; i < count; i++) {
++            stringList.add(arg);
++        }
++
++        String outputArray[] = stringList.toArray(new String[stringList.size()]);
++        return outputArray;
++    }
++
++
++    public static String[] concat(String... args) {
++        return list(args);
++    }
++
++
++    public static String[] concat(String prefix[], String... extra) {
++        ArrayList<String> list = new ArrayList<String>();
++        for (String s : prefix) {
++            list.add(s);
++        }
++        for (String s : extra) {
++            list.add(s);
++        }
++
++        return list.toArray(new String[list.size()]);
++    }
++
++
++    // ===================== Concatenate paths
++    public static String concatPaths(String... paths) {
++        String prefix = "";
++        String s = "";
++        for (String p : paths) {
++            s += prefix;
++            s += p;
++            prefix = File.pathSeparator;
++        }
++        return s;
++    }
++
++
++    public static String getTestJar(String jar) {
++        File jarFile = CDSTestUtils.getTestArtifact(jar, true);
++        if (!jarFile.isFile()) {
++            throw new RuntimeException("Not a regular file: " + jarFile.getPath());
++        }
++        return jarFile.getPath();
++    }
++
++
++    public static String getTestDir(String d) {
++        File dirFile = CDSTestUtils.getTestArtifact(d, true);
++        if (!dirFile.isDirectory()) {
++            throw new RuntimeException("Not a directory: " + dirFile.getPath());
++        }
++        return dirFile.getPath();
++    }
++
++    public static boolean checkOutputStrings(String outputString1,
++                                             String outputString2,
++                                             String split_regex) {
++        String[] sa1 = outputString1.split(split_regex);
++        String[] sa2 = outputString2.split(split_regex);
++        Arrays.sort(sa1);
++        Arrays.sort(sa2);
++
++        int i = 0;
++        for (String s : sa1) {
++            if (!s.equals(sa2[i])) {
++                throw new RuntimeException(s + " is different from " + sa2[i]);
++            }
++            i ++;
++        }
++        return true;
++    }
++}
+diff --git a/hotspot/test/runtime/appcds/TraceLongClasspath.java b/hotspot/test/runtime/appcds/TraceLongClasspath.java
+new file mode 100644
+index 00000000..e25fcd37
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/TraceLongClasspath.java
+@@ -0,0 +1,93 @@
++/*
++ * Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary ensure -XX:+TraceClassPaths showing entire expecting app classpath
++ * @library /testlibrary
++ * @compile test-classes/Hello.java
++ * @run main TraceLongClasspath
++ */
++
++import java.io.File;
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++public class TraceLongClasspath {
++
++    final static String ps = File.pathSeparator;
++
++    public static void main(String[] args) throws Exception {
++        String appJar = JarBuilder.getOrCreateHelloJar();
++
++        String longClassPath =
++                "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/user-patch.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/abc-startup.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/foobar_common/modules/features/com.foobar.db.jdbc7-dms.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/jdk/lib/tools.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/aaserver/server/lib/someapps.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/aaserver/../foobar_common/modules/net.xy.batcontrib_1.1.0.0_1-0b3/lib/bat-contrib.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/aaserver/modules/features/foobar.aas.common.kkkkkkkkkkk.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/foobar.abc.common.adapters_11.1.1/foobar.abc.common.adapters.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/foobar.plane.adapter_12.1.3/foobar.plane.adapter.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/lib/ccccccccar-common.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/foobar_common/communications/modules/config.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/foobar_common/communications/modules/userprefs-config.jar" + ps +
++                        "/scratch/xxxx/yyyy/XXXXXX/aaaaaaaa/xxxxxxx/xxxxxxxx.us.foobar.com/CommonDomain/config/abc-infra" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/qqqqqq-all-1.6.5.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/foobar.abc.thread_11.1.1/foobar.abc.thread.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/foobar.abc.thread_11.1.1/thread-rrrrrrr-ext-aas.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/foobar.abc.adapter_11.1.1/foobar.abc.adapter.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/foobar.abc.ccc_11.1.1/foobar.abc.ccc.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/bbb/lib/commons-configuration.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/bbb/lib/commons-lang.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/bbb/lib/commons-logging.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/foobar_common/modules/foobar.wccore/foobar-ppppppp-api.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/foobar_common/modules/foobar.ooo_12.1.3/ooo-manifest.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/foobar_common/modules/internal/features/rrr_aaxyxx_foobar.rrr.aas.classpath.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/foobar.abc.thread_11.1.1/rrrrrrrr-api.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/commons-xxx-1.1.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/abc/abc/modules/foobar.abc.mgmt_11.1.1/abc-infra-mgmt.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/foobar_common/eee/archives/eee-eee.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/aaserver/common/march/lib/marchnet.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/aaserver/common/march/lib/marchclient.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/aaserver/common/march/lib/march.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/wwcontent/cde/iii/jlib/iiiloader.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/wwcontent/cde/iii/components/xxxxxxyyzzzzz/classes-xxxxxxyyzzzzz.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/wwcontent/cde/iii/components/mmmmmmm/lib/abc_core.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/wwcontent/cde/iii/components/mmmmmmm/lib/abc_codec.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/wwcontent/cde/iii/components/mmmmmmm/lib/abc_imageio.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/jdk/lib/tools.jar" + ps +
++                        "/scratch/xxxx/yyyy/ZZZZZZ/aaaaaaaaaa/xx/foobar_common/modules/foobar.ooo_12.1.3/ooo-manifest.jar";
++
++        String myCP = longClassPath + ps + appJar;
++        // Dump an archive with a specified JAR file in -classpath
++        TestCommon.testDump(myCP, TestCommon.list("Hello"));
++
++        TestCommon.run(
++                "-XX:+TraceClassPaths",
++                "-cp", appJar,
++                "Hello");
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/WideIloadTest.java b/hotspot/test/runtime/appcds/WideIloadTest.java
+new file mode 100644
+index 00000000..9c045882
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/WideIloadTest.java
+@@ -0,0 +1,46 @@
++/*
++ * Copyright (c) 2016, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/**
++ * @test
++ * @summary Test 'iload_w' bytecode in shared class
++ * @library /testlibrary
++ * @compile test-classes/Iloadw.jasm
++ * @compile test-classes/IloadwMain.java
++ * @run main WideIloadTest
++ */
++
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++public class WideIloadTest {
++    public static void main(String args[]) throws Exception {
++        JarBuilder.build("iload_w", "Iloadw", "IloadwMain");
++        String appJar = TestCommon.getTestJar("iload_w.jar");
++        OutputAnalyzer dumpOutput = TestCommon.dump(appJar, TestCommon.list(
++                "Iloadw", "IloadwMain"));
++        TestCommon.checkDump(dumpOutput);
++        OutputAnalyzer execOutput = TestCommon.exec(appJar, "IloadwMain");
++        TestCommon.checkExec(execOutput, "Passed");
++    }
++}
+diff --git a/hotspot/test/runtime/appcds/XShareAutoWithChangedJar.java b/hotspot/test/runtime/appcds/XShareAutoWithChangedJar.java
+new file mode 100644
+index 00000000..f59f2f89
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/XShareAutoWithChangedJar.java
+@@ -0,0 +1,51 @@
++/*
++ * Copyright (c) 2015, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary Test -Xshare:auto for AppCDS
++ * @library /testlibrary
++ * @compile test-classes/Hello.java
++ * @run main XShareAutoWithChangedJar
++ */
++
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++public class XShareAutoWithChangedJar {
++    public static void main(String[] args) throws Exception {
++        String appJar = JarBuilder.build("XShareAutoWithChangedJar", "Hello");
++
++        // 1. dump
++        OutputAnalyzer output = TestCommon.dump(appJar, TestCommon.list("Hello"));
++        TestCommon.checkDump(output);
++
++        // 2. change the jar
++        JarBuilder.build("XShareAutoWithChangedJar", "Hello");
++
++        // 3. exec
++        output = TestCommon.execAuto("-cp", appJar, "Hello");
++        output.shouldContain("Hello World");
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/test-classes/C1.java b/hotspot/test/runtime/appcds/test-classes/C1.java
+new file mode 100644
+index 00000000..86201cd4
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/C1.java
+@@ -0,0 +1,28 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++package sealed.pkg;
++
++public class C1 {
++}
+diff --git a/hotspot/test/runtime/appcds/test-classes/C2.java b/hotspot/test/runtime/appcds/test-classes/C2.java
+new file mode 100644
+index 00000000..ad0026fb
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/C2.java
+@@ -0,0 +1,28 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++package pkg;
++
++public class C2 {
++}
+diff --git a/hotspot/test/runtime/appcds/test-classes/CheckIfShared.java b/hotspot/test/runtime/appcds/test-classes/CheckIfShared.java
+new file mode 100644
+index 00000000..59b91f48
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/CheckIfShared.java
+@@ -0,0 +1,41 @@
++/*
++ * Copyright (c) 2015, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++import sun.hotspot.WhiteBox;
++
++public class CheckIfShared {
++    public static void main(String args[]) throws Exception {
++        WhiteBox wb = WhiteBox.getWhiteBox();
++        if ("true".equals(args[0])) {
++            if (!wb.isSharedClass(CheckIfShared.class)) {
++                throw new RuntimeException("wb.isSharedClass(CheckIfShared.class) should be true");
++            }
++        } else {
++            if (wb.isSharedClass(CheckIfShared.class)) {
++                throw new RuntimeException("wb.isSharedClass(CheckIfShared.class) should be false");
++            }
++        }
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/test-classes/Hello.java b/hotspot/test/runtime/appcds/test-classes/Hello.java
+new file mode 100644
+index 00000000..dc134771
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/Hello.java
+@@ -0,0 +1,29 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++public class Hello {
++  public static void main(String args[]) {
++    System.out.println("Hello World");
++  }
++}
+diff --git a/hotspot/test/runtime/appcds/test-classes/HelloMore.java b/hotspot/test/runtime/appcds/test-classes/HelloMore.java
+new file mode 100644
+index 00000000..0d8f335e
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/HelloMore.java
+@@ -0,0 +1,30 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++public class HelloMore {
++    public static void main(String args[]) {
++        Hello.main(args);
++        System.out.println("Hello World ... More");
++    }
++}
+diff --git a/hotspot/test/runtime/appcds/test-classes/Iloadw.jasm b/hotspot/test/runtime/appcds/test-classes/Iloadw.jasm
+new file mode 100644
+index 00000000..5c1fffbf
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/Iloadw.jasm
+@@ -0,0 +1,37 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++public class Iloadw
++    version 51: 0
++{
++    public static Method run:"()I"
++        stack 1 locals 400
++    {
++        iconst_0;
++        istore_w 300;
++        iinc_w 300,1;
++        iload_w 300;
++        ireturn;
++    }
++}
+diff --git a/hotspot/test/runtime/appcds/test-classes/IloadwMain.java b/hotspot/test/runtime/appcds/test-classes/IloadwMain.java
+new file mode 100644
+index 00000000..7257cce6
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/IloadwMain.java
+@@ -0,0 +1,35 @@
++/*
++ * Copyright (c) 2016, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++public class IloadwMain {
++    public static void main(String args[]) {
++        int result = Iloadw.run();
++        if (result != 1) {
++            throw new RuntimeException(
++                    "Failed. Result is " + result + ", expect 1.");
++        } else {
++            System.out.println("Passed.");
++        }
++    }
++}
+diff --git a/hotspot/test/runtime/appcds/test-classes/MissingSuper.java b/hotspot/test/runtime/appcds/test-classes/MissingSuper.java
+new file mode 100644
+index 00000000..ef47a7cb
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/MissingSuper.java
+@@ -0,0 +1,49 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++public class MissingSuper {
++    public static void main(String args[]) {
++        try {
++            new MissingSuperSub();
++        } catch (NoClassDefFoundError e) {
++            System.out.println("Expected NoClassDefFoundError:");
++            e.printStackTrace(System.out);
++        }
++
++        try {
++            new MissingSuperImpl();
++        } catch (NoClassDefFoundError e) {
++            System.out.println("Expected NoClassDefFoundError:");
++            e.printStackTrace(System.out);
++        }
++    }
++}
++
++class MissingSuperSup {} // This class will be deleted from missing_super.jar before dumping
++
++class MissingSuperSub extends MissingSuperSup {}
++
++interface MissingSuperIntf {} // This interface will be deleted from missing_super.jar before dumping
++
++class MissingSuperImpl implements MissingSuperIntf {}
+diff --git a/hotspot/test/runtime/appcds/test-classes/PackageSealingTest.java b/hotspot/test/runtime/appcds/test-classes/PackageSealingTest.java
+new file mode 100644
+index 00000000..a1e8ea0a
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/PackageSealingTest.java
+@@ -0,0 +1,52 @@
++/*
++ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++import java.lang.Package;
++
++public class PackageSealingTest {
++    public static void main(String args[]) {
++        try {
++            Class c1 = PackageSealingTest.class.forName("sealed.pkg.C1");
++            Class c2 = PackageSealingTest.class.forName("pkg.C2");
++            Package p1 = c1.getPackage();
++            System.out.println("Package 1: " + p1.toString());
++            Package p2 = c2.getPackage();
++            System.out.println("Package 2: " + p2.toString());
++
++            if (!p1.isSealed()) {
++                System.out.println("Failed: sealed.pkg is not sealed.");
++                System.exit(0);
++            }
++
++            if (p2.isSealed()) {
++                System.out.println("Failed: pkg is sealed.");
++                System.exit(0);
++            }
++
++            System.out.println("OK");
++        } catch (Exception e) {
++            System.out.println(e.getMessage());
++        }
++    }
++}
+diff --git a/hotspot/test/runtime/appcds/test-classes/ParallelClasses.java b/hotspot/test/runtime/appcds/test-classes/ParallelClasses.java
+new file mode 100644
+index 00000000..a4d0520f
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/ParallelClasses.java
+@@ -0,0 +1,64 @@
++/*
++ * Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++class ParallelClass0 {}
++class ParallelClass1 {}
++class ParallelClass2 {}
++class ParallelClass3 {}
++class ParallelClass4 {}
++class ParallelClass5 {}
++class ParallelClass6 {}
++class ParallelClass7 {}
++class ParallelClass8 {}
++class ParallelClass9 {}
++class ParallelClass10 {}
++class ParallelClass11 {}
++class ParallelClass12 {}
++class ParallelClass13 {}
++class ParallelClass14 {}
++class ParallelClass15 {}
++class ParallelClass16 {}
++class ParallelClass17 {}
++class ParallelClass18 {}
++class ParallelClass19 {}
++class ParallelClass20 {}
++class ParallelClass21 {}
++class ParallelClass22 {}
++class ParallelClass23 {}
++class ParallelClass24 {}
++class ParallelClass25 {}
++class ParallelClass26 {}
++class ParallelClass27 {}
++class ParallelClass28 {}
++class ParallelClass29 {}
++class ParallelClass30 {}
++class ParallelClass31 {}
++class ParallelClass32 {}
++class ParallelClass33 {}
++class ParallelClass34 {}
++class ParallelClass35 {}
++class ParallelClass36 {}
++class ParallelClass37 {}
++class ParallelClass38 {}
++class ParallelClass39 {}
+diff --git a/hotspot/test/runtime/appcds/test-classes/ParallelLoad.java b/hotspot/test/runtime/appcds/test-classes/ParallelLoad.java
+new file mode 100644
+index 00000000..9a6fe550
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/ParallelLoad.java
+@@ -0,0 +1,220 @@
++/*
++ * Copyright (c) 2016, 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++import java.io.*;
++import java.net.*;
++import java.lang.reflect.Field;
++
++
++// This test helper is parameterized by:
++// - class transformation mode: property "appcds.parallel.transform.mode"
++// - class loader test types
++//
++// In the case of transformMode == "cflh", the transformation is performed
++// by AppCDS/jvmti/TransformerAgent.java. The classes to be transformed, such as
++// ParallelClassTr0, are defined in ./jvmti/parallelLoad/ParallelClasses.java
++
++public class ParallelLoad {
++    public static int MAX_CLASSES = 40;
++    public static int NUM_THREADS = 4;
++
++    public final static int SYSTEM_LOADER = 0;
++    public final static int SINGLE_CUSTOM_LOADER = 1;
++    public final static int MULTI_CUSTOM_LOADER = 2;
++
++    public static final int FINGERPRINT_MODE = 1;
++    public static final int API_MODE         = 2;
++
++    public static int loaderType = SYSTEM_LOADER;
++    public static ClassLoader classLoaders[];
++    public static int mode = FINGERPRINT_MODE;
++
++    public static float timeoutFactor =
++            Float.parseFloat(System.getProperty("test.timeout.factor", "1.0"));
++
++    public static void main(String args[]) throws Throwable {
++        run(args, null);
++    }
++    public static void run(String args[], ClassLoader loaders[]) throws Throwable {
++        String customJar = null;
++        System.out.println("ParallelLoad: timeoutFactor = " + timeoutFactor);
++
++        if (args.length >= 1) {
++            if ("SINGLE_CUSTOM_LOADER".equals(args[0])) {
++                loaderType = SINGLE_CUSTOM_LOADER;
++                customJar = args[2];
++            } else if ("MULTI_CUSTOM_LOADER".equals(args[0])) {
++                loaderType = MULTI_CUSTOM_LOADER;
++                customJar = args[2];
++            } else if ("SYSTEM_LOADER".equals(args[0])) {
++                loaderType = SYSTEM_LOADER;
++            } else {
++                throw new RuntimeException("Unexpected loaderType" + args[0]);
++            }
++        }
++
++        if (customJar != null) {
++            if ("FINGERPRINT_MODE".equals(args[1])) {
++                mode = FINGERPRINT_MODE;
++                classLoaders = new ClassLoader[NUM_THREADS];
++                for (int i=0; i<NUM_THREADS; i++) {
++                    URL url = new File(customJar).toURI().toURL();
++                    URL[] urls = new URL[] {url};
++                    classLoaders[i] = new URLClassLoader(urls);
++                }
++            } else {
++                // Loaders must be supplied by caller of the run() method
++                mode = API_MODE;
++                classLoaders = loaders;
++            }
++        }
++
++        System.out.println("Start Parallel Load ...");
++
++        Thread thread[] = new Thread[NUM_THREADS];
++        for (int i=0; i<NUM_THREADS; i++) {
++            Thread t = new ParallelLoadThread(i);
++            t.start();
++            thread[i] = t;
++        }
++
++        Thread watchdog = new ParallelLoadWatchdog();
++        watchdog.setDaemon(true);
++        watchdog.start();
++
++        for (int i=0; i<NUM_THREADS; i++) {
++            thread[i].join();
++        }
++        System.out.println("Parallel Load ... done");
++        System.exit(0);
++    }
++}
++
++
++class ParallelLoadWatchdog extends Thread {
++    public void run() {
++        try {
++            long timeout = (long) (20 * 1000 * ParallelLoad.timeoutFactor);
++            Thread.sleep(timeout);
++            System.out.println("ParallelLoadWatchdog: Timeout reached: timeout(ms) = " + timeout);
++            System.exit(1);
++        } catch (Throwable t) {
++            t.printStackTrace();
++            System.exit(1);
++        }
++    }
++};
++
++
++class ParallelLoadThread extends Thread {
++    static int num_ready[] = new int[ParallelLoad.MAX_CLASSES];
++    static Object lock = new Object();
++    static String transformMode =
++            System.getProperty("appcds.parallel.transform.mode", "none");
++
++    int thread_id;
++    ParallelLoadThread(int thread_id) {
++        this.thread_id = thread_id;
++    }
++
++    public void run() {
++        try {
++            run0();
++        } catch (Throwable t) {
++            t.printStackTrace();
++            System.exit(1);
++        }
++    }
++
++    private static void log(String msg, Object... args) {
++        String msg0 = "ParallelLoadThread: " + String.format(msg, args);
++        System.out.println(msg0);
++    }
++
++    private void run0() throws Throwable {
++        for (int i=0; i<ParallelLoad.MAX_CLASSES; i++) {
++            synchronized(lock) {
++                num_ready[i] ++;
++                while (num_ready[i] < ParallelLoad.NUM_THREADS) {
++                    lock.wait();
++                }
++                lock.notifyAll();
++            }
++            log("this = %s %d", this, i);
++            String className = "ParallelClass" + i;
++            if (transformMode.equals("cflh"))
++                className = "ParallelClassTr" + i;
++
++            Class clazz = null;
++
++            switch (ParallelLoad.loaderType) {
++                case ParallelLoad.SYSTEM_LOADER:
++                    clazz = Class.forName(className);
++                    break;
++                case ParallelLoad.SINGLE_CUSTOM_LOADER:
++                    clazz = ParallelLoad.classLoaders[0].loadClass(className);
++                    break;
++                case ParallelLoad.MULTI_CUSTOM_LOADER:
++                    clazz = ParallelLoad.classLoaders[thread_id].loadClass(className);
++                    break;
++            }
++
++            log("clazz = %s", clazz);
++            testTransformation(clazz);
++        }
++    }
++
++    private void testTransformation(Class c) throws Exception {
++        if (transformMode.equals("none"))
++            return;
++
++        // currently only cflh transform mode is supported
++        if (!transformMode.equals("cflh")) {
++            String msg = "wrong transform mode: " + transformMode;
++            throw new IllegalArgumentException(msg);
++        }
++
++        Field[] fields = c.getFields();
++        boolean fieldFound = false;
++        for (Field f : fields) {
++            if (f.getName().equals("testString")) {
++                checkTransformationString(c, (String) f.get(null));
++                fieldFound = true;
++            }
++        }
++
++        if (!fieldFound)
++            throw new RuntimeException ("Expected field 'testString' not found");
++    }
++
++    private void checkTransformationString(Class c, String actual) throws Exception {
++        String expected = "class-transform-check: this-has-been--transformed";
++        if (!actual.equals(expected)) {
++            String msg1 = "Transformation failed for class" + c.getName();
++            String msg2 = String.format("Expected: %s, actual: %s", expected, actual);
++            throw new RuntimeException(msg1 + "\n" + msg2);
++        }
++    }
++}
++
+diff --git a/hotspot/test/runtime/appcds/test-classes/package_seal.mf b/hotspot/test/runtime/appcds/test-classes/package_seal.mf
+new file mode 100644
+index 00000000..e34c7ab5
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/test-classes/package_seal.mf
+@@ -0,0 +1,5 @@
++Manifest-Version: 1.0
++Created-By: 1.9.0-internal (Oracle Corporation)
++
++Name: sealed/pkg/
++Sealed: true
+diff --git a/hotspot/test/testlibrary/com/oracle/java/testlibrary/OutputAnalyzer.java b/hotspot/test/testlibrary/com/oracle/java/testlibrary/OutputAnalyzer.java
+index 67806cab..2132325f 100644
+--- a/hotspot/test/testlibrary/com/oracle/java/testlibrary/OutputAnalyzer.java
++++ b/hotspot/test/testlibrary/com/oracle/java/testlibrary/OutputAnalyzer.java
+@@ -164,6 +164,21 @@ public final class OutputAnalyzer {
+     return this;
+   }
+ 
++  /**
++   * Verify the exit value of the process
++   * backport from jdk11u
++   * @param notExpectedExitValue Unexpected exit value from process
++   * @throws RuntimeException If the exit value from the process did match the expected value
++   */
++  public OutputAnalyzer shouldNotHaveExitValue(int notExpectedExitValue) {
++    if (getExitValue() == notExpectedExitValue) {
++        reportDiagnosticSummary();
++        throw new RuntimeException("Unexpected to get exit value of ["
++                + notExpectedExitValue + "]\n");
++    }
++    return this;
++  }
++
+   /**
+    * Verify that the stdout and stderr contents of output buffer does not contain the string
+    *
+diff --git a/hotspot/test/testlibrary/com/oracle/java/testlibrary/Utils.java b/hotspot/test/testlibrary/com/oracle/java/testlibrary/Utils.java
+index 902e3b13..be48a7e6 100644
+--- a/hotspot/test/testlibrary/com/oracle/java/testlibrary/Utils.java
++++ b/hotspot/test/testlibrary/com/oracle/java/testlibrary/Utils.java
+@@ -370,4 +370,57 @@ public final class Utils {
+         }
+         return new String(hexView);
+     }
++
++    // This method is intended to be called from a jtreg test.
++    // It will identify the name of the test by means of stack walking.
++    // It can handle both jtreg tests and a testng tests wrapped inside jtreg tests.
++    // For jtreg tests the name of the test will be searched by stack-walking
++    // until the method main() is found; the class containing that method is the
++    // main test class and will be returned as the name of the test.
++    // Special handling is used for testng tests.
++    // backport from jdk11u
++    public static String getTestName() {
++        String result = null;
++        // If we are using testng, then we should be able to load the "Test" annotation.
++        Class testClassAnnotation;
++
++        try {
++            testClassAnnotation = Class.forName("org.testng.annotations.Test");
++        } catch (ClassNotFoundException e) {
++            testClassAnnotation = null;
++        }
++
++        StackTraceElement[] elms = (new Throwable()).getStackTrace();
++        for (StackTraceElement n: elms) {
++            String className = n.getClassName();
++
++            // If this is a "main" method, then use its class name, but only
++            // if we are not using testng.
++            if (testClassAnnotation == null && "main".equals(n.getMethodName())) {
++                result = className;
++                break;
++            }
++
++            // If this is a testng test, the test will have no "main" method. We can
++            // detect a testng test class by looking for the org.testng.annotations.Test
++            // annotation. If present, then use the name of this class.
++            if (testClassAnnotation != null) {
++                try {
++                    Class c = Class.forName(className);
++                    if (c.isAnnotationPresent(testClassAnnotation)) {
++                        result = className;
++                        break;
++                    }
++                } catch (ClassNotFoundException e) {
++                    throw new RuntimeException("Unexpected exception: " + e, e);
++                }
++            }
++        }
++
++        if (result == null) {
++            throw new RuntimeException("Couldn't find main test class in stack trace");
++        }
++
++        return result;
++    }
+ }
+diff --git a/hotspot/test/testlibrary/com/oracle/java/testlibrary/cds/CDSOptions.java b/hotspot/test/testlibrary/com/oracle/java/testlibrary/cds/CDSOptions.java
+new file mode 100644
+index 00000000..09050d6c
+--- /dev/null
++++ b/hotspot/test/testlibrary/com/oracle/java/testlibrary/cds/CDSOptions.java
+@@ -0,0 +1,71 @@
++/*
++ * Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++package com.oracle.java.testlibrary.cds;
++
++import java.util.ArrayList;
++
++// This class represents options used
++// during creation of CDS archive and/or running JVM with a CDS archive
++public class CDSOptions {
++    public String xShareMode = "on";
++    public String archiveName;
++    public ArrayList<String> prefix = new ArrayList<String>();
++    public ArrayList<String> suffix = new ArrayList<String>();
++
++    // Indicate whether to append "-version" when using CDS Archive.
++    // Most of tests will use '-version'
++    public boolean useVersion = true;
++
++
++    public CDSOptions() {
++    }
++
++
++    public CDSOptions addPrefix(String... prefix) {
++        for (String s : prefix) this.prefix.add(s);
++        return this;
++    }
++
++
++    public CDSOptions addSuffix(String... suffix) {
++        for (String s : suffix) this.suffix.add(s);
++        return this;
++    }
++
++    public CDSOptions setXShareMode(String mode) {
++        this.xShareMode = mode;
++        return this;
++    }
++
++
++    public CDSOptions setArchiveName(String name) {
++        this.archiveName = name;
++        return this;
++    }
++
++
++    public CDSOptions setUseVersion(boolean use) {
++        this.useVersion = use;
++        return this;
++    }
++}
+diff --git a/hotspot/test/testlibrary/com/oracle/java/testlibrary/cds/CDSTestUtils.java b/hotspot/test/testlibrary/com/oracle/java/testlibrary/cds/CDSTestUtils.java
+new file mode 100644
+index 00000000..f1ff7e48
+--- /dev/null
++++ b/hotspot/test/testlibrary/com/oracle/java/testlibrary/cds/CDSTestUtils.java
+@@ -0,0 +1,590 @@
++/*
++ * Copyright (c) 2017, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++package com.oracle.java.testlibrary.cds;
++
++import java.io.File;
++import java.io.FileOutputStream;
++import java.io.IOException;
++import java.io.PrintStream;
++import java.text.SimpleDateFormat;
++import java.util.ArrayList;
++import java.util.Date;
++
++import com.oracle.java.testlibrary.OutputAnalyzer;
++import com.oracle.java.testlibrary.ProcessTools;
++import com.oracle.java.testlibrary.Utils;
++
++
++// This class contains common test utilities for testing CDS
++public class CDSTestUtils {
++    public static final String MSG_RANGE_NOT_WITHIN_HEAP =
++        "UseSharedSpaces: Unable to allocate region, range is not within java heap.";
++    public static final String MSG_RANGE_ALREADT_IN_USE =
++        "Unable to allocate region, java heap range is already in use.";
++    public static final String MSG_COMPRESSION_MUST_BE_USED =
++        "Unable to use shared archive: UseCompressedOops and UseCompressedClassPointers must be on for UseSharedSpaces.";
++
++    public interface Checker {
++        public void check(OutputAnalyzer output) throws Exception;
++    }
++
++    /*
++     * INTRODUCTION
++     *
++     * When testing various CDS functionalities, we need to launch JVM processes
++     * using a "launch method" (such as TestCommon.run), and analyze the results of these
++     * processes.
++     *
++     * While typical jtreg tests would use OutputAnalyzer in such cases, due to the
++     * complexity of CDS failure modes, we have added the CDSTestUtils.Result class
++     * to make the analysis more convenient and less error prone.
++     *
++     * A Java process can end in one of the following 4 states:
++     *
++     *    1: Unexpected error - such as JVM crashing. In this case, the "launch method"
++     *                          will throw a RuntimeException.
++     *    2: Mapping Failure  - this happens when the OS (intermittently) fails to map the
++     *                          CDS archive, normally caused by Address Space Layout Randomization.
++     *                          We usually treat this as "pass".
++     *    3: Normal Exit      - the JVM process has finished without crashing, and the exit code is 0.
++     *    4: Abnormal Exit    - the JVM process has finished without crashing, and the exit code is not 0.
++     *
++     * In most test cases, we need to check the JVM process's output in cases 3 and 4. However, we need
++     * to make sure that our test code is not confused by case 2.
++     *
++     * For example, a JVM process is expected to print the string "Hi" and exit with 0. With the old
++     * CDSTestUtils.runWithArchive API, the test may be written as this:
++     *
++     *     OutputAnalyzer out = CDSTestUtils.runWithArchive(args);
++     *     out.shouldContain("Hi");
++     *
++     * However, if the JVM process fails with mapping failure, the string "Hi" will not be in the output,
++     * and your test case will fail intermittently.
++     *
++     * Instead, the test case should be written as
++     *
++     *      CCDSTestUtils.run(args).assertNormalExit("Hi");
++     *
++     * EXAMPLES/HOWTO
++     *
++     * 1. For simple substring matching:
++     *
++     *      CCDSTestUtils.run(args).assertNormalExit("Hi");
++     *      CCDSTestUtils.run(args).assertNormalExit("a", "b", "x");
++     *      CCDSTestUtils.run(args).assertAbnormalExit("failure 1", "failure2");
++     *
++     * 2. For more complex output matching: using Lambda expressions
++     *
++     *      CCDSTestUtils.run(args)
++     *         .assertNormalExit(output -> output.shouldNotContain("this should not be printed");
++     *      CCDSTestUtils.run(args)
++     *         .assertAbnormalExit(output -> {
++     *             output.shouldNotContain("this should not be printed");
++     *             output.shouldHaveExitValue(123);
++     *           });
++     *
++     * 3. Chaining several checks:
++     *
++     *      CCDSTestUtils.run(args)
++     *         .assertNormalExit(output -> output.shouldNotContain("this should not be printed")
++     *         .assertNormalExit("should have this", "should have that");
++     *
++     * 4. [Rare use case] if a test sometimes exit normally, and sometimes abnormally:
++     *
++     *      CCDSTestUtils.run(args)
++     *         .ifNormalExit("ths string is printed when exiting with 0")
++     *         .ifAbNormalExit("ths string is printed when exiting with 1");
++     *
++     *    NOTE: you usually don't want to write your test case like this -- it should always
++     *    exit with the same exit code. (But I kept this API because some existing test cases
++     *    behave this way -- need to revisit).
++     */
++    public static class Result {
++        private final OutputAnalyzer output;
++        private final CDSOptions options;
++        private final boolean hasMappingFailure;
++        private final boolean hasAbnormalExit;
++        private final boolean hasNormalExit;
++        private final String CDS_DISABLED = "warning: CDS is disabled when the";
++
++        public Result(CDSOptions opts, OutputAnalyzer out) throws Exception {
++            options = opts;
++            output = out;
++            hasMappingFailure = CDSTestUtils.checkCommonExecExceptions(output);
++            hasAbnormalExit   = (!hasMappingFailure) && (output.getExitValue() != 0);
++            hasNormalExit     = (!hasMappingFailure) && (output.getExitValue() == 0);
++
++            if (hasNormalExit) {
++                if ("on".equals(options.xShareMode) &&
++                    output.getStderr().contains("java version") &&
++                    !output.getStderr().contains(CDS_DISABLED)) {
++                    // "-showversion" is always passed in the command-line by the execXXX methods.
++                    // During normal exit, we require that the VM to show that sharing was enabled.
++                    output.shouldContain("sharing");
++                }
++            }
++        }
++
++        public Result assertNormalExit(Checker checker) throws Exception {
++            if (!hasMappingFailure) {
++                checker.check(output);
++                output.shouldHaveExitValue(0);
++            }
++            return this;
++        }
++
++        public Result assertAbnormalExit(Checker checker) throws Exception {
++            if (!hasMappingFailure) {
++                checker.check(output);
++                output.shouldNotHaveExitValue(0);
++            }
++            return this;
++        }
++
++        // When {--limit-modules, --patch-module, and/or --upgrade-module-path}
++        // are specified, CDS is silently disabled for both -Xshare:auto and -Xshare:on.
++        public Result assertSilentlyDisabledCDS(Checker checker) throws Exception {
++            if (hasMappingFailure) {
++                throw new RuntimeException("Unexpected mapping failure");
++            }
++            // this comes from a JVM warning message.
++            output.shouldContain(CDS_DISABLED);
++
++            checker.check(output);
++            return this;
++        }
++
++        public Result assertSilentlyDisabledCDS(int exitCode, String... matches) throws Exception {
++            return assertSilentlyDisabledCDS((out) -> {
++                out.shouldHaveExitValue(exitCode);
++                checkMatches(out, matches);
++                   });
++        }
++
++        public Result ifNormalExit(Checker checker) throws Exception {
++            if (hasNormalExit) {
++                checker.check(output);
++            }
++            return this;
++        }
++
++        public Result ifAbnormalExit(Checker checker) throws Exception {
++            if (hasAbnormalExit) {
++                checker.check(output);
++            }
++            return this;
++        }
++
++        public Result ifNoMappingFailure(Checker checker) throws Exception {
++            if (!hasMappingFailure) {
++                checker.check(output);
++            }
++            return this;
++        }
++
++
++        public Result assertNormalExit(String... matches) throws Exception {
++            if (!hasMappingFailure) {
++                checkMatches(output, matches);
++                output.shouldHaveExitValue(0);
++            }
++            return this;
++        }
++
++        public Result assertAbnormalExit(String... matches) throws Exception {
++            if (!hasMappingFailure) {
++                checkMatches(output, matches);
++                output.shouldNotHaveExitValue(0);
++            }
++
++            return this;
++        }
++    }
++
++    // Specify this property to copy sdandard output of the child test process to
++    // the parent/main stdout of the test.
++    // By default such output is logged into a file, and is copied into the main stdout.
++    public static final boolean CopyChildStdoutToMainStdout =
++        Boolean.valueOf(System.getProperty("test.cds.copy.child.stdout", "true"));
++
++    // This property is passed to child test processes
++    public static final String TestTimeoutFactor = System.getProperty("test.timeout.factor", "1.0");
++
++    public static final String UnableToMapMsg =
++        "Unable to map shared archive: test did not complete; assumed PASS";
++
++    // Create bootstrap CDS archive,
++    // use extra JVM command line args as a prefix.
++    // For CDS tests specifying prefix makes more sense than specifying suffix, since
++    // normally there are no classes or arguments to classes, just "-version"
++    // To specify suffix explicitly use CDSOptions.addSuffix()
++    public static OutputAnalyzer createArchive(String... cliPrefix)
++        throws Exception {
++        return createArchive((new CDSOptions()).addPrefix(cliPrefix));
++    }
++
++    // Create bootstrap CDS archive
++    public static OutputAnalyzer createArchive(CDSOptions opts)
++        throws Exception {
++
++        startNewArchiveName();
++
++        ArrayList<String> cmd = new ArrayList<String>();
++
++        for (String p : opts.prefix) cmd.add(p);
++
++        cmd.add("-Xshare:dump");
++        cmd.add("-Xlog:cds,cds+hashtables");
++        if (opts.archiveName == null)
++            opts.archiveName = getDefaultArchiveName();
++        cmd.add("-XX:SharedArchiveFile=./" + opts.archiveName);
++
++        for (String s : opts.suffix) cmd.add(s);
++
++        String[] cmdLine = cmd.toArray(new String[cmd.size()]);
++        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder(true, cmdLine);
++        return executeAndLog(pb, "dump");
++    }
++
++
++    // check result of 'dump-the-archive' operation, that is "-Xshare:dump"
++    public static OutputAnalyzer checkDump(OutputAnalyzer output, String... extraMatches)
++        throws Exception {
++
++        output.shouldContain("Loading classes to share");
++        output.shouldHaveExitValue(0);
++
++        for (String match : extraMatches) {
++            output.shouldContain(match);
++        }
++
++        return output;
++    }
++
++
++    // A commonly used convenience methods to create an archive and check the results
++    // Creates an archive and checks for errors
++    public static OutputAnalyzer createArchiveAndCheck(CDSOptions opts)
++        throws Exception {
++        return checkDump(createArchive(opts));
++    }
++
++
++    public static OutputAnalyzer createArchiveAndCheck(String... cliPrefix)
++        throws Exception {
++        return checkDump(createArchive(cliPrefix));
++    }
++
++
++    // This method should be used to check the output of child VM for common exceptions.
++    // Most of CDS tests deal with child VM processes for creating and using the archive.
++    // However exceptions that occur in the child process do not automatically propagate
++    // to the parent process. This mechanism aims to improve the propagation
++    // of exceptions and common errors.
++    // Exception e argument - an exception to be re-thrown if none of the common
++    // exceptions match. Pass null if you wish not to re-throw any exception.
++    public static boolean checkCommonExecExceptions(OutputAnalyzer output, Exception e)
++        throws Exception {
++        if (output.getStdout().contains("https://bugreport.java.com/bugreport/crash.jsp")) {
++            throw new RuntimeException("Hotspot crashed");
++        }
++        if (output.getStdout().contains("TEST FAILED")) {
++            throw new RuntimeException("Test Failed");
++        }
++        if (output.getOutput().contains("Unable to unmap shared space")) {
++            throw new RuntimeException("Unable to unmap shared space");
++        }
++
++        // Special case -- sometimes Xshare:on fails because it failed to map
++        // at given address. This behavior is platform-specific, machine config-specific
++        // and can be random (see ASLR).
++        if (isUnableToMap(output)) {
++            System.out.println(UnableToMapMsg);
++            return true;
++        }
++
++        if (e != null) {
++            throw e;
++        }
++        return false;
++    }
++
++    public static boolean checkCommonExecExceptions(OutputAnalyzer output) throws Exception {
++        return checkCommonExecExceptions(output, null);
++    }
++
++
++    // Check the output for indication that mapping of the archive failed.
++    // Performance note: this check seems to be rather costly - searching the entire
++    // output stream of a child process for multiple strings. However, it is necessary
++    // to detect this condition, a failure to map an archive, since this is not a real
++    // failure of the test or VM operation, and results in a test being "skipped".
++    // Suggestions to improve:
++    // 1. VM can designate a special exit code for such condition.
++    // 2. VM can print a single distinct string indicating failure to map an archive,
++    //    instead of utilizing multiple messages.
++    // These are suggestions to improve testibility of the VM. However, implementing them
++    // could also improve usability in the field.
++    public static boolean isUnableToMap(OutputAnalyzer output) {
++        String outStr = output.getOutput();
++        if ((output.getExitValue() == 1) && (
++            outStr.contains("Unable to reserve shared space at required address") ||
++            outStr.contains("Unable to map ReadOnly shared space at required address") ||
++            outStr.contains("Unable to map ReadWrite shared space at required address") ||
++            outStr.contains("Unable to map MiscData shared space at required address") ||
++            outStr.contains("Unable to map MiscCode shared space at required address") ||
++            outStr.contains("Unable to map OptionalData shared space at required address") ||
++            outStr.contains("Could not allocate metaspace at a compatible address") ||
++            outStr.contains("UseSharedSpaces: Unable to allocate region, range is not within java heap") ))
++        {
++            return true;
++        }
++
++        return false;
++    }
++
++    public static Result run(String... cliPrefix) throws Exception {
++        CDSOptions opts = new CDSOptions();
++        opts.setArchiveName(getDefaultArchiveName());
++        opts.addPrefix(cliPrefix);
++        return new Result(opts, runWithArchive(opts));
++    }
++
++    public static Result run(CDSOptions opts) throws Exception {
++        return new Result(opts, runWithArchive(opts));
++    }
++
++    // Execute JVM with CDS archive, specify command line args suffix
++    public static OutputAnalyzer runWithArchive(String... cliPrefix)
++        throws Exception {
++
++        return runWithArchive( (new CDSOptions())
++                               .setArchiveName(getDefaultArchiveName())
++                               .addPrefix(cliPrefix) );
++    }
++
++
++    // Execute JVM with CDS archive, specify CDSOptions
++    public static OutputAnalyzer runWithArchive(CDSOptions opts)
++        throws Exception {
++
++        ArrayList<String> cmd = new ArrayList<String>();
++
++        for (String p : opts.prefix) cmd.add(p);
++
++        cmd.add("-Xshare:" + opts.xShareMode);
++        cmd.add("-Dtest.timeout.factor=" + TestTimeoutFactor);
++
++        if (opts.archiveName == null)
++            opts.archiveName = getDefaultArchiveName();
++        cmd.add("-XX:SharedArchiveFile=" + opts.archiveName);
++
++        if (opts.useVersion)
++            cmd.add("-version");
++
++        for (String s : opts.suffix) cmd.add(s);
++
++        String[] cmdLine = cmd.toArray(new String[cmd.size()]);
++        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder(true, cmdLine);
++        return executeAndLog(pb, "exec");
++    }
++
++
++    // A commonly used convenience methods to create an archive and check the results
++    // Creates an archive and checks for errors
++    public static OutputAnalyzer runWithArchiveAndCheck(CDSOptions opts) throws Exception {
++        return checkExec(runWithArchive(opts));
++    }
++
++
++    public static OutputAnalyzer runWithArchiveAndCheck(String... cliPrefix) throws Exception {
++        return checkExec(runWithArchive(cliPrefix));
++    }
++
++
++    public static OutputAnalyzer checkExec(OutputAnalyzer output,
++                                     String... extraMatches) throws Exception {
++        CDSOptions opts = new CDSOptions();
++        return checkExec(output, opts, extraMatches);
++    }
++
++
++    // check result of 'exec' operation, that is when JVM is run using the archive
++    public static OutputAnalyzer checkExec(OutputAnalyzer output, CDSOptions opts,
++                                     String... extraMatches) throws Exception {
++        try {
++            if ("on".equals(opts.xShareMode)) {
++                output.shouldContain("sharing");
++            }
++            output.shouldHaveExitValue(0);
++        } catch (RuntimeException e) {
++            checkCommonExecExceptions(output, e);
++            return output;
++        }
++
++        checkMatches(output, extraMatches);
++        return output;
++    }
++
++
++    public static OutputAnalyzer checkExecExpectError(OutputAnalyzer output,
++                                             int expectedExitValue,
++                                             String... extraMatches) throws Exception {
++        if (isUnableToMap(output)) {
++            System.out.println(UnableToMapMsg);
++            return output;
++        }
++
++        output.shouldHaveExitValue(expectedExitValue);
++        checkMatches(output, extraMatches);
++        return output;
++    }
++
++    public static OutputAnalyzer checkMatches(OutputAnalyzer output,
++                                              String... matches) throws Exception {
++        for (String match : matches) {
++            output.shouldContain(match);
++        }
++        return output;
++    }
++
++
++    // get the file object for the test artifact
++    public static File getTestArtifact(String name, boolean checkExistence) {
++        File dir = new File(System.getProperty("test.classes", "."));
++        File file = new File(dir, name);
++
++        if (checkExistence && !file.exists()) {
++            throw new RuntimeException("Cannot find " + file.getPath());
++        }
++
++        return file;
++    }
++
++
++    // create file containing the specified class list
++    public static File makeClassList(String classes[])
++        throws Exception {
++        return makeClassList(getTestName() + "-", classes);
++    }
++
++    // create file containing the specified class list
++    public static File makeClassList(String testCaseName, String classes[])
++        throws Exception {
++
++        File classList = getTestArtifact(testCaseName + "test.classlist", false);
++        FileOutputStream fos = new FileOutputStream(classList);
++        PrintStream ps = new PrintStream(fos);
++
++        addToClassList(ps, classes);
++
++        ps.close();
++        fos.close();
++
++        return classList;
++    }
++
++
++    public static void addToClassList(PrintStream ps, String classes[])
++        throws IOException
++    {
++        if (classes != null) {
++            for (String s : classes) {
++                ps.println(s);
++            }
++        }
++    }
++
++
++    // Optimization for getting a test name.
++    // Test name does not change during execution of the test,
++    // but getTestName() uses stack walking hence it is expensive.
++    // Therefore cache it and reuse it.
++    private static String testName;
++    public static String getTestName() {
++        if (testName == null) {
++            testName = Utils.getTestName();
++        }
++        return testName;
++    }
++
++    private static final SimpleDateFormat timeStampFormat =
++        new SimpleDateFormat("HH'h'mm'm'ss's'SSS");
++
++    private static String defaultArchiveName;
++
++    // Call this method to start new archive with new unique name
++    public static void startNewArchiveName() {
++        defaultArchiveName = getTestName() +
++            timeStampFormat.format(new Date()) + ".jsa";
++    }
++
++    public static String getDefaultArchiveName() {
++        return defaultArchiveName;
++    }
++
++
++    // ===================== FILE ACCESS convenience methods
++    public static File getOutputFile(String name) {
++        File dir = new File(System.getProperty("test.classes", "."));
++        return new File(dir, getTestName() + "-" + name);
++    }
++
++
++    public static File getOutputSourceFile(String name) {
++        File dir = new File(System.getProperty("test.classes", "."));
++        return new File(dir, name);
++    }
++
++
++    public static File getSourceFile(String name) {
++        File dir = new File(System.getProperty("test.src", "."));
++        return new File(dir, name);
++    }
++
++
++    // ============================= Logging
++    public static OutputAnalyzer executeAndLog(ProcessBuilder pb, String logName) throws Exception {
++        long started = System.currentTimeMillis();
++        OutputAnalyzer output = new OutputAnalyzer(pb.start());
++
++        writeFile(getOutputFile(logName + ".stdout"), output.getStdout());
++        writeFile(getOutputFile(logName + ".stderr"), output.getStderr());
++        System.out.println("[ELAPSED: " + (System.currentTimeMillis() - started) + " ms]");
++        System.out.println("[STDERR]\n" + output.getStderr());
++
++        if (CopyChildStdoutToMainStdout)
++            System.out.println("[STDOUT]\n" + output.getStdout());
++
++        return output;
++    }
++
++
++    private static void writeFile(File file, String content) throws Exception {
++        FileOutputStream fos = new FileOutputStream(file);
++        PrintStream ps = new PrintStream(fos);
++        ps.print(content);
++        ps.close();
++        fos.close();
++    }
++}
+diff --git a/hotspot/test/testlibrary/com/oracle/java/testlibrary/compiler/CompilerUtils.java b/hotspot/test/testlibrary/com/oracle/java/testlibrary/compiler/CompilerUtils.java
+new file mode 100644
+index 00000000..a02a1742
+--- /dev/null
++++ b/hotspot/test/testlibrary/com/oracle/java/testlibrary/compiler/CompilerUtils.java
+@@ -0,0 +1,118 @@
++/*
++ * Copyright (c) 2015, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++
++package com.oracle.java.testlibrary.compiler;
++
++import java.io.File;
++import java.io.IOException;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.List;
++import java.util.stream.Collectors;
++
++import javax.tools.JavaCompiler;
++import javax.tools.StandardJavaFileManager;
++import javax.tools.StandardLocation;
++import javax.tools.ToolProvider;
++
++/**
++ * This class consists exclusively of static utility methods for invoking the
++ * java compiler.
++ */
++public final class CompilerUtils {
++    private CompilerUtils() {
++    }
++
++    /**
++     * Compile all the java sources in {@code <source>/**} to
++     * {@code <destination>/**}. The destination directory will be created if
++     * it doesn't exist.
++     * <p>
++     * Equivalent to calling {@code compile(source, destination, true, options);}.
++     * <p>
++     * All warnings/errors emitted by the compiler are output to System.out/err.
++     *
++     * @param source      Path to the source directory
++     * @param destination Path to the destination directory
++     * @param options     Any options to pass to the compiler
++     * @return true if the compilation is successful
++     * @throws IOException                   if there is an I/O error scanning the source tree or
++     *                                       creating the destination directory
++     * @throws UnsupportedOperationException if there is no system java compiler
++     */
++    public static boolean compile(Path source, Path destination, String... options)
++            throws IOException {
++        return compile(source, destination, true, options);
++    }
++
++    /**
++     * Compile all the java sources in {@code <source>} and optionally its
++     * subdirectories, to
++     * {@code <destination>}. The destination directory will be created if
++     * it doesn't exist.
++     * <p>
++     * All warnings/errors emitted by the compiler are output to System.out/err.
++     *
++     * @param source      Path to the source directory
++     * @param destination Path to the destination directory
++     * @param recurse     If {@code true} recurse into any {@code source} subdirectories
++     *                    to compile all java source files; else only compile those directly in
++     *                    {@code source}.
++     * @param options     Any options to pass to the compiler
++     * @return true if the compilation is successful
++     * @throws IOException                   if there is an I/O error scanning the source tree or
++     *                                       creating the destination directory
++     * @throws UnsupportedOperationException if there is no system java compiler
++     */
++
++    public static boolean compile(Path source, Path destination, boolean recurse, String... options)
++            throws IOException {
++        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
++        if (compiler == null) {
++            // no compiler available
++            throw new UnsupportedOperationException("Unable to get system java compiler. "
++                    + "Perhaps, jdk.compiler module is not available.");
++        }
++        StandardJavaFileManager jfm = compiler.getStandardFileManager(null, null, null);
++
++        List<File> sources
++                = Files.find(source, (recurse ? Integer.MAX_VALUE : 1),
++                (file, attrs) -> (file.toString().endsWith(".java")))
++                .map(e -> e.toFile()) // use jdk1.8
++                .collect(Collectors.toList());
++
++        Files.createDirectories(destination);
++//        jfm.setLocation(StandardLocation.CLASS_PATH, Collections.emptyList()); comment out , use jdk1.8, backport from jdk11u
++        jfm.setLocation(StandardLocation.CLASS_OUTPUT,
++                Collections.singletonList(destination.toFile()));
++
++        List<String> opts = Arrays.asList(options);
++        JavaCompiler.CompilationTask task
++                = compiler.getTask(null, jfm, null, opts, null,
++                jfm.getJavaFileObjectsFromFiles(sources)); // use jdk1.8
++
++        return task.call();
++    }
++}
+diff --git a/hotspot/test/testlibrary/whitebox/sun/hotspot/WhiteBox.java b/hotspot/test/testlibrary/whitebox/sun/hotspot/WhiteBox.java
+index 909e09f9..f06b1cbb 100644
+--- a/hotspot/test/testlibrary/whitebox/sun/hotspot/WhiteBox.java
++++ b/hotspot/test/testlibrary/whitebox/sun/hotspot/WhiteBox.java
+@@ -28,9 +28,11 @@ import java.lang.management.MemoryUsage;
+ import java.lang.reflect.Executable;
+ import java.util.Arrays;
+ import java.util.List;
++import java.util.function.BiFunction;
+ import java.util.function.Function;
+ import java.util.stream.Stream;
+ import java.security.BasicPermission;
++import java.util.Objects;
+ import java.net.URL;
+ 
+ import sun.hotspot.parser.DiagnosticCommand;
+@@ -137,6 +139,31 @@ public class WhiteBox {
+   }
+   public native boolean isMethodCompilable(Executable method, int compLevel, boolean isOsr);
+   public native boolean isMethodQueuedForCompilation(Executable method);
++
++  // Determine if the compiler corresponding to the compilation level 'compLevel'
++  // and to the compilation context 'compilation_context' provides an intrinsic
++  // for the method 'method'. An intrinsic is available for method 'method' if:
++  //  - the intrinsic is enabled (by using the appropriate command-line flag) and
++  //  - the platform on which the VM is running provides the instructions necessary
++  //    for the compiler to generate the intrinsic code.
++  //
++  // The compilation context is related to using the DisableIntrinsic flag on a
++  // per-method level, see hotspot/src/share/vm/compiler/abstractCompiler.hpp
++  // for more details.
++  public boolean isIntrinsicAvailable(Executable method,
++                                      Executable compilationContext,
++                                      int compLevel) {
++      Objects.requireNonNull(method);
++      return isIntrinsicAvailable0(method, compilationContext, compLevel);
++  }
++  // If usage of the DisableIntrinsic flag is not expected (or the usage can be ignored),
++  // use the below method that does not require the compilation context as argument.
++  public boolean isIntrinsicAvailable(Executable method, int compLevel) {
++      return isIntrinsicAvailable(method, null, compLevel);
++  }
++  private native boolean isIntrinsicAvailable0(Executable method,
++                                               Executable compilationContext,
++                                               int compLevel);
+   public        int     deoptimizeMethod(Executable method) {
+     return deoptimizeMethod(method, false /*not osr*/);
+   }
+@@ -253,5 +280,4 @@ public class WhiteBox {
+   // Container testing
+   public native boolean isContainerized();
+   public native void printOsInfo();
+-
+ }
+diff --git a/hotspot/test/testlibrary/whitebox/sun/hotspot/code/Compiler.java b/hotspot/test/testlibrary/whitebox/sun/hotspot/code/Compiler.java
+new file mode 100644
+index 00000000..bb06f1af
+--- /dev/null
++++ b/hotspot/test/testlibrary/whitebox/sun/hotspot/code/Compiler.java
+@@ -0,0 +1,154 @@
++/*
++ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++
++package sun.hotspot.code;
++
++import java.lang.reflect.Executable;
++import sun.hotspot.WhiteBox;
++
++/**
++ * API to obtain information about enabled JIT compilers
++ * retrieved from the VM with the WhiteBox API.
++ */
++public class Compiler {
++
++    private static final WhiteBox WB = WhiteBox.getWhiteBox();
++
++    /**
++     * Check if Graal is used as JIT compiler.
++     *
++     * Graal is enabled if following conditions are true:
++     * - we are not in Interpreter mode
++     * - UseJVMCICompiler flag is true
++     * - jvmci.Compiler variable is equal to 'graal'
++     * - TieredCompilation is not used or TieredStopAtLevel is greater than 3
++     * No need to check client mode because it set UseJVMCICompiler to false.
++     *
++     * @return true if Graal is used as JIT compiler.
++     */
++    public static boolean isGraalEnabled() {
++        Boolean useCompiler = WB.getBooleanVMFlag("UseCompiler");
++        if (useCompiler == null || !useCompiler) {
++            return false;
++        }
++        Boolean useJvmciComp = WB.getBooleanVMFlag("UseJVMCICompiler");
++        if (useJvmciComp == null || !useJvmciComp) {
++            return false;
++        }
++        // This check might be redundant but let's keep it for now.
++        String jvmciCompiler = System.getProperty("jvmci.Compiler");
++        if (jvmciCompiler == null || !jvmciCompiler.equals("graal")) {
++            return false;
++        }
++
++        Boolean tieredCompilation = WB.getBooleanVMFlag("TieredCompilation");
++        Long compLevel = WB.getIntxVMFlag("TieredStopAtLevel");
++        // if TieredCompilation is enabled and compilation level is <= 3 then no Graal is used
++        if (tieredCompilation != null && tieredCompilation &&
++                compLevel != null && compLevel <= 3) {
++            return false;
++        }
++        return true;
++    }
++
++    /**
++     * Check if C2 is used as JIT compiler.
++     *
++     * C2 is enabled if following conditions are true:
++     * - we are not in Interpreter mode
++     * - we are in Server compilation mode
++     * - TieredCompilation is not used or TieredStopAtLevel is greater than 3
++     * - Graal is not used
++     *
++     * @return true if C2 is used as JIT compiler.
++     */
++    public static boolean isC2Enabled() {
++        Boolean useCompiler = WB.getBooleanVMFlag("UseCompiler");
++        if (useCompiler == null || !useCompiler) {
++            return false;
++        }
++        Boolean serverMode = WB.getBooleanVMFlag("ProfileInterpreter");
++        if (serverMode == null || !serverMode) {
++            return false;
++        }
++
++        Boolean tieredCompilation = WB.getBooleanVMFlag("TieredCompilation");
++        Long compLevel = WB.getIntxVMFlag("TieredStopAtLevel");
++        // if TieredCompilation is enabled and compilation level is <= 3 then no Graal is used
++        if (tieredCompilation != null && tieredCompilation &&
++                compLevel != null && compLevel <= 3) {
++            return false;
++        }
++
++        if (isGraalEnabled()) {
++            return false;
++        }
++
++        return true;
++    }
++
++    /*
++     * Check if C1 is used as JIT compiler.
++     *
++     * C1 is enabled if following conditions are true:
++     * - we are not in Interpreter mode
++     * - we are not in Server compilation mode
++     * - TieredCompilation is used in Server mode
++     *
++     * @return true if C1 is used as JIT compiler.
++     */
++    public static boolean isC1Enabled() {
++        Boolean useCompiler = WB.getBooleanVMFlag("UseCompiler");
++        if (useCompiler == null || !useCompiler) {
++            return false;
++        }
++        Boolean serverMode = WB.getBooleanVMFlag("ProfileInterpreter");
++        if (serverMode == null || !serverMode) {
++            return true; // Client mode
++        }
++
++        Boolean tieredCompilation = WB.getBooleanVMFlag("TieredCompilation");
++        // C1 is not used in server mode if TieredCompilation is off.
++        if (tieredCompilation != null && !tieredCompilation) {
++            return false;
++        }
++        return true;
++    }
++
++    /*
++     * Determine if the compiler corresponding to the compilation level 'compLevel'
++     * provides an intrinsic for 'class'.'method'.
++     */
++    public static boolean isIntrinsicAvailable(int compLevel, String klass, String method, Class<?>... parameterTypes) {
++        Executable intrinsicMethod;
++        try {
++            intrinsicMethod = Class.forName(klass).getDeclaredMethod(method, parameterTypes);
++        } catch (NoSuchMethodException e) {
++            throw new RuntimeException("Test bug, '" + method + "' method unavailable. " + e);
++        } catch (ClassNotFoundException e) {
++            throw new RuntimeException("Test bug, '" + klass + "' class unavailable. " + e);
++        }
++        return WB.isIntrinsicAvailable(intrinsicMethod, compLevel);
++    }
++}
++
