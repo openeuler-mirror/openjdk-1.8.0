@@ -112,7 +112,7 @@ index 000000000..d4c93b390
 +++ b/hotspot/test/compiler/c2/TestReplaceEquivPhis.java
 @@ -0,0 +1,77 @@
 +/*
-+ * Copyright (c) 2020, Huawei Technologies Co. Ltd. All rights reserved.
++ * Copyright (c) 2020, Huawei Technologies Co., LTD. All rights reserved.
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
 + * This code is free software; you can redistribute it and/or modify it
