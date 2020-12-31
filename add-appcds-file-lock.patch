@@ -1,0 +1,461 @@
+diff --git a/hotspot/src/share/vm/classfile/classFileParser.cpp b/hotspot/src/share/vm/classfile/classFileParser.cpp
+index f27d04d0..306315e9 100644
+--- a/hotspot/src/share/vm/classfile/classFileParser.cpp
++++ b/hotspot/src/share/vm/classfile/classFileParser.cpp
+@@ -4022,8 +4022,12 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
+       if (_host_klass == NULL && SystemDictionaryShared::is_sharing_possible(loader_data)) {
+         if (name != NULL) {
+           ResourceMark rm(THREAD);
+-          classlist_file->print_cr("%s", name->as_C_string());
+-          classlist_file->flush();
++          char *class_name = name->as_C_string();
++          // TODO Skip JFR-related classes in classlist file to avoid conflicts between appcds and jfr.
++          if ((class_name != NULL) && (strstr(class_name, "jfr") == NULL)) {
++            classlist_file->print_cr("%s", class_name);
++            classlist_file->flush();
++          }
+         }
+       }
+     }
+diff --git a/hotspot/src/share/vm/classfile/systemDictionary.cpp b/hotspot/src/share/vm/classfile/systemDictionary.cpp
+index d27bf484..3f28d38e 100644
+--- a/hotspot/src/share/vm/classfile/systemDictionary.cpp
++++ b/hotspot/src/share/vm/classfile/systemDictionary.cpp
+@@ -1283,41 +1283,43 @@ instanceKlassHandle SystemDictionary::load_shared_class(
+       // null) or the same class loader is used to load previously
+       // defined class
+       bool bFound = false;
+-        if (class_loader.is_null()) {
+-          // condition1: Bootstrap class loader loaded
+-          bFound = (ik()->class_loader_data() == NULL || ik()->class_loader_data()->is_the_null_class_loader_data());
+-        } else if (ik()->class_loader_data() != NULL) {
+-          // condition2: App Class Loader
+-          // condition3: ExtClass Loader
+-          // Condition4: not fake class Loader, real one
+-          bFound = ((ik->has_fake_loader_data_App() && SystemDictionary::is_app_class_loader(class_loader)) ||
+-                    (ik->has_fake_loader_data_Ext() && SystemDictionary::is_ext_class_loader(class_loader)) ||
+-                    (!ik->has_fake_loader_data() && ik()->class_loader() == class_loader()));
+-          }
+-          if (!bFound) {
+-            return instanceKlassHandle();
+-          }
++      if (class_loader.is_null()) {
++        // condition1: Bootstrap class loader loaded
++        bFound = (ik()->class_loader_data() == NULL || ik()->class_loader_data()->is_the_null_class_loader_data());
++      } else if (ik()->class_loader_data() != NULL) {
++        // condition2: App Class Loader
++        // condition3: ExtClass Loader
++        // condition4: not fake class Loader, real one
++        bFound = ((ik->has_fake_loader_data_App() && SystemDictionary::is_app_class_loader(class_loader)) ||
++                  (ik->has_fake_loader_data_Ext() && SystemDictionary::is_ext_class_loader(class_loader)) ||
++                  (!ik->has_fake_loader_data() && ik()->class_loader() == class_loader()));
++      }
++      if (!bFound) {
++        return instanceKlassHandle();
++      }
+ 
+-          // get protection domain for this class if not loaded by null class loader
+-          if (class_loader.not_null()) {
+-            ResourceMark rm(THREAD);
+-            char* name = ik->name()->as_C_string();
+-            Handle klass_name = java_lang_String::create_from_str(name, CHECK_0);
+-            JavaValue result(T_OBJECT);
+-
+-            // ClassLoaderData* loader_data = ClassLoaderData::class_loader_data(class_loader());
+-            JavaCalls::call_virtual(&result,
+-                                    class_loader,
+-                                    KlassHandle(THREAD, SystemDictionary::URLClassLoader_klass()),
+-                                    vmSymbols::getProtectionDomainInternal_name(),
+-                                    vmSymbols::getProtectionDomainInternal_signature(),
+-                                    klass_name,
+-                                    THREAD);
+-            return load_shared_class(ik, class_loader, Handle(THREAD, (oop) result.get_jobject()), THREAD);
+-          } else {
+-            return load_shared_class(ik, class_loader, Handle(), THREAD);
+-          }
++      // get protection domain for this class if not loaded by null class loader
++      if (class_loader.not_null()) {
++        ResourceMark rm(THREAD);
++        char* name = ik->name()->as_C_string();
++        Handle klass_name = java_lang_String::create_from_str(name, CHECK_0);
++        JavaValue result(T_OBJECT);
++
++	// load_shared_class need protected domain to handle non-bootstrap loaded class,
++        // so here call_virtual to call getProtectionDomainInternal function of URLClassLoader.java,
++        // to get protected domain and save into result.
++        JavaCalls::call_virtual(&result,
++                                class_loader,
++                                KlassHandle(THREAD, SystemDictionary::URLClassLoader_klass()),
++                                vmSymbols::getProtectionDomainInternal_name(),
++                                vmSymbols::getProtectionDomainInternal_signature(),
++                                klass_name,
++                                THREAD);
++        return load_shared_class(ik, class_loader, Handle(THREAD, (oop) result.get_jobject()), THREAD);
++      } else {
++        return load_shared_class(ik, class_loader, Handle(), THREAD);
+       }
++    }
+   }
+   return instanceKlassHandle();
+ }
+@@ -1396,8 +1398,12 @@ instanceKlassHandle SystemDictionary::load_shared_class(instanceKlassHandle ik,
+       // unless AppCDS is enabled
+       if (SystemDictionaryShared::is_sharing_possible(loader_data)) {
+         ResourceMark rm(THREAD);
+-        classlist_file->print_cr("%s", ik->name()->as_C_string());
+-        classlist_file->flush();
++        char *class_name = ik->name()->as_C_string();
++        // TODO Skip JFR-related classes in classlist file to avoid conflicts between appcds and jfr.
++        if ((class_name != NULL) && (strstr(class_name, "jfr") == NULL)) {
++          classlist_file->print_cr("%s", class_name);
++          classlist_file->flush();
++        }
+       }
+     }
+ 
+@@ -1472,8 +1478,10 @@ instanceKlassHandle SystemDictionary::load_instance_class(Symbol* class_name, Ha
+       // the call stack. Bootstrap classloader is parallel-capable,
+       // so no concurrency issues are expected.
+       CLEAR_PENDING_EXCEPTION;
+-      k = JfrUpcalls::load_event_handler_proxy_class(THREAD);
+-      assert(!k.is_null(), "invariant");
++      if (!DumpSharedSpaces) {
++        k = JfrUpcalls::load_event_handler_proxy_class(THREAD);
++        assert(!k.is_null(), "invariant");
++      }
+     }
+ #endif
+ 
+diff --git a/hotspot/src/share/vm/classfile/systemDictionaryShared.hpp b/hotspot/src/share/vm/classfile/systemDictionaryShared.hpp
+index a8dbda2e..1bd61b02 100644
+--- a/hotspot/src/share/vm/classfile/systemDictionaryShared.hpp
++++ b/hotspot/src/share/vm/classfile/systemDictionaryShared.hpp
+@@ -28,6 +28,7 @@
+ 
+ #include "classfile/dictionary.hpp"
+ #include "classfile/systemDictionary.hpp"
++#include "verifier.hpp"
+ 
+ class SystemDictionaryShared: public SystemDictionary {
+ public:
+@@ -70,7 +71,16 @@ public:
+   static void finalize_verification_dependencies() {}
+   static bool check_verification_dependencies(Klass* k, Handle class_loader,
+                                               Handle protection_domain,
+-                                              char** message_buffer, TRAPS) {return true;}
++                                              char** message_buffer, TRAPS) {
++    if (EnableSplitVerifierForAppCDS) {
++      ClassVerifier split_verifier(k, THREAD);
++      split_verifier.verify_class(THREAD);
++      if (HAS_PENDING_EXCEPTION) {
++        return false; // use the existing exception
++      }
++    }
++    return true;
++  }
+ };
+ 
+ #endif // SHARE_VM_CLASSFILE_SYSTEMDICTIONARYSHARED_HPP
+diff --git a/hotspot/src/share/vm/classfile/verifier.cpp b/hotspot/src/share/vm/classfile/verifier.cpp
+index 9923058b..eb267b83 100644
+--- a/hotspot/src/share/vm/classfile/verifier.cpp
++++ b/hotspot/src/share/vm/classfile/verifier.cpp
+@@ -561,7 +561,8 @@ void ClassVerifier::verify_class(TRAPS) {
+ 
+   for (int index = 0; index < num_methods; index++) {
+     // Check for recursive re-verification before each method.
+-    if (was_recursively_verified())  return;
++    // in CDS Sharing state we still verify the code.
++    if (!UseAppCDS && was_recursively_verified())  return;
+ 
+     Method* m = methods->at(index);
+     if (m->is_native() || m->is_abstract() || m->is_overpass()) {
+diff --git a/hotspot/src/share/vm/memory/filemap.cpp b/hotspot/src/share/vm/memory/filemap.cpp
+index 17447587..d2095e63 100644
+--- a/hotspot/src/share/vm/memory/filemap.cpp
++++ b/hotspot/src/share/vm/memory/filemap.cpp
+@@ -22,6 +22,7 @@
+  *
+  */
+ 
++#include "jvm.h"
+ #include "precompiled.hpp"
+ #include "classfile/classLoader.hpp"
+ #include "classfile/sharedClassUtil.hpp"
+@@ -33,10 +34,13 @@
+ #include "memory/oopFactory.hpp"
+ #include "oops/objArrayOop.hpp"
+ #include "runtime/arguments.hpp"
++#include "runtime/globals.hpp"
+ #include "runtime/java.hpp"
+ #include "runtime/os.hpp"
+ #include "services/memTracker.hpp"
++#include "utilities/debug.hpp"
+ #include "utilities/defaultStream.hpp"
++#include "utilities/ostream.hpp"
+ 
+ # include <sys/stat.h>
+ # include <errno.h>
+@@ -362,11 +366,33 @@ bool FileMapInfo::open_for_read() {
+   return true;
+ }
+ 
+-
+ // Write the FileMapInfo information to the file.
+-
+ void FileMapInfo::open_for_write() {
+- _full_path = make_log_name(Arguments::GetSharedArchivePath(), NULL);
++  if (UseAppCDS && AppCDSLockFile != NULL) {
++    char* pos = strrchr(const_cast<char*>(AppCDSLockFile), '/');
++    if (pos != NULL && pos != AppCDSLockFile) { // No directory path specified
++      char buf[PATH_MAX + 1] = "\0";
++      char filePath[PATH_MAX] = "\0";
++      int length = pos - AppCDSLockFile + 1;
++      strncpy(filePath, AppCDSLockFile, length);
++      if (realpath(filePath, buf) == NULL) {
++        fail_stop("A risky filePath:%s, buf:%s, length:%d", filePath, buf, length);
++      }
++      _appcds_file_lock_path = os::strdup(AppCDSLockFile, mtInternal);
++      if (_appcds_file_lock_path == NULL) {
++        fail_stop("Failed to create appcds file lock.");
++      }
++      int lock_fd = open(_appcds_file_lock_path, O_CREAT | O_WRONLY | O_EXCL, S_IRUSR | S_IWUSR);
++      if (lock_fd < 0) {
++        tty->print_cr("The lock path is: %s", _appcds_file_lock_path);
++        tty->print_cr("Failed to create jsa file !\n Please check: \n 1. The directory exists.\n "
++		      "2. You have the permission.\n 3. Make sure no other process using the same lock file.\n");
++        JVM_Exit(0);
++      }
++      tty->print_cr("You are using file lock %s in concurrent mode", AppCDSLockFile);
++    }
++  }
++  _full_path = make_log_name(Arguments::GetSharedArchivePath(), NULL);
+   if (PrintSharedSpaces) {
+     tty->print_cr("Dumping shared data to file: ");
+     tty->print_cr("   %s", _full_path);
+@@ -452,6 +478,7 @@ void FileMapInfo::write_bytes(const void* buffer, int nbytes) {
+       // close and remove the file. See bug 6372906.
+       close();
+       remove(_full_path);
++      remove(_appcds_file_lock_path);
+       fail_stop("Unable to write to shared archive file.", NULL);
+     }
+   }
+@@ -492,6 +519,10 @@ void FileMapInfo::write_bytes_aligned(const void* buffer, int nbytes) {
+ // Close the shared archive file.  This does NOT unmap mapped regions.
+ 
+ void FileMapInfo::close() {
++  if (UseAppCDS && AppCDSLockFile != NULL) {
++    // delete appcds.lock
++    remove(_appcds_file_lock_path);
++  }
+   if (_file_open) {
+     if (::close(_fd) < 0) {
+       fail_stop("Unable to close the shared archive file.");
+diff --git a/hotspot/src/share/vm/memory/filemap.hpp b/hotspot/src/share/vm/memory/filemap.hpp
+index acff6c9d..c09fbca1 100644
+--- a/hotspot/src/share/vm/memory/filemap.hpp
++++ b/hotspot/src/share/vm/memory/filemap.hpp
+@@ -143,6 +143,7 @@ public:
+   FileMapHeader * _header;
+ 
+   const char* _full_path;
++  const char* _appcds_file_lock_path;
+   char* _paths_misc_info;
+ 
+   static FileMapInfo* _current_info;
+diff --git a/hotspot/src/share/vm/runtime/arguments.cpp b/hotspot/src/share/vm/runtime/arguments.cpp
+index 073c38ac..ebb5e114 100644
+--- a/hotspot/src/share/vm/runtime/arguments.cpp
++++ b/hotspot/src/share/vm/runtime/arguments.cpp
+@@ -36,6 +36,7 @@
+ #include "prims/jvmtiExport.hpp"
+ #include "runtime/arguments.hpp"
+ #include "runtime/arguments_ext.hpp"
++#include "runtime/globals.hpp"
+ #include "runtime/globals_extension.hpp"
+ #include "runtime/java.hpp"
+ #include "services/management.hpp"
+@@ -1493,7 +1494,6 @@ void Arguments::set_use_compressed_oops() {
+   // the only value that can override MaxHeapSize if we are
+   // to use UseCompressedOops is InitialHeapSize.
+   size_t max_heap_size = MAX2(MaxHeapSize, InitialHeapSize);
+-
+   if (max_heap_size <= max_heap_for_compressed_oops()) {
+ #if !defined(COMPILER1) || defined(TIERED)
+     if (FLAG_IS_DEFAULT(UseCompressedOops)) {
+@@ -3023,9 +3023,6 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
+       if (!process_argument("+UseAppCDS", args->ignoreUnrecognized, origin)) {
+         return JNI_EINVAL;
+       } else {
+-        const char* n = "SharedArchiveFile";
+-        Flag* shared_archive_flag = Flag::find_flag(n, strlen(n), true, true);
+-        shared_archive_flag->unlock_diagnostic();
+         FLAG_SET_CMDLINE(bool, UseAppCDS, true);
+       }
+     }
+@@ -3382,6 +3379,9 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
+     } else if (match_option(option, "-Xshare:off", &tail)) {
+       FLAG_SET_CMDLINE(bool, UseSharedSpaces, false);
+       FLAG_SET_CMDLINE(bool, RequireSharedSpaces, false);
++    // -Xtypecheck
++    } else if (match_option(option, "-Xtypecheck:on", &tail)) {
++      FLAG_SET_CMDLINE(bool, EnableSplitVerifierForAppCDS, true);
+     // -Xverify
+     } else if (match_option(option, "-Xverify", &tail)) {
+       if (strcmp(tail, ":all") == 0 || strcmp(tail, "") == 0) {
+@@ -3632,7 +3632,10 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
+     FLAG_SET_CMDLINE(bool, RequireSharedSpaces, true);
+     FLAG_SET_CMDLINE(bool, TraceClassPaths, true);
+   }
+-
++  if (DumpSharedSpaces && !UseAppCDS && AppCDSLockFile != NULL) {
++    jio_fprintf(defaultStream::error_stream(), "AppCDSLockFile is only used when AppCDS is enabled.");
++    return JNI_ERR;
++  }
+   // Change the default value for flags  which have different default values
+   // when working with older JDKs.
+ #ifdef LINUX
+@@ -4057,6 +4060,7 @@ static char* get_shared_archive_path() {
+   return shared_archive_path;
+ }
+ 
++
+ #ifndef PRODUCT
+ // Determine whether LogVMOutput should be implicitly turned on.
+ static bool use_vm_log() {
+@@ -4199,6 +4203,7 @@ jint Arguments::parse(const JavaVMInitArgs* args) {
+     return JNI_ENOMEM;
+   }
+ 
++
+   // Set up VerifySharedSpaces
+   if (FLAG_IS_DEFAULT(VerifySharedSpaces) && SharedArchiveFile != NULL) {
+     VerifySharedSpaces = true;
+diff --git a/hotspot/src/share/vm/runtime/arguments.hpp b/hotspot/src/share/vm/runtime/arguments.hpp
+index 6f7ff138..03f293e3 100644
+--- a/hotspot/src/share/vm/runtime/arguments.hpp
++++ b/hotspot/src/share/vm/runtime/arguments.hpp
+@@ -473,6 +473,7 @@ class Arguments : AllStatic {
+   static bool   CheckCompileOnly;
+ 
+   static char*  SharedArchivePath;
++  static char*  AppCDSLockPath;
+ 
+  public:
+   // Parses the arguments, first phase
+diff --git a/hotspot/src/share/vm/runtime/globals.hpp b/hotspot/src/share/vm/runtime/globals.hpp
+index 65b11caa..b72efd45 100644
+--- a/hotspot/src/share/vm/runtime/globals.hpp
++++ b/hotspot/src/share/vm/runtime/globals.hpp
+@@ -4007,15 +4007,21 @@ class CommandLineFlags {
+   product(ccstr, SharedClassListFile, NULL,                                 \
+           "Override the default CDS class list")                            \
+                                                                             \
+-  diagnostic(ccstr, SharedArchiveFile, NULL,                                \
++  product(ccstr, SharedArchiveFile, NULL,                                   \
+           "Override the default location of the CDS archive file")          \
+                                                                             \
++  product(ccstr, AppCDSLockFile, NULL,                                      \
++          "Override the default location of the AppCDS lock file")          \
++                                                                            \
+   product(ccstr, ExtraSharedClassListFile, NULL,                            \
+           "Extra classlist for building the CDS archive file")              \
+                                                                             \
+   product(bool, UseAppCDS, false,                                           \
+           "Enable Application Class Data Sharing (AppCDS)")                 \
+                                                                             \
++  product(bool, EnableSplitVerifierForAppCDS, false,                        \
++          "Enable Type Check (AppCDS)")                                     \
++                                                                            \
+   experimental(uintx, ArrayAllocatorMallocLimit,                            \
+           SOLARIS_ONLY(64*K) NOT_SOLARIS(max_uintx),                        \
+           "Allocation less than this value will be allocated "              \
+diff --git a/hotspot/src/share/vm/utilities/ostream.cpp b/hotspot/src/share/vm/utilities/ostream.cpp
+index 2b458fe4..587b839b 100644
+--- a/hotspot/src/share/vm/utilities/ostream.cpp
++++ b/hotspot/src/share/vm/utilities/ostream.cpp
+@@ -34,6 +34,9 @@
+ #include "utilities/ostream.hpp"
+ #include "utilities/top.hpp"
+ #include "utilities/xmlstream.hpp"
++
++# include <sys/file.h>
++
+ #ifdef TARGET_OS_FAMILY_linux
+ # include "os_linux.inline.hpp"
+ #endif
+@@ -376,7 +379,7 @@ stringStream::~stringStream() {}
+ xmlStream*   xtty;
+ outputStream* tty;
+ outputStream* gclog_or_tty;
+-CDS_ONLY(fileStream* classlist_file;) // Only dump the classes that can be stored into the CDS archive
++CDS_ONLY(jsaFileStream* classlist_file;) // Only dump the classes that can be stored into the CDS archive
+ extern Mutex* tty_lock;
+ 
+ #define EXTRACHARLEN   32
+@@ -760,6 +763,36 @@ void fileStream::flush() {
+   fflush(_file);
+ }
+ 
++jsaFileStream::jsaFileStream(const char* file_name) : fileStream(file_name, "a") {
++  if (_file != NULL) {
++    if (flock(fileno(_file), LOCK_EX | LOCK_NB) != 0) {
++      if (errno == EWOULDBLOCK) {
++        warning("file %s is locked by another process\n", file_name);
++      } else {
++        warning("Cannot lock file %s due to %s\n", file_name, strerror(errno));
++      }
++      fclose(_file);
++      _file = NULL;
++      _need_close = false;
++    } else {
++      if (::ftruncate(fileno(_file), 0) != 0) {
++          warning("Fail to ftruncate file %s due to %s\n", file_name, strerror(errno));
++      }
++      ::rewind(_file);
++    }
++  }
++}
++
++jsaFileStream::~jsaFileStream() {
++  // flock is released automatically when _file is closed
++  // Ensure the following sequnce in fclose
++  // 1. fflush. 2. flock(unlock); 3. close
++  if (_file != NULL) {
++    if (_need_close) fclose(_file);
++    _file      = NULL;
++  }
++}
++
+ fdStream::fdStream(const char* file_name) {
+   _fd = open(file_name, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+   _need_close = true;
+@@ -1362,7 +1395,7 @@ void ostream_init_log() {
+   if (DumpLoadedClassList != NULL) {
+     const char* list_name = make_log_name(DumpLoadedClassList, NULL);
+     classlist_file = new(ResourceObj::C_HEAP, mtInternal)
+-                         fileStream(list_name);
++                         jsaFileStream(list_name);
+     FREE_C_HEAP_ARRAY(char, list_name, mtInternal);
+   }
+ #endif
+diff --git a/hotspot/src/share/vm/utilities/ostream.hpp b/hotspot/src/share/vm/utilities/ostream.hpp
+index 530c523c..c69289fb 100644
+--- a/hotspot/src/share/vm/utilities/ostream.hpp
++++ b/hotspot/src/share/vm/utilities/ostream.hpp
+@@ -214,7 +214,13 @@ class fileStream : public outputStream {
+   void flush();
+ };
+ 
+-CDS_ONLY(extern fileStream*   classlist_file;)
++class jsaFileStream : public fileStream {
++ public:
++  jsaFileStream(const char* file_name);
++  ~jsaFileStream();
++};
++
++CDS_ONLY(extern jsaFileStream*   classlist_file;)
+ 
+ // unlike fileStream, fdStream does unbuffered I/O by calling
+ // open() and write() directly. It is async-safe, but output
