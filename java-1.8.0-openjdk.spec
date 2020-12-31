@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 7
+Release: 14
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1063,6 +1063,13 @@ Patch134: PS-GC-adding-acquire_size-method-for-PSParallelCompa.patch
 Patch135: 8223940-Private-key-not-supported-by-chosen-signature.patch
 Patch136: 8236512-PKCS11-Connection-closed-after-Cipher.doFinal-and-NoPadding.patch
 Patch137: 8250861-Crash-in-MinINode-Ideal-PhaseGVN-bool.patch
+Patch138: add-appcds-file-lock.patch
+Patch139: G1-memory-uncommit.patch
+Patch140: 8015927-Class-reference-duplicates-in-constant-pool.patch
+Patch141: 8040327-Eliminate-AnnotatedType-8040319-Clean-up-type-annotation-exception-index.patch
+Patch142: 8207160-ClassReader-adjustMethodParams-can-potentially-return-null-if-the-args-list-is-empty.patch
+Patch143: delete-untrustworthy-cacert.patch 
+Patch144: add-appcds-test-case.patch
 
 #############################################
 #
@@ -1481,6 +1488,13 @@ pushd %{top_level_dir_name}
 %patch135 -p1
 %patch136 -p1
 %patch137 -p1
+%patch138 -p1
+%patch139 -p1
+%patch140 -p1
+%patch141 -p1
+%patch142 -p1
+%patch143 -p1
+%patch144 -p1
 
 popd
 
@@ -2097,6 +2111,27 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Dec 24 2020 lee18767 <lijunhui15@huawei.com> - 1:1.8.0.272-b10.14
+- add add-appcds-test-case.patch
+
+* Wed Dec 23 2020 hubodao <hubodao@huawei.com> - 1:1.8.0.272-b10.13
+- add delete-untrustworthy-cacert.patch
+
+* Wed Dec 23 2020 wujiahua <wujiahua3@huawei.com> - 1:1.8.0.272-b10.12
+- add 8207160-ClassReader-adjustMethodParams-can-potentially-return-null-if-the-args-list-is-empty.patch
+
+* Wed Dec 23 2020 DataAndOperation <mashoubing1@huawei.com> - 1:1.8.0.272-b10.11
+- add 8040327-Eliminate-AnnotatedType-8040319-Clean-up-type-annotation-exception-index.patch
+
+* Tue Dec 22 2020 miaozhuojun <mouzhuojun@huawei.com> - 1:1.8.0.272-b10.10
+- add 8015927-Class-reference-duplicates-in-constant-pool.patch
+
+* Tue Dec 22 2020 cruise01 <hexuejin2@huawei.com> - 1:1.8.0.272-b10.9
+- add G1-memory-uncommit.patch
+
+* Tue Dec 22 2020 kuenking <wangkun49@huawei.com> - 1:1.8.0.272-b10.8
+- add add-appcds-file-lock.patch
+
 * Mon Dec 21 2020 noah <hedongbo@huawei.com> - 1:1.8.0.272-b10.7
 - add a license to this repo
 
