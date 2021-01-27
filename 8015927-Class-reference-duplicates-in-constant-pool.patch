@@ -1,0 +1,115 @@
+diff --git a/langtools/src/share/classes/com/sun/tools/javac/jvm/ClassWriter.java b/langtools/src/share/classes/com/sun/tools/javac/jvm/ClassWriter.java
+index eecd6807..11b24341 100644
+--- a/langtools/src/share/classes/com/sun/tools/javac/jvm/ClassWriter.java
++++ b/langtools/src/share/classes/com/sun/tools/javac/jvm/ClassWriter.java
+@@ -461,11 +461,11 @@ public class ClassWriter extends ClassFile {
+                 poolbuf.appendChar(pool.put(names.fromString((String)value)));
+             } else if (value instanceof UniqueType) {
+                 Type type = ((UniqueType)value).type;
+-                if (type instanceof MethodType) {
++                if (type.hasTag(METHOD)) {
+                     poolbuf.appendByte(CONSTANT_MethodType);
+                     poolbuf.appendChar(pool.put(typeSig((MethodType)type)));
+                 } else {
+-                    if (type.hasTag(CLASS)) enterInner((ClassSymbol)type.tsym);
++                    Assert.check(type.hasTag(ARRAY));
+                     poolbuf.appendByte(CONSTANT_Class);
+                     poolbuf.appendChar(pool.put(xClassName(type)));
+                 }
+diff --git a/langtools/src/share/classes/com/sun/tools/javac/jvm/Pool.java b/langtools/src/share/classes/com/sun/tools/javac/jvm/Pool.java
+index 4389d08b..f87c1053 100644
+--- a/langtools/src/share/classes/com/sun/tools/javac/jvm/Pool.java
++++ b/langtools/src/share/classes/com/sun/tools/javac/jvm/Pool.java
+@@ -28,6 +28,7 @@ package com.sun.tools.javac.jvm;
+ import com.sun.tools.javac.code.Kinds;
+ import com.sun.tools.javac.code.Symbol;
+ import com.sun.tools.javac.code.Symbol.*;
++import com.sun.tools.javac.code.TypeTag;
+ import com.sun.tools.javac.code.Type;
+ import com.sun.tools.javac.code.Types;
+ import com.sun.tools.javac.code.Types.UniqueType;
+@@ -126,7 +127,14 @@ public class Pool {
+         } else if (o instanceof VarSymbol) {
+             return new Variable((VarSymbol)o, types);
+         } else if (o instanceof Type) {
+-            return new UniqueType((Type)o, types);
++            Type t = (Type)o;
++            // ClassRefs can come from ClassSymbols or from Types.
++            // Return the symbol for these types to avoid duplicates
++            // in the constant pool
++            if (t.hasTag(TypeTag.CLASS))
++                return t.tsym;
++            else
++                return new UniqueType(t, types);
+         } else {
+             return o;
+         }
+diff --git a/langtools/test/tools/javac/jvm/ClassRefDupInConstantPoolTest.java b/langtools/test/tools/javac/jvm/ClassRefDupInConstantPoolTest.java
+new file mode 100644
+index 00000000..98c7cf8d
+--- /dev/null
++++ b/langtools/test/tools/javac/jvm/ClassRefDupInConstantPoolTest.java
+@@ -0,0 +1,63 @@
++/*
++ * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++
++/*
++ * @test
++ * @bug 8015927
++ * @summary Class reference duplicates in constant pool
++ * @clean ClassRefDupInConstantPoolTest$Duplicates.class
++ * @run main ClassRefDupInConstantPoolTest
++ */
++
++import java.util.TreeSet;
++
++import com.sun.tools.classfile.*;
++import com.sun.tools.classfile.ConstantPool.*;
++
++public class ClassRefDupInConstantPoolTest {
++    public static void main(String[] args) throws Exception {
++        ClassFile cls = ClassFile.read(ClassRefDupInConstantPoolTest.class.
++                                       getResourceAsStream("ClassRefDupInConstantPoolTest$Duplicates.class"));
++        ConstantPool pool = cls.constant_pool;
++
++        int duplicates = 0;
++        TreeSet<Integer> set = new TreeSet<>();
++        for (CPInfo i : pool.entries()) {
++            if (i.getTag() == ConstantPool.CONSTANT_Class) {
++                CONSTANT_Class_info ci = (CONSTANT_Class_info)i;
++                if (!set.add(ci.name_index)) {
++                    duplicates++;
++                    System.out.println("DUPLICATE CLASS REF " + ci.getName());
++                }
++            }
++        }
++        if (duplicates > 0)
++            throw new Exception("Test Failed");
++    }
++
++    class Duplicates {
++        String concat(String s1, String s2) {
++            return s1 + (s2 == s1 ? " " : s2);
++        }
++    }
++}
