@@ -1,13 +1,13 @@
-From 82250c7c4978bf7591299e8635fb183f36d3546f Mon Sep 17 00:00:00 2001
-Date: Fri, 19 Apr 2019 16:30:04 +0000
-Subject: [PATCH] fix crash in JVMTI debug
+From 2c8ad6489ccb8c160dc0ddcfd1811c27828221f2 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:11:56 +0800
+Subject: fix crash in JVMTI debug
 
 ---
  hotspot/src/share/vm/prims/jvmtiEnvBase.cpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/hotspot/src/share/vm/prims/jvmtiEnvBase.cpp b/hotspot/src/share/vm/prims/jvmtiEnvBase.cpp
-index fe2a3811..5db41567 100644
+index fe2a38116..5db415676 100644
 --- a/hotspot/src/share/vm/prims/jvmtiEnvBase.cpp
 +++ b/hotspot/src/share/vm/prims/jvmtiEnvBase.cpp
 @@ -1092,7 +1092,7 @@ JvmtiEnvBase::get_object_monitor_usage(JavaThread* calling_thread, jobject objec

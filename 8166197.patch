@@ -1,17 +1,16 @@
-From ece7241c82e94a5ec19e7a83754db10a646ddb11 Mon Sep 17 00:00:00 2001
-Date: Mon, 12 Aug 2019 20:20:50 +0800
-Subject: [PATCH] Backport of JDK-8166197.
+From 20a2cb586843089c328041057057187f37ffe56f Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 14:31:49 +0800
+Subject: Backport of JDK-8166197.
 
 Summary: assert(RelaxAssert || w != Thread::current()->_MutexEvent) failed: invariant
 LLT: hotspot/test/stress/gc/TestStressRSetCoarsening.java
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8166197
-
 ---
- hotspot/src/share/vm/runtime/mutex.cpp | 31 ++++++++++++++++++-------------
+ hotspot/src/share/vm/runtime/mutex.cpp | 31 +++++++++++++++-----------
  1 file changed, 18 insertions(+), 13 deletions(-)
 
 diff --git a/hotspot/src/share/vm/runtime/mutex.cpp b/hotspot/src/share/vm/runtime/mutex.cpp
-index 5973e4f199..9c0dcefe72 100644
+index 84207eae0..646f7f152 100644
 --- a/hotspot/src/share/vm/runtime/mutex.cpp
 +++ b/hotspot/src/share/vm/runtime/mutex.cpp
 @@ -465,7 +465,7 @@ void Monitor::ILock (Thread * Self) {
@@ -114,5 +113,5 @@ index 5973e4f199..9c0dcefe72 100644
    }
  
 -- 
-2.12.3
+2.19.0
 

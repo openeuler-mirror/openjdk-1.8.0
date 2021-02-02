@@ -1,6 +1,6 @@
-From 70641d56fb22355a85ad142700ae721a6a293908 Mon Sep 17 00:00:00 2001
-Date: Tue, 25 Jun 2019 10:40:42 +0000
-Subject: [PATCH] Backport of JDK-8191955
+From 0457c6b44fd7856706acf57aea3de448e01040a5 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:35:45 +0800
+Subject: Backport of JDK-8191955
 
 summary: incorrect prefetch distance causes an internal error
 LLT:
@@ -10,10 +10,10 @@ Bug url: https://bugs.openjdk.java.net/browse/JDK-8191955
  1 file changed, 11 insertions(+)
 
 diff --git a/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
-index f64e356558..ebdfeadf57 100644
+index 78e6f1144..211baa9dc 100644
 --- a/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
 +++ b/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
-@@ -144,6 +144,17 @@ void VM_Version::get_processor_features() {
+@@ -138,6 +138,17 @@ void VM_Version::get_processor_features() {
      if (PrefetchCopyIntervalInBytes >= 32768)
        PrefetchCopyIntervalInBytes = 32760;
    }
@@ -32,5 +32,5 @@ index f64e356558..ebdfeadf57 100644
  
    unsigned long auxv = getauxval(AT_HWCAP);
 -- 
-2.19.0-rc1
+2.19.0
 

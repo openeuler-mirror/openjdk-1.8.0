@@ -1,17 +1,17 @@
-From b3b4fb064edf3a9537e5580dfaec69761b49f717 Mon Sep 17 00:00:00 2001
-Date: Mon, 6 Jan 2020 15:49:40 +0000
-Subject: [PATCH] Add ability to configure third port for remote JMX
+From e389786d6785852bf8fedb9ff24294a1518d9bed Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 15:27:51 +0800
+Subject: Add ability to configure third port for remote JMX
 
 Summary: <jmx>:<Add ability to configure third port for remote JMX>
 LLT: NA
 Bug url: NA
 ---
- .../sun/management/AgentConfigurationError.java       |  2 ++
- .../sun/management/jmxremote/ConnectorBootstrap.java  | 19 ++++++++++++++++++-
+ .../management/AgentConfigurationError.java   |  2 ++
+ .../jmxremote/ConnectorBootstrap.java         | 19 ++++++++++++++++++-
  2 files changed, 20 insertions(+), 1 deletion(-)
 
 diff --git a/jdk/src/share/classes/sun/management/AgentConfigurationError.java b/jdk/src/share/classes/sun/management/AgentConfigurationError.java
-index 56c4301611..d3d67ff313 100644
+index 56c430161..d3d67ff31 100644
 --- a/jdk/src/share/classes/sun/management/AgentConfigurationError.java
 +++ b/jdk/src/share/classes/sun/management/AgentConfigurationError.java
 @@ -55,6 +55,8 @@ public class AgentConfigurationError extends Error {
@@ -24,7 +24,7 @@ index 56c4301611..d3d67ff313 100644
          "agent.err.password.file.notset";
      public static final String PASSWORD_FILE_NOT_READABLE =
 diff --git a/jdk/src/share/classes/sun/management/jmxremote/ConnectorBootstrap.java b/jdk/src/share/classes/sun/management/jmxremote/ConnectorBootstrap.java
-index 56287edbd0..0a82c65d10 100644
+index 56287edbd..0a82c65d1 100644
 --- a/jdk/src/share/classes/sun/management/jmxremote/ConnectorBootstrap.java
 +++ b/jdk/src/share/classes/sun/management/jmxremote/ConnectorBootstrap.java
 @@ -117,6 +117,8 @@ public final class ConnectorBootstrap {
@@ -63,5 +63,5 @@ index 56287edbd0..0a82c65d10 100644
              Properties props = Agent.getManagementProperties();
              if (props ==  null) {
 -- 
-2.12.3
+2.19.0
 

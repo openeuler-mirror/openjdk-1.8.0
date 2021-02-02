@@ -1,22 +1,22 @@
-From 2f9cb1a32393b6bb2607133836d16c1da73ec497 Mon Sep 17 00:00:00 2001
-Date: Tue, 3 Sep 2019 09:52:13 +0000
-Subject: [PATCH] Add with-company-name option
+From 8323788a287f8476e20c2360c149938a83fd53f6 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 14:45:06 +0800
+Subject: Add with-company-name option
 
 Summary: <openjdk_dev>: <Add with-company-name option to support customize the output of java -version>
 LLT:
 Bug url: AdoptOpenJDK
 ---
- common/autoconf/generated-configure.sh             | 22 ++++++++++++++--------
- common/autoconf/jdk-options.m4                     | 12 ++++++++++++
- jdk/make/gensrc/GensrcMisc.gmk                     |  6 ++++++
- .../share/classes/sun/misc/Version.java.template   |  9 ++++++---
+ common/autoconf/generated-configure.sh        | 22 ++++++++++++-------
+ common/autoconf/jdk-options.m4                | 12 ++++++++++
+ jdk/make/gensrc/GensrcMisc.gmk                |  6 +++++
+ .../classes/sun/misc/Version.java.template    |  9 +++++---
  4 files changed, 38 insertions(+), 11 deletions(-)
 
 diff --git a/common/autoconf/generated-configure.sh b/common/autoconf/generated-configure.sh
-index 19efd8be38..32dc7779d5 100644
+index 3b2b51f6f..1fb86fd02 100644
 --- a/common/autoconf/generated-configure.sh
 +++ b/common/autoconf/generated-configure.sh
-@@ -1062,6 +1062,7 @@ with_milestone
+@@ -1064,6 +1064,7 @@ with_milestone
  with_update_version
  with_user_release_suffix
  with_build_number
@@ -24,7 +24,7 @@ index 19efd8be38..32dc7779d5 100644
  with_vendor_name
  with_vendor_url
  with_vendor_bug_url
-@@ -1910,6 +1911,7 @@ Optional Packages:
+@@ -1903,6 +1904,7 @@ Optional Packages:
                            Add a custom string to the version string if build
                            number isn't set.[username_builddateb00]
    --with-build-number     Set build number value for build [b00]
@@ -32,7 +32,7 @@ index 19efd8be38..32dc7779d5 100644
    --with-vendor-name      Set vendor name. Among others, used to set the
                            'java.vendor' and 'java.vm.vendor' system
                            properties. [not specified]
-@@ -19886,16 +19888,20 @@ fi
+@@ -19916,16 +19918,20 @@ fi
    # Now set the JDK version, milestone, build number etc.
  
  
@@ -62,10 +62,10 @@ index 19efd8be38..32dc7779d5 100644
  
    # The vendor name, if any
 diff --git a/common/autoconf/jdk-options.m4 b/common/autoconf/jdk-options.m4
-index 9d75dc7bd4..e7657a14fe 100644
+index b1917664a..e4eb2352a 100644
 --- a/common/autoconf/jdk-options.m4
 +++ b/common/autoconf/jdk-options.m4
-@@ -509,6 +509,18 @@ AC_DEFUN_ONCE([JDKOPT_SETUP_JDK_VERSION_NUMBERS],
+@@ -539,6 +539,18 @@ AC_DEFUN_ONCE([JDKOPT_SETUP_JDK_VERSION_NUMBERS],
    AC_SUBST(MACOSX_BUNDLE_NAME_BASE)
    AC_SUBST(MACOSX_BUNDLE_ID_BASE)
  
@@ -85,7 +85,7 @@ index 9d75dc7bd4..e7657a14fe 100644
    AC_ARG_WITH(vendor-name, [AS_HELP_STRING([--with-vendor-name],
        [Set vendor name. Among others, used to set the 'java.vendor'
 diff --git a/jdk/make/gensrc/GensrcMisc.gmk b/jdk/make/gensrc/GensrcMisc.gmk
-index df886e88f4..c0c7b7bdb3 100644
+index 0e3dee5ca..d20a29c00 100644
 --- a/jdk/make/gensrc/GensrcMisc.gmk
 +++ b/jdk/make/gensrc/GensrcMisc.gmk
 @@ -30,6 +30,11 @@ include ProfileNames.gmk
@@ -94,7 +94,7 @@ index df886e88f4..c0c7b7bdb3 100644
  
 +company_name =
 +ifneq ($(COMPANY_NAME),N/A)
-+  company_name=$(COMPANY_NAME)
++  company_name=($(COMPANY_NAME))
 +endif
 +
  $(JDK_OUTPUTDIR)/gensrc/sun/misc/Version.java \
@@ -109,7 +109,7 @@ index df886e88f4..c0c7b7bdb3 100644
  	$(MV) $@.tmp $@
  
 diff --git a/jdk/src/share/classes/sun/misc/Version.java.template b/jdk/src/share/classes/sun/misc/Version.java.template
-index 32e2586e79..022c142810 100644
+index 32e2586e7..022c14281 100644
 --- a/jdk/src/share/classes/sun/misc/Version.java.template
 +++ b/jdk/src/share/classes/sun/misc/Version.java.template
 @@ -44,6 +44,9 @@ public class Version {
@@ -127,7 +127,7 @@ index 32e2586e79..022c142810 100644
          /* Second line: runtime version (ie, libraries). */
  
 -        ps.print(java_runtime_name + " (build " + java_runtime_version);
-+        ps.print(java_runtime_name + " " + company_name + " " + "(build " + java_runtime_version);
++        ps.print(java_runtime_name + " " + company_name + "(build " + java_runtime_version);
  
          if (java_profile_name.length() > 0) {
              // profile name
@@ -137,11 +137,11 @@ index 32e2586e79..022c142810 100644
          String java_vm_info    = System.getProperty("java.vm.info");
 -        ps.println(java_vm_name + " (build " + java_vm_version + ", " +
 -                   java_vm_info + ")");
-+        ps.println(java_vm_name + " " + company_name + " " + "(build " + java_vm_version + ", " +
++        ps.println(java_vm_name + " " + company_name + "(build " + java_vm_version + ", " +
 +                    java_vm_info + ")");
      }
  
  
 -- 
-2.12.3
+2.19.0
 

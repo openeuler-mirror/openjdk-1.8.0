@@ -1,6 +1,6 @@
-From bd4fd0ac21f668f9f91e802e73cad0c120ba9df6 Mon Sep 17 00:00:00 2001
-Date: Thu, 4 Jun 2020 15:45:47 +0800
-Subject: [PATCH] Remove unused GenericTaskQueueSet<T, F>::tasks()
+From 79a2de08f6a6aa5113e730bd9bc58229f7a2da14 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:21:34 +0800
+Subject: Remove unused GenericTaskQueueSet<T, F>::tasks()
 
 Summary: <gc>: remove unused GenericTaskQueueSet<T, F>::tasks()
 LLT: NA
@@ -10,10 +10,10 @@ Bug url: NA
  1 file changed, 12 deletions(-)
 
 diff --git a/hotspot/src/share/vm/utilities/taskqueue.hpp b/hotspot/src/share/vm/utilities/taskqueue.hpp
-index 5b03ccfa..9a2e2ee2 100644
+index 77556a7d4..3df7744dc 100644
 --- a/hotspot/src/share/vm/utilities/taskqueue.hpp
 +++ b/hotspot/src/share/vm/utilities/taskqueue.hpp
-@@ -541,8 +541,6 @@ class TaskQueueSetSuper {
+@@ -543,8 +543,6 @@ class TaskQueueSetSuper {
  public:
    // Returns "true" if some TaskQueue in the set contains a task.
    virtual bool peek() = 0;
@@ -22,7 +22,7 @@ index 5b03ccfa..9a2e2ee2 100644
    virtual size_t tasks() = 0;
  };
  
-@@ -576,7 +574,6 @@ public:
+@@ -578,7 +576,6 @@ public:
    // Returns if stealing succeeds, and sets "t" to the stolen task.
    bool steal(uint queue_num, E& t);
    bool peek();
@@ -30,7 +30,7 @@ index 5b03ccfa..9a2e2ee2 100644
    size_t tasks();
  
    uint size() const { return _n; }
-@@ -675,15 +672,6 @@ size_t GenericTaskQueueSet<T, F>::tasks() {
+@@ -677,15 +674,6 @@ size_t GenericTaskQueueSet<T, F>::tasks() {
    return n;
  }
  

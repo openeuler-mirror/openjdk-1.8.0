@@ -148,7 +148,7 @@
 # Define old aarch64/jdk8u tree variables for compatibility
 %global project		aarch64-port
 %global repo		jdk8u-shenandoah
-%global revision    	aarch64-shenandoah-jdk8u272-b10
+%global revision    	aarch64-shenandoah-jdk8u282-b08
 %global full_revision	%{project}-%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 14
+Release: 0
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -969,15 +969,14 @@ Source14: TestECDSA.java
 
 Source20: repackReproduciblePolycies.sh
 
-Patch1:	 8160300.patch
 Patch8:	 replace-vector-to-improve-performance-of-xml.validat.patch
 Patch9:	 AARCH64-fix-itable-stub-code-size-limit.patch
 Patch10: 8221658.patch
 Patch12: add-debuginfo-for-libsaproc-on-aarch64.patch
 Patch18: fix-vendor-info.patch
-Patch21: 8202952-C2-Unexpected-dead-nodes-after-matching.patch
+Patch21: 8202952.patch
 Patch24: 8134883.patch
-Patch25: FromCardCache-default-card-index-can-cause.patch
+Patch25: 8196485.patch
 Patch26: disable-UseLSE-on-ARMv8.1-by-default.patch
 Patch27: 8157570.patch
 Patch28: 8194246.patch
@@ -986,62 +985,63 @@ Patch30: 8191483.patch
 Patch31: 8141356.patch
 Patch33: 8166253.patch
 Patch34: 8191955.patch
-Patch35: 8186042-OopmapCache-implementation.patch
+Patch35: 8186042.patch
 Patch36: 8060463.patch
 Patch37: 8131600.patch
 Patch38: 8138971.patch
 Patch40: 8129626.patch
+Patch41: 8203699.patch
 Patch45: 8191129.patch
 Patch46: 8182036.patch
 Patch47: 8166197.patch
+Patch50: 8158946.patch
 Patch51: add-with-company-name-option.patch
 Patch57: 8031085.patch
 Patch58: Reduce-the-probability-of-the-crash-related-to-ciObj.patch
-Patch62: 8165857-CMS-_overflow_list-is-missing-volatile-speci.patch
-Patch63: 8033552-Fix-missing-missing-volatile-specifiers-in-C.patch
-Patch67: 8165860-WorkGroup-classes-are-missing-volatile-speci.patch
-Patch68: 8194154-System-property-user.dir-should-not-be-chang.patch
+Patch62: 8165857.patch
+Patch63: 8033552.patch
+Patch67: 8165860.patch
+Patch68: 8194154.patch
 Patch70: 8164948.patch
 Patch72: inline-optimize-for-aarch64.patch
 
 # 8u242
-Patch74: 8191915-java.lang.Math.multiplyExact-not-throw-an-ex.patch
+Patch74: 8191915.patch
 Patch75: Add-ability-to-configure-third-port-for-remote-JMX.patch
-Patch76: 8203196-C1-emits-incorrect-code-due-to-integer-overf.patch
-Patch77: 8190332-PngReader-throws-NegativeArraySizeException-.patch
-Patch78: 8171410-aarch64-long-multiplyExact-shifts-by-31-inst.patch
-Patch83: 8204947-Port-ShenandoahTaskTerminator-to-mainline-an.patch
-Patch85: 8139041-Redundant-DMB-instructions.patch
+Patch76: 8203196.patch
+Patch77: 8190332.patch
+Patch78: 8171410.patch
+Patch83: 8204947.patch
+Patch85: 8139041.patch
 
 # 8u252
 Patch86: 6858051-Create-GC-worker-threads-dynamically.patch
-Patch87: 6858051-Add-a-switch-for-the-dynamic-thread-related-.patch
+Patch87: 6858051-Add-a-switch-for-the-dynamic-thread-related-log.patch
 Patch88: dismiss-warnings-in-GCC-8.X.patch
 
 # 8u262
-Patch89: 8144993-Elide-redundant-memory-barrier-after-AllocationNode.patch
-Patch90: 8223504-improve-performance-of-forall-loops-by-better.patch
+Patch89: 8144993.patch
+Patch90: 8223504.patch
 Patch91: add-vm-option-BoxTypeCachedMax-for-Integer-and-Long-cache.patch
 Patch92: 8080289-8040213-8189067-move-the-store-out-of-the-loop.patch
-Patch94: 8182397-race-in-field-updates.patch
-Patch95: 8205921-Optimizing-best-of-2-work-stealing-queue-selection.patch
+Patch94: 8182397.patch
+Patch95: 8205921.patch
 
 # 8u265
 Patch96: fix-Long-cache-range-and-remove-VM-option-java.lang.IntegerCache.high-by-default.patch
 Patch97: leaf-optimize-in-ParallelScanvageGC.patch
 Patch102: fix-LongCache-s-range-when-BoxTypeCachedMax-number-is-bigger-than-Integer.MAX_VALUE.patch
 Patch103: Ddot-intrinsic-implement.patch
-Patch104: 8234003-Improve-IndexSet-iteration.patch
-Patch105: 8220159-Optimize-various-RegMask-operations-by-introducing-watermarks.patch
+Patch104: 8234003.patch
+Patch105: 8220159.patch
 Patch106: fast-serializer-jdk8.patch
-Patch107: 6896810-Pin.java-fails-with-OOME-during-System.out.p.patch
-Patch108: 8231631-sun-net-ftp-FtpURLConnectionLeak.java-fails-.patch
+Patch107: 6896810.patch
+Patch108: 8231631.patch
 Patch109: Test8167409.sh-fails-to-run-with-32bit-jdk-on-64bit-.patch
-Patch111: The-runok-method-retrying-another-port-does-not-take.patch
-Patch112: 8048210-8056152-fix-assert-fail-for-an-InnocuousThre.patch
-Patch113: 8160425-Vectorization-with-signalling-NaN-returns-wr.patch
-Patch114: 8181503-Can-t-compile-hotspot-with-c-11.patch
-Patch115: 8243670-Unexpected-test-result-caused-by-C2-MergeMem.patch
+Patch112: 8048210-8056152.patch
+Patch113: 8160425.patch
+Patch114: 8181503.patch
+Patch115: 8243670.patch
 Patch116: fix-crash-in-JVMTI-debug.patch
 Patch118: Fix-LineBuffer-vappend-when-buffer-too-small.patch
 Patch121: Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
@@ -1053,23 +1053,23 @@ Patch126: zlib-optimization.patch
 Patch127: add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
 
 # 8u272
-Patch128: 8214440-ldap-over-a-TLS-connection-negotiate-fail.patch
-Patch129: 8248336-AArch64-C2-offset-overflow-in-BoxLockNode-em.patch
-Patch130: 8165808-Add-release-barriers-when-allocating-objects-with-concurrent-collection.patch
-Patch131: 8166583-Add-oopDesc-klass_or_null_acquire.patch
-Patch132: 8166862-CMS-needs-klass_or_null_acquire.patch
+Patch129: 8248336.patch
 Patch133: 8160369.patch
 Patch134: PS-GC-adding-acquire_size-method-for-PSParallelCompa.patch
-Patch135: 8223940-Private-key-not-supported-by-chosen-signature.patch
-Patch136: 8236512-PKCS11-Connection-closed-after-Cipher.doFinal-and-NoPadding.patch
-Patch137: 8250861-Crash-in-MinINode-Ideal-PhaseGVN-bool.patch
 Patch138: add-appcds-file-lock.patch
 Patch139: G1-memory-uncommit.patch
-Patch140: 8015927-Class-reference-duplicates-in-constant-pool.patch
-Patch141: 8040327-Eliminate-AnnotatedType-8040319-Clean-up-type-annotation-exception-index.patch
-Patch142: 8207160-ClassReader-adjustMethodParams-can-potentially-return-null-if-the-args-list-is-empty.patch
-Patch143: delete-untrustworthy-cacert.patch 
+Patch140: 8015927.patch
+Patch141: 8040327.patch
+Patch142: 8207160.patch
+Patch143: delete-untrustworthy-cacert-files.patch
 Patch144: add-appcds-test-case.patch
+
+# 8u282
+Patch145: 8080911.patch
+Patch146: 8168926.patch
+Patch147: 8215047.patch
+Patch148: 8237894.patch
+Patch149: Remove-the-parentheses-around-company-name.patch
 
 #############################################
 #
@@ -1404,7 +1404,6 @@ ln -s %{top_level_dir_name} jdk8
 pushd %{top_level_dir_name}
 # OpenJDK patches
 
-%patch1  -p1
 %patch8  -p1
 %patch9  -p1
 %patch10 -p1
@@ -1426,9 +1425,11 @@ pushd %{top_level_dir_name}
 %patch37 -p1
 %patch38 -p1
 %patch40 -p1
+%patch41 -p1
 %patch45 -p1
 %patch46 -p1
 %patch47 -p1
+%patch50 -p1
 %patch51 -p1
 %patch57 -p1
 %patch58 -p1
@@ -1464,7 +1465,6 @@ pushd %{top_level_dir_name}
 %patch107 -p1
 %patch108 -p1
 %patch109 -p1
-%patch111 -p1
 %patch112 -p1
 %patch113 -p1
 %patch114 -p1
@@ -1478,16 +1478,9 @@ pushd %{top_level_dir_name}
 %patch125 -p1
 %patch126 -p1
 %patch127 -p1
-%patch128 -p1
 %patch129 -p1
-%patch130 -p1
-%patch131 -p1
-%patch132 -p1
 %patch133 -p1
 %patch134 -p1
-%patch135 -p1
-%patch136 -p1
-%patch137 -p1
 %patch138 -p1
 %patch139 -p1
 %patch140 -p1
@@ -1495,6 +1488,11 @@ pushd %{top_level_dir_name}
 %patch142 -p1
 %patch143 -p1
 %patch144 -p1
+%patch145 -p1
+%patch146 -p1
+%patch147 -p1
+%patch148 -p1
+%patch149 -p1
 
 popd
 
@@ -2111,6 +2109,23 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Feb 2 2021 jdkboy <ge.guo@huawei.com> - 1:1.8.0.282-b08.0
+- updated to aarch64-shenandoah-jdk8u282-b08 (from aarch64-port/jdk8u-shenandoah)
+- delete 8160300.patch
+- delete The-runok-method-retrying-another-port-does-not-take.patch
+- delete 8214440-ldap-over-a-TLS-connection-negotiate-fail.patch
+- delete 8165808-Add-release-barriers-when-allocating-objects-with-concurrent-collection.patch
+- delete 8166583-Add-oopDesc-klass_or_null_acquire.patch
+- delete 8166862-CMS-needs-klass_or_null_acquire.patch
+- delete 8223940-Private-key-not-supported-by-chosen-signature.patch
+- delete 8236512-PKCS11-Connection-closed-after-Cipher.doFinal-and-NoPadding.patch
+- delete 8250861-Crash-in-MinINode-Ideal-PhaseGVN-bool.patch
+- add 8080911.patch
+- add 8168926.patch
+- add 8215047.patch
+- add 8237894.patch
+- add Remove-the-parentheses-around-company-name.patch
+
 * Thu Dec 24 2020 lee18767 <lijunhui15@huawei.com> - 1:1.8.0.272-b10.14
 - add add-appcds-test-case.patch
 
