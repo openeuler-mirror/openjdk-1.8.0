@@ -1,0 +1,156 @@
+From 5547d1f77577ad8514136255eed16921e4d02845 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 15:23:47 +0800
+Subject: 8194154: System property user.dir should not be changed
+
+Summary: <io>: System property user.dir should not be changed
+LLT: jdk/test/java/io/File/UserDirChangedTest.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8194154
+---
+ .../classes/java/io/UnixFileSystem.java       | 11 +++-
+ .../classes/java/io/WinNTFileSystem.java      | 11 +++-
+ jdk/test/java/io/File/UserDirChangedTest.java | 51 +++++++++++++++++++
+ 3 files changed, 69 insertions(+), 4 deletions(-)
+ create mode 100644 jdk/test/java/io/File/UserDirChangedTest.java
+
+diff --git a/jdk/src/solaris/classes/java/io/UnixFileSystem.java b/jdk/src/solaris/classes/java/io/UnixFileSystem.java
+index fb0fef636..a6ef2d3a6 100644
+--- a/jdk/src/solaris/classes/java/io/UnixFileSystem.java
++++ b/jdk/src/solaris/classes/java/io/UnixFileSystem.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 1998, 2018, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -34,6 +34,7 @@ class UnixFileSystem extends FileSystem {
+     private final char slash;
+     private final char colon;
+     private final String javaHome;
++    private final String userDir;
+ 
+     public UnixFileSystem() {
+         slash = AccessController.doPrivileged(
+@@ -42,6 +43,8 @@ class UnixFileSystem extends FileSystem {
+             new GetPropertyAction("path.separator")).charAt(0);
+         javaHome = AccessController.doPrivileged(
+             new GetPropertyAction("java.home"));
++        userDir = AccessController.doPrivileged(
++                new GetPropertyAction("user.dir"));
+     }
+ 
+ 
+@@ -130,7 +133,11 @@ class UnixFileSystem extends FileSystem {
+ 
+     public String resolve(File f) {
+         if (isAbsolute(f)) return f.getPath();
+-        return resolve(System.getProperty("user.dir"), f.getPath());
++        SecurityManager sm = System.getSecurityManager();
++        if (sm != null) {
++            sm.checkPropertyAccess("user.dir");
++        }
++        return resolve(userDir, f.getPath());
+     }
+ 
+     // Caches for canonicalization results to improve startup performance.
+diff --git a/jdk/src/windows/classes/java/io/WinNTFileSystem.java b/jdk/src/windows/classes/java/io/WinNTFileSystem.java
+index caa47f80c..1844a662a 100644
+--- a/jdk/src/windows/classes/java/io/WinNTFileSystem.java
++++ b/jdk/src/windows/classes/java/io/WinNTFileSystem.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2001, 2012, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2001, 2018, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -40,6 +40,7 @@ class WinNTFileSystem extends FileSystem {
+     private final char slash;
+     private final char altSlash;
+     private final char semicolon;
++    private final String userDir;
+ 
+     public WinNTFileSystem() {
+         slash = AccessController.doPrivileged(
+@@ -47,6 +48,8 @@ class WinNTFileSystem extends FileSystem {
+         semicolon = AccessController.doPrivileged(
+             new GetPropertyAction("path.separator")).charAt(0);
+         altSlash = (this.slash == '\\') ? '/' : '\\';
++        userDir = AccessController.doPrivileged(
++                new GetPropertyAction("user.dir"));
+     }
+ 
+     private boolean isSlash(char c) {
+@@ -343,7 +346,11 @@ class WinNTFileSystem extends FileSystem {
+     private String getUserPath() {
+         /* For both compatibility and security,
+            we must look this up every time */
+-        return normalize(System.getProperty("user.dir"));
++        SecurityManager sm = System.getSecurityManager();
++        if (sm != null) {
++            sm.checkPropertyAccess("user.dir");
++        }
++        return normalize(userDir);
+     }
+ 
+     private String getDrive(String path) {
+diff --git a/jdk/test/java/io/File/UserDirChangedTest.java b/jdk/test/java/io/File/UserDirChangedTest.java
+new file mode 100644
+index 000000000..9eccb768e
+--- /dev/null
++++ b/jdk/test/java/io/File/UserDirChangedTest.java
+@@ -0,0 +1,51 @@
++/*
++ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++
++/* @test
++   @bug 8194154
++   @summary Test changing property user.dir on impacting getCanonicalPath
++   @run main/othervm UserDirChangedTest
++ */
++
++import java.io.File;
++
++public class UserDirChangedTest {
++    public static void main(String[] args) throws Exception {
++        String keyUserDir = "user.dir";
++        String userDirNew = "/home/a/b/c/";
++        String fileName = "./a";
++
++        String userDir = System.getProperty(keyUserDir);
++        File file = new File(fileName);
++        String canFilePath = file.getCanonicalPath();
++
++        // now reset user.dir, this will cause crash on linux without bug 8194154 fixed.
++        System.setProperty(keyUserDir,  userDirNew);
++        String newCanFilePath = file.getCanonicalPath();
++        System.out.format("%24s %48s%n", "Canonical Path = ", canFilePath);
++        System.out.format("%24s %48s%n", "new Canonical Path = ", newCanFilePath);
++        if (!canFilePath.equals(newCanFilePath)) {
++            throw new RuntimeException("Changing property user.dir should have no effect on getCanonicalPath");
++        }
++    }
++}
+-- 
+2.19.0
+

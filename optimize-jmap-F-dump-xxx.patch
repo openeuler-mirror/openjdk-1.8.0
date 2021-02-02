@@ -1,6 +1,6 @@
-From 12ec07c99ff937953c3adafc12818136d9fb1d2b Mon Sep 17 00:00:00 2001
-Date: Thu, 9 Apr 2020 09:18:13 +0000
-Subject: [PATCH] optimize jmap -F -dump:xxx
+From 675360f4912dad7eeeac4b6a05b782dca234c008 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:16:57 +0800
+Subject: optimize jmap -F -dump:xxx
 
 Summary: optimize jmap -F -dump:xxx to speed up the dump process
 LLT: N/A
@@ -10,7 +10,7 @@ Bug url: N/A
  1 file changed, 9 insertions(+), 1 deletion(-)
 
 diff --git a/hotspot/agent/src/share/classes/sun/jvm/hotspot/oops/Metadata.java b/hotspot/agent/src/share/classes/sun/jvm/hotspot/oops/Metadata.java
-index 4fc2ed8c..2e56d270 100644
+index 4fc2ed8c6..2e56d2708 100644
 --- a/hotspot/agent/src/share/classes/sun/jvm/hotspot/oops/Metadata.java
 +++ b/hotspot/agent/src/share/classes/sun/jvm/hotspot/oops/Metadata.java
 @@ -45,6 +45,7 @@ abstract public class Metadata extends VMObject {

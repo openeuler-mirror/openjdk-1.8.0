@@ -1,0 +1,125 @@
+From 32895acdd082ecb72e5c8adb56deb76242562d5a Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:15:42 +0800
+Subject: 8139041: Redundant DMB instructions
+
+Summary: <aarch64>: Redundant DMB instructions
+LLT: jtreg
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8139041
+---
+ .../cpu/aarch64/vm/macroAssembler_aarch64.cpp   | 14 ++++++++++++++
+ .../cpu/aarch64/vm/macroAssembler_aarch64.hpp   |  7 +++++++
+ .../src/cpu/aarch64/vm/nativeInst_aarch64.hpp   | 17 +++++++++++++++++
+ hotspot/src/share/vm/asm/codeBuffer.hpp         |  7 +++++++
+ 4 files changed, 45 insertions(+)
+
+diff --git a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
+index f4ce39661..714ab18bd 100644
+--- a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
++++ b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
+@@ -1766,6 +1766,20 @@ int MacroAssembler::corrected_idivq(Register result, Register ra, Register rb,
+   return idivq_offset;
+ }
+ 
++void MacroAssembler::membar(Membar_mask_bits order_constraint) {
++  address prev = pc() - NativeMembar::instruction_size;
++  if (prev == code()->last_membar()) {
++    NativeMembar *bar = NativeMembar_at(prev);
++    // We are merging two memory barrier instructions.  On AArch64 we
++    // can do this simply by ORing them together.
++    bar->set_kind(bar->get_kind() | order_constraint);
++    BLOCK_COMMENT("merged membar");
++  } else {
++    code()->set_last_membar(pc());
++    dmb(Assembler::barrier(order_constraint));
++  }
++}
++
+ // MacroAssembler routines found actually to be needed
+ 
+ void MacroAssembler::push(Register src)
+diff --git a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp
+index 02216f1b1..388177589 100644
+--- a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp
++++ b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp
+@@ -153,6 +153,13 @@ class MacroAssembler: public Assembler {
+     strw(scratch, a);
+   }
+ 
++  void bind(Label& L) {
++    Assembler::bind(L);
++    code()->clear_last_membar();
++  }
++
++  void membar(Membar_mask_bits order_constraint);
++
+   // Frame creation and destruction shared between JITs.
+   void build_frame(int framesize);
+   void remove_frame(int framesize);
+diff --git a/hotspot/src/cpu/aarch64/vm/nativeInst_aarch64.hpp b/hotspot/src/cpu/aarch64/vm/nativeInst_aarch64.hpp
+index 20deea54c..0176e4118 100644
+--- a/hotspot/src/cpu/aarch64/vm/nativeInst_aarch64.hpp
++++ b/hotspot/src/cpu/aarch64/vm/nativeInst_aarch64.hpp
+@@ -103,6 +103,12 @@ class NativeInstruction VALUE_OBJ_CLASS_SPEC {
+   static bool maybe_cpool_ref(address instr) {
+     return is_adrp_at(instr) || is_ldr_literal_at(instr);
+   }
++
++  bool is_Membar() {
++    unsigned int insn = uint_at(0);
++    return Instruction_aarch64::extract(insn, 31, 12) == 0b11010101000000110011 &&
++      Instruction_aarch64::extract(insn, 7, 0) == 0b10111111;
++  }
+ };
+ 
+ inline NativeInstruction* nativeInstruction_at(address address) {
+@@ -488,4 +494,15 @@ inline NativeCallTrampolineStub* nativeCallTrampolineStub_at(address addr) {
+   return (NativeCallTrampolineStub*)addr;
+ }
+ 
++class NativeMembar : public NativeInstruction {
++public:
++  unsigned int get_kind() { return Instruction_aarch64::extract(uint_at(0), 11, 8); }
++  void set_kind(int order_kind) { Instruction_aarch64::patch(addr_at(0), 11, 8, order_kind); }
++};
++
++inline NativeMembar *NativeMembar_at(address addr) {
++  assert(nativeInstruction_at(addr)->is_Membar(), "no membar found");
++  return (NativeMembar*)addr;
++}
++
+ #endif // CPU_AARCH64_VM_NATIVEINST_AARCH64_HPP
+diff --git a/hotspot/src/share/vm/asm/codeBuffer.hpp b/hotspot/src/share/vm/asm/codeBuffer.hpp
+index 02b619ad7..a89f2c18b 100644
+--- a/hotspot/src/share/vm/asm/codeBuffer.hpp
++++ b/hotspot/src/share/vm/asm/codeBuffer.hpp
+@@ -368,6 +368,8 @@ class CodeBuffer: public StackObj {
+   OopRecorder  _default_oop_recorder;  // override with initialize_oop_recorder
+   Arena*       _overflow_arena;
+ 
++  address      _last_membar;     // used to merge consecutive memory barriers
++
+   address      _decode_begin;   // start address for decode
+   address      decode_begin();
+ 
+@@ -380,6 +382,7 @@ class CodeBuffer: public StackObj {
+     _oop_recorder    = NULL;
+     _decode_begin    = NULL;
+     _overflow_arena  = NULL;
++    _last_membar     = NULL;
+   }
+ 
+   void initialize(address code_start, csize_t code_size) {
+@@ -567,6 +570,10 @@ class CodeBuffer: public StackObj {
+   OopRecorder* oop_recorder() const   { return _oop_recorder; }
+   CodeStrings& strings()              { return _code_strings; }
+ 
++  address last_membar() const { return _last_membar; }
++  void set_last_membar(address a) { _last_membar = a; }
++  void clear_last_membar() { set_last_membar(NULL); }
++
+   void free_strings() {
+     if (!_code_strings.is_null()) {
+       _code_strings.free(); // sets _strings Null as a side-effect.
+-- 
+2.19.0
+
