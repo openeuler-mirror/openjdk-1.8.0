@@ -1,0 +1,33 @@
+From f3decab7d0e232833857aaee5bb929c5e21c735c Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:18:19 +0800
+Subject: Add a switch for the dynamic thread related log
+
+Summary: <gc>: Add a switch for the dynamic thread related log
+LLT: hotspot/test/gc/ergonomics/TestDynamicNumberOfGCThreads.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-6858051
+---
+ .../share/vm/gc_implementation/shared/workerManager.hpp   | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/shared/workerManager.hpp b/hotspot/src/share/vm/gc_implementation/shared/workerManager.hpp
+index 1a840cf2b..d48d60f3e 100644
+--- a/hotspot/src/share/vm/gc_implementation/shared/workerManager.hpp
++++ b/hotspot/src/share/vm/gc_implementation/shared/workerManager.hpp
+@@ -67,9 +67,11 @@ class WorkerManager : public AllStatic {
+       os::start_thread(new_worker);
+     }
+ 
+-    gclog_or_tty->print_cr("AdaptiveSizePolicy::add_workers() : "
+-       "active_workers: %u created_workers: %u",
+-       active_workers, created_workers);
++    if (TraceDynamicGCThreads) {
++      gclog_or_tty->print_cr("AdaptiveSizePolicy::add_workers() : "
++         "active_workers: %u created_workers: %u",
++         active_workers, created_workers);
++    }
+ 
+     return created_workers;
+   }
+-- 
+2.19.0
+

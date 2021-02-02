@@ -1,19 +1,19 @@
-From 570f33e3f57acb9a8b4b7e3c378b836bef774df4 Mon Sep 17 00:00:00 2001
-Date: Wed, 17 Jul 2019 11:36:31 +0000
-Subject: [PATCH] Backport of JDK-8129626
+From f73bb08c6d1578eae9c5f47253a81dd06e51beba Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:39:09 +0800
+Subject: Backport of JDK-8129626
 
 summary: G1: set_in_progress() and clear_started() needs a barrier on non-TSO platforms
 LLT:
 
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8129626
 ---
- .../gc_implementation/g1/concurrentMarkThread.cpp  |  4 +--
- .../gc_implementation/g1/concurrentMarkThread.hpp  | 29 +++++++++++++---------
- .../vm/gc_implementation/g1/g1CollectedHeap.cpp    |  2 +-
+ .../g1/concurrentMarkThread.cpp               |  4 +--
+ .../g1/concurrentMarkThread.hpp               | 29 +++++++++++--------
+ .../gc_implementation/g1/g1CollectedHeap.cpp  |  2 +-
  3 files changed, 19 insertions(+), 16 deletions(-)
 
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/concurrentMarkThread.cpp b/hotspot/src/share/vm/gc_implementation/g1/concurrentMarkThread.cpp
-index b56e309234..53fe0837b1 100644
+index b56e30923..53fe0837b 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/concurrentMarkThread.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/concurrentMarkThread.cpp
 @@ -43,8 +43,7 @@ SurrogateLockerThread*
@@ -35,7 +35,7 @@ index b56e309234..53fe0837b1 100644
  }
  
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/concurrentMarkThread.hpp b/hotspot/src/share/vm/gc_implementation/g1/concurrentMarkThread.hpp
-index caa7f429c6..5f5f70ac4d 100644
+index caa7f429c..5f5f70ac4 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/concurrentMarkThread.hpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/concurrentMarkThread.hpp
 @@ -46,8 +46,14 @@ class ConcurrentMarkThread: public ConcurrentGCThread {
@@ -89,7 +89,7 @@ index caa7f429c6..5f5f70ac4d 100644
    // shutdown
    void stop();
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
-index aa6bbc81a4..a6e91a08ce 100644
+index 4eccf9805..97643e792 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
 @@ -2409,7 +2409,7 @@ void G1CollectedHeap::increment_old_marking_cycles_completed(bool concurrent) {
@@ -102,5 +102,5 @@ index aa6bbc81a4..a6e91a08ce 100644
  
    // This notify_all() will ensure that a thread that called
 -- 
-2.12.3
+2.19.0
 

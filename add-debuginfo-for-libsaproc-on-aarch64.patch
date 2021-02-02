@@ -1,13 +1,13 @@
-From b26a2445044d5ba0a3ed0d45ef66108231fcec0f Mon Sep 17 00:00:00 2001
-Date: Fri, 19 Apr 2019 17:41:12 +0000
-Subject: [PATCH] add debuginfo for libsaproc on aarch64
+From 5e4c07bdb41eb63e9407aedbf00bb35bacadcdc1 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:15:52 +0800
+Subject: add debuginfo for libsaproc on aarch64
 
 ---
  hotspot/make/linux/makefiles/defs.make | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/hotspot/make/linux/makefiles/defs.make b/hotspot/make/linux/makefiles/defs.make
-index 9aebd998d2..bb382bbd76 100644
+index 9aebd998d..bb382bbd7 100644
 --- a/hotspot/make/linux/makefiles/defs.make
 +++ b/hotspot/make/linux/makefiles/defs.make
 @@ -316,9 +316,11 @@ ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)

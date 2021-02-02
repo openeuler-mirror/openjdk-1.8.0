@@ -1,14 +1,14 @@
-From 1161177ce24da0348b5f6c6358667dc4a93f544b Mon Sep 17 00:00:00 2001
-Date: Thu, 17 Oct 2019 14:49:51 +0000
-Subject: [PATCH] disable UseLSE on ARMv8.1 by default
+From 9dbf60065bbc841d1eea360719c6c666f39d35d3 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:29:27 +0800
+Subject: disable UseLSE on ARMv8.1 by default
 
 Summary: <UseLSE>: disable UseLSE by default and set UseLSE to
 experimental
 LLT: java -XX:+UnlockExperimentalVMOptions -XX:+PrintFlagsFinal
 Bug url: NA
 ---
- .../hotspot/src/cpu/aarch64/vm/globals_aarch64.hpp             | 2 +-
- .../hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp          | 3 ++-
+ hotspot/src/cpu/aarch64/vm/globals_aarch64.hpp    | 2 +-
+ hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp | 3 ++-
  2 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/hotspot/src/cpu/aarch64/vm/globals_aarch64.hpp b/hotspot/src/cpu/aarch64/vm/globals_aarch64.hpp
@@ -25,10 +25,10 @@ index 8cdd5c498..e0749ff80 100644
    product(bool, UseSIMDForMemoryOps, false,                            \
            "Use SIMD instructions in generated memory move code")        \
 diff --git a/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
-index 65bdaa83a..35d1062c8 100644
+index 0bd2e0a54..78e6f1144 100644
 --- a/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
 +++ b/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
-@@ -203,10 +203,11 @@ void VM_Version::get_processor_features() {
+@@ -202,10 +202,11 @@ void VM_Version::get_processor_features() {
  
    if (auxv & HWCAP_ATOMICS) {
      if (FLAG_IS_DEFAULT(UseLSE))

@@ -1,0 +1,50 @@
+From 1691b58a6eab64bc7df3f568b3d9f9e9d963cb73 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:38:12 +0800
+Subject: Remove the parentheses around company-name
+
+Summary: <java -version>: Remove the parentheses around company-name in the displayed result
+LLT: N/A
+Bug url:
+---
+ jdk/make/gensrc/GensrcMisc.gmk                       | 2 +-
+ jdk/src/share/classes/sun/misc/Version.java.template | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/jdk/make/gensrc/GensrcMisc.gmk b/jdk/make/gensrc/GensrcMisc.gmk
+index d20a29c00..46bd5b8c0 100644
+--- a/jdk/make/gensrc/GensrcMisc.gmk
++++ b/jdk/make/gensrc/GensrcMisc.gmk
+@@ -32,7 +32,7 @@ include ProfileNames.gmk
+ 
+ company_name =
+ ifneq ($(COMPANY_NAME),N/A)
+-  company_name=($(COMPANY_NAME))
++  company_name=$(COMPANY_NAME)
+ endif
+ 
+ $(JDK_OUTPUTDIR)/gensrc/sun/misc/Version.java \
+diff --git a/jdk/src/share/classes/sun/misc/Version.java.template b/jdk/src/share/classes/sun/misc/Version.java.template
+index ffdaf9fbc..b29cab718 100644
+--- a/jdk/src/share/classes/sun/misc/Version.java.template
++++ b/jdk/src/share/classes/sun/misc/Version.java.template
+@@ -106,7 +106,7 @@ public class Version {
+ 
+         /* Second line: runtime version (ie, libraries). */
+ 
+-        ps.print(java_runtime_name + " " + company_name + "(build " + java_runtime_version);
++        ps.print(java_runtime_name + " " + company_name + " " + "(build " + java_runtime_version);
+ 
+         if (java_profile_name.length() > 0) {
+             // profile name
+@@ -123,7 +123,7 @@ public class Version {
+         String java_vm_name    = System.getProperty("java.vm.name");
+         String java_vm_version = System.getProperty("java.vm.version");
+         String java_vm_info    = System.getProperty("java.vm.info");
+-        ps.println(java_vm_name + " " + company_name + "(build " + java_vm_version + ", " +
++        ps.println(java_vm_name + " " + company_name + " " + "(build " + java_vm_version + ", " +
+                     java_vm_info + ")");
+     }
+ 
+-- 
+2.19.0
+

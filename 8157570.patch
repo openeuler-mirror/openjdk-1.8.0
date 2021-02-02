@@ -1,6 +1,6 @@
-From 58fcf0eb2ce3e74334ef124116a6e8f429ee9ae4 Mon Sep 17 00:00:00 2001
-Date: Thu, 27 Jun 2019 11:04:38 +0000
-Subject: [PATCH] Backport of JDK-8157570
+From 1ae617207543d079b95384bc2a57996392d5df09 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:30:40 +0800
+Subject: Backport of JDK-8157570
 
 summary: sun.rmi.transport.GC retains a strong reference to the context class loader
 LLT:
@@ -10,7 +10,7 @@ Bug url: https://bugs.openjdk.java.net/browse/JDK-8157570
  1 file changed, 11 insertions(+), 15 deletions(-)
 
 diff --git a/jdk/src/share/classes/sun/misc/GC.java b/jdk/src/share/classes/sun/misc/GC.java
-index c77bf1d055..eb92617c19 100644
+index c77bf1d05..eb92617c1 100644
 --- a/jdk/src/share/classes/sun/misc/GC.java
 +++ b/jdk/src/share/classes/sun/misc/GC.java
 @@ -29,6 +29,7 @@ import java.security.AccessController;

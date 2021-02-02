@@ -1,0 +1,54 @@
+From 3665377e22f4896b5c7480ebc8c2138e9fc2fe16 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 15:31:06 +0800
+Subject: aarch64: long multiplyExact shifts by 31 instead of 63
+
+Summary: <c2>: long multiplyExact shifts by 31 instead of 63
+LLT: NA
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8171410
+---
+ hotspot/src/cpu/aarch64/vm/aarch64.ad | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/hotspot/src/cpu/aarch64/vm/aarch64.ad b/hotspot/src/cpu/aarch64/vm/aarch64.ad
+index 48d3628e9..38de0098b 100644
+--- a/hotspot/src/cpu/aarch64/vm/aarch64.ad
++++ b/hotspot/src/cpu/aarch64/vm/aarch64.ad
+@@ -12582,7 +12582,7 @@ instruct overflowMulL_reg(rFlagsReg cr, iRegL op1, iRegL op2)
+ 
+   format %{ "mul   rscratch1, $op1, $op2\t#overflow check long\n\t"
+             "smulh rscratch2, $op1, $op2\n\t"
+-            "cmp   rscratch2, rscratch1, ASR #31\n\t"
++            "cmp   rscratch2, rscratch1, ASR #63\n\t"
+             "movw  rscratch1, #0x80000000\n\t"
+             "cselw rscratch1, rscratch1, zr, NE\n\t"
+             "cmpw  rscratch1, #1" %}
+@@ -12590,7 +12590,7 @@ instruct overflowMulL_reg(rFlagsReg cr, iRegL op1, iRegL op2)
+   ins_encode %{
+     __ mul(rscratch1, $op1$$Register, $op2$$Register);   // Result bits 0..63
+     __ smulh(rscratch2, $op1$$Register, $op2$$Register); // Result bits 64..127
+-    __ cmp(rscratch2, rscratch1, Assembler::ASR, 31);    // Top is pure sign ext
++    __ cmp(rscratch2, rscratch1, Assembler::ASR, 63);    // Top is pure sign ext
+     __ movw(rscratch1, 0x80000000);                    // Develop 0 (EQ),
+     __ cselw(rscratch1, rscratch1, zr, Assembler::NE); // or 0x80000000 (NE)
+     __ cmpw(rscratch1, 1);                             // 0x80000000 - 1 => VS
+@@ -12608,7 +12608,7 @@ instruct overflowMulL_reg_branch(cmpOp cmp, iRegL op1, iRegL op2, label labl, rF
+ 
+   format %{ "mul   rscratch1, $op1, $op2\t#overflow check long\n\t"
+             "smulh rscratch2, $op1, $op2\n\t"
+-            "cmp   rscratch2, rscratch1, ASR #31\n\t"
++            "cmp   rscratch2, rscratch1, ASR #63\n\t"
+             "b$cmp $labl" %}
+   ins_cost(4 * INSN_COST); // Branch is rare so treat as INSN_COST
+   ins_encode %{
+@@ -12616,7 +12616,7 @@ instruct overflowMulL_reg_branch(cmpOp cmp, iRegL op1, iRegL op2, label labl, rF
+     Assembler::Condition cond = (Assembler::Condition)$cmp$$cmpcode;
+     __ mul(rscratch1, $op1$$Register, $op2$$Register);   // Result bits 0..63
+     __ smulh(rscratch2, $op1$$Register, $op2$$Register); // Result bits 64..127
+-    __ cmp(rscratch2, rscratch1, Assembler::ASR, 31);    // Top is pure sign ext
++    __ cmp(rscratch2, rscratch1, Assembler::ASR, 63);    // Top is pure sign ext
+     __ br(cond == Assembler::VS ? Assembler::NE : Assembler::EQ, *L);
+   %}
+ 
+-- 
+2.19.0
+

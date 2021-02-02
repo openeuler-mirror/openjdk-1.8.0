@@ -1,0 +1,390 @@
+From 751cd3d4fa1b6f207c4022a117c360b99a276156 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:57:28 +0800
+Subject: 8215047: backport of OWSTTaskTerminator caused memory
+ leak in during GC
+
+Summary: <GC>: backport JDK-8215047 JDK-8215299 JDK-8217794 to slove memory leak
+LLT: NA
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8207160
+---
+ .../gc_implementation/g1/concurrentMark.cpp   | 43 ++++++++++---------
+ .../gc_implementation/g1/concurrentMark.hpp   |  5 ++-
+ .../g1/concurrentMark.inline.hpp              |  6 +++
+ .../shared/owstTaskTerminator.cpp             | 39 ++++++++++++-----
+ .../shared/owstTaskTerminator.hpp             |  1 +
+ hotspot/src/share/vm/utilities/taskqueue.cpp  | 27 ++++++++++--
+ hotspot/src/share/vm/utilities/taskqueue.hpp  | 10 ++++-
+ 7 files changed, 94 insertions(+), 37 deletions(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp b/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp
+index d782c892d..bc4168619 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp
+@@ -3704,7 +3704,9 @@ void CMTask::reset(CMBitMap* nextMarkBitMap) {
+ }
+ 
+ bool CMTask::should_exit_termination() {
+-  regular_clock_call();
++  if (!regular_clock_call()) {
++    return true;
++  }
+   // This is called when we are in the termination protocol. We should
+   // quit if, for some reason, this task wants to abort or the global
+   // stack is not empty (this means that we can get work from it).
+@@ -3715,11 +3717,13 @@ void CMTask::reached_limit() {
+   assert(_words_scanned >= _words_scanned_limit ||
+          _refs_reached >= _refs_reached_limit ,
+          "shouldn't have been called otherwise");
+-  regular_clock_call();
++  abort_marking_if_regular_check_fail();
+ }
+ 
+-void CMTask::regular_clock_call() {
+-  if (has_aborted()) return;
++bool CMTask::regular_clock_call() {
++  if (has_aborted()) {
++    return false;
++  };
+ 
+   // First, we need to recalculate the words scanned and refs reached
+   // limits for the next clock call.
+@@ -3729,20 +3733,20 @@ void CMTask::regular_clock_call() {
+ 
+   // (1) If an overflow has been flagged, then we abort.
+   if (_cm->has_overflown()) {
+-    set_has_aborted();
+-    return;
++    return false;
+   }
+ 
+   // If we are not concurrent (i.e. we're doing remark) we don't need
+   // to check anything else. The other steps are only needed during
+   // the concurrent marking phase.
+-  if (!concurrent()) return;
++  if (!concurrent()) {
++    return true;
++}
+ 
+   // (2) If marking has been aborted for Full GC, then we also abort.
+   if (_cm->has_aborted()) {
+-    set_has_aborted();
+     statsOnly( ++_aborted_cm_aborted );
+-    return;
++    return false;
+   }
+ 
+   double curr_time_ms = os::elapsedVTime() * 1000.0;
+@@ -3775,19 +3779,17 @@ void CMTask::regular_clock_call() {
+   if (SuspendibleThreadSet::should_yield()) {
+     // We should yield. To do this we abort the task. The caller is
+     // responsible for yielding.
+-    set_has_aborted();
+     statsOnly( ++_aborted_yield );
+-    return;
++    return false;
+   }
+ 
+   // (5) We check whether we've reached our time quota. If we have,
+   // then we abort.
+   double elapsed_time_ms = curr_time_ms - _start_time_ms;
+   if (elapsed_time_ms > _time_target_ms) {
+-    set_has_aborted();
+     _has_timed_out = true;
+     statsOnly( ++_aborted_timed_out );
+-    return;
++    return false;
+   }
+ 
+   // (6) Finally, we check whether there are enough completed STAB
+@@ -3800,10 +3802,10 @@ void CMTask::regular_clock_call() {
+     }
+     // we do need to process SATB buffers, we'll abort and restart
+     // the marking task to do so
+-    set_has_aborted();
+     statsOnly( ++_aborted_satb );
+-    return;
++    return false;
+   }
++  return true;
+ }
+ 
+ void CMTask::recalculate_limits() {
+@@ -4017,7 +4019,7 @@ void CMTask::drain_satb_buffers() {
+       gclog_or_tty->print_cr("[%u] processed an SATB buffer", _worker_id);
+     }
+     statsOnly( ++_satb_buffers_processed );
+-    regular_clock_call();
++    abort_marking_if_regular_check_fail();
+   }
+ 
+   _draining_satb_buffers = false;
+@@ -4303,7 +4305,7 @@ void CMTask::do_marking_step(double time_target_ms,
+       // If the iteration is successful, give up the region.
+       if (mr.is_empty()) {
+         giveup_current_region();
+-        regular_clock_call();
++        abort_marking_if_regular_check_fail();
+       } else if (_curr_region->isHumongous() && mr.start() == _curr_region->bottom()) {
+         if (_nextMarkBitMap->isMarked(mr.start())) {
+           // The object is marked - apply the closure
+@@ -4313,10 +4315,10 @@ void CMTask::do_marking_step(double time_target_ms,
+         // Even if this task aborted while scanning the humongous object
+         // we can (and should) give up the current region.
+         giveup_current_region();
+-        regular_clock_call();
++        abort_marking_if_regular_check_fail();
+       } else if (_nextMarkBitMap->iterate(&bitmap_closure, mr)) {
+         giveup_current_region();
+-        regular_clock_call();
++        abort_marking_if_regular_check_fail();
+       } else {
+         assert(has_aborted(), "currently the only way to do so");
+         // The only way to abort the bitmap iteration is to return
+@@ -4384,7 +4386,7 @@ void CMTask::do_marking_step(double time_target_ms,
+       // block of empty regions. So we need to call the regular clock
+       // method once round the loop to make sure it's called
+       // frequently enough.
+-      regular_clock_call();
++      abort_marking_if_regular_check_fail();
+     }
+ 
+     if (!has_aborted() && _curr_region == NULL) {
+@@ -4507,6 +4509,7 @@ void CMTask::do_marking_step(double time_target_ms,
+       guarantee(_task_queue->size() == 0, "only way to reach here");
+       guarantee(!_cm->has_overflown(), "only way to reach here");
+       guarantee(!_cm->mark_stack_overflow(), "only way to reach here");
++      guarantee(!has_aborted(), "should never happen if termination has completed");
+ 
+       if (_cm->verbose_low()) {
+         gclog_or_tty->print_cr("[%u] all tasks terminated", _worker_id);
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.hpp b/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.hpp
+index 3404be2a3..f78b1cb3e 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.hpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.hpp
+@@ -1101,9 +1101,10 @@ private:
+   // this is supposed to be called regularly during a marking step as
+   // it checks a bunch of conditions that might cause the marking step
+   // to abort
+-  void regular_clock_call();
++  bool regular_clock_call();
+   bool concurrent() { return _concurrent; }
+-
++  // Set abort flag if regular_clock_call() check fails
++  inline void abort_marking_if_regular_check_fail();
+   // Test whether obj might have already been passed over by the
+   // mark bitmap scan, and so needs to be pushed onto the mark stack.
+   bool is_below_finger(oop obj, HeapWord* global_finger) const;
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.inline.hpp b/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.inline.hpp
+index 4a8d6a910..7dc2855ca 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.inline.hpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.inline.hpp
+@@ -290,6 +290,12 @@ inline bool CMTask::is_below_finger(oop obj, HeapWord* global_finger) const {
+   return objAddr < global_finger;
+ }
+ 
++inline void CMTask::abort_marking_if_regular_check_fail() {
++  if (!regular_clock_call()) {
++    set_has_aborted();
++  }
++}
++
+ inline void CMTask::make_reference_grey(oop obj, HeapRegion* hr) {
+   if (_cm->par_mark_and_count(obj, hr, _marked_bytes_array, _card_bm)) {
+ 
+diff --git a/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.cpp b/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.cpp
+index 821cf4198..181628567 100644
+--- a/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.cpp
++++ b/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.cpp
+@@ -36,15 +36,17 @@ bool OWSTTaskTerminator::offer_termination(TerminatorTerminator* terminator) {
+   // Single worker, done
+   if (_n_threads == 1) {
+     _offered_termination = 1;
++    assert(!peek_in_queue_set(), "Precondition");
+     return true;
+   }
+  
+   _blocker->lock_without_safepoint_check();
+-  // All arrived, done
+   _offered_termination++;
++  // All arrived, done
+   if (_offered_termination == _n_threads) {
+     _blocker->notify_all();
+     _blocker->unlock();
++    assert(!peek_in_queue_set(), "Precondition");
+     return true;
+   }
+  
+@@ -57,21 +59,31 @@ bool OWSTTaskTerminator::offer_termination(TerminatorTerminator* terminator) {
+  
+       if (do_spin_master_work(terminator)) {
+         assert(_offered_termination == _n_threads, "termination condition");
++        assert(!peek_in_queue_set(), "Precondition");
+         return true;
+       } else {
+         _blocker->lock_without_safepoint_check();
++        // There is possibility that termination is reached between dropping the lock
++        // before returning from do_spin_master_work() and acquiring lock above.
++        if (_offered_termination == _n_threads) {
++          _blocker->unlock();
++          assert(!peek_in_queue_set(), "Precondition");
++          return true;
++        }
+       }
+     } else {
+       _blocker->wait(true, WorkStealingSleepMillis);
+  
+       if (_offered_termination == _n_threads) {
+         _blocker->unlock();
++        assert(!peek_in_queue_set(), "Precondition");
+         return true;
+       }
+     }
+  
+     size_t tasks = tasks_in_queue_set();
+     if (exit_termination(tasks, terminator)) {
++      assert_lock_strong(_blocker);
+       _offered_termination--;
+       _blocker->unlock();
+       return false;
+@@ -153,19 +165,24 @@ bool OWSTTaskTerminator::do_spin_master_work(TerminatorTerminator* terminator) {
+       _total_peeks++;
+ #endif
+     size_t tasks = tasks_in_queue_set();
+-    if (exit_termination(tasks, terminator)) {
++    bool exit = exit_termination(tasks, terminator);
++    {
+       MonitorLockerEx locker(_blocker, Mutex::_no_safepoint_check_flag);
+-      if ((int) tasks >= _offered_termination - 1) {
+-        locker.notify_all();
+-      } else {
+-        for (; tasks > 1; tasks--) {
+-          locker.notify();
++      // Termination condition reached
++      if (_offered_termination == _n_threads) {
++        _spin_master = NULL;
++        return true;
++      } else if (exit) {
++        if ((int)tasks >= _offered_termination - 1) {
++          locker.notify_all();
++        } else {
++          for (; tasks > 1; tasks--) {
++            locker.notify();
++          }
+         }
++        _spin_master = NULL;
++        return false;
+       }
+-      _spin_master = NULL;
+-      return false;
+-    } else if (_offered_termination == _n_threads) {
+-      return true;
+     }
+   }
+ }
+diff --git a/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.hpp b/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.hpp
+index ad50889d4..0297b9cd6 100644
+--- a/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.hpp
++++ b/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.hpp
+@@ -55,6 +55,7 @@ public:
+   }
+  
+   virtual ~OWSTTaskTerminator() {
++    assert(_spin_master == NULL, "Should have been reset");
+     assert(_blocker != NULL, "Can not be NULL");
+     delete _blocker;
+   }
+diff --git a/hotspot/src/share/vm/utilities/taskqueue.cpp b/hotspot/src/share/vm/utilities/taskqueue.cpp
+index 37f4066ab..120c65a60 100644
+--- a/hotspot/src/share/vm/utilities/taskqueue.cpp
++++ b/hotspot/src/share/vm/utilities/taskqueue.cpp
+@@ -118,6 +118,11 @@ ParallelTaskTerminator(int n_threads, TaskQueueSetSuper* queue_set) :
+   _queue_set(queue_set),
+   _offered_termination(0) {}
+ 
++ParallelTaskTerminator::~ParallelTaskTerminator() {
++  assert(_offered_termination == 0 || !peek_in_queue_set(), "Precondition");
++  assert(_offered_termination == 0 || _offered_termination == _n_threads, "Terminated or aborted" );
++}
++
+ bool ParallelTaskTerminator::peek_in_queue_set() {
+   return _queue_set->peek();
+ }
+@@ -162,6 +167,7 @@ ParallelTaskTerminator::offer_termination(TerminatorTerminator* terminator) {
+     assert(_offered_termination <= _n_threads, "Invariant");
+     // Are all threads offering termination?
+     if (_offered_termination == _n_threads) {
++      assert(!peek_in_queue_set(), "Precondition");
+       return true;
+     } else {
+       // Look for more work.
+@@ -214,9 +220,7 @@ ParallelTaskTerminator::offer_termination(TerminatorTerminator* terminator) {
+ #endif
+       if (peek_in_queue_set() ||
+           (terminator != NULL && terminator->should_exit_termination())) {
+-        Atomic::dec(&_offered_termination);
+-        assert(_offered_termination < _n_threads, "Invariant");
+-        return false;
++        return complete_or_exit_termination();
+       }
+     }
+   }
+@@ -247,6 +251,23 @@ bool ObjArrayTask::is_valid() const {
+ }
+ #endif // ASSERT
+ 
++bool ParallelTaskTerminator::complete_or_exit_termination() {
++  // If termination is ever reached, terminator should stay in such state,
++  // so that all threads see the same state
++  uint current_offered = _offered_termination;
++  uint expected_value;
++  do {
++    if ((int)current_offered == _n_threads) {
++      assert(!peek_in_queue_set(), "Precondition");
++      return true;
++    }
++    expected_value = current_offered;
++  } while ((current_offered = Atomic::cmpxchg(current_offered - 1, &_offered_termination, current_offered)) != expected_value);
++
++  assert(_offered_termination < _n_threads, "Invariant");
++  return false;
++}
++
+ void ParallelTaskTerminator::reset_for_reuse(int n_threads) {
+   reset_for_reuse();
+   _n_threads = n_threads;
+diff --git a/hotspot/src/share/vm/utilities/taskqueue.hpp b/hotspot/src/share/vm/utilities/taskqueue.hpp
+index 3df7744dc..144333055 100644
+--- a/hotspot/src/share/vm/utilities/taskqueue.hpp
++++ b/hotspot/src/share/vm/utilities/taskqueue.hpp
+@@ -690,7 +690,7 @@ protected:
+   int _n_threads;
+   TaskQueueSetSuper* _queue_set;
+   char _pad_before[DEFAULT_CACHE_LINE_SIZE];
+-  int _offered_termination;
++  volatile int _offered_termination;
+   char _pad_after[DEFAULT_CACHE_LINE_SIZE];
+ 
+ #ifdef TRACESPINNING
+@@ -704,11 +704,19 @@ protected:
+   virtual void yield();
+   void sleep(uint millis);
+ 
++  // Called when exiting termination is requested.
++  // When the request is made, terminator may have already terminated
++  // (e.g. all threads are arrived and offered termination). In this case,
++  // it should ignore the request and complete the termination.
++  // Return true if termination is completed. Otherwise, return false.
++  bool complete_or_exit_termination();
++
+ public:
+ 
+   // "n_threads" is the number of threads to be terminated.  "queue_set" is a
+   // queue sets of work queues of other threads.
+   ParallelTaskTerminator(int n_threads, TaskQueueSetSuper* queue_set);
++  virtual ~ParallelTaskTerminator();
+ 
+   // The current thread has no work, and is ready to terminate if everyone
+   // else is.  If returns "true", all threads are terminated.  If returns
+-- 
+2.19.0
+
