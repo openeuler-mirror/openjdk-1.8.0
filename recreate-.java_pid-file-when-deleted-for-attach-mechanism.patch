@@ -1,14 +1,15 @@
-From 9f8ee6d44e254da38605d3ceb527d412a208c862 Mon Sep 17 00:00:00 2001
-Date: Wed, 12 Aug 2020 12:09:15 +0000
-Subject: [PATCH] recreate .java_pid file when deleted for attach mechanism
+From 7e879bcae45b7a7e4b3fa8044564e3590344dbbd Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:23:51 +0800
+Subject: recreate .java_pid file when deleted for attach
+ mechanism
 
 Summary: <hotspot>: <enable attach mechanism when .java_pid is lost>
 LLT:
 Bug url:
 ---
- hotspot/src/os/linux/vm/attachListener_linux.cpp | 20 ++++++++++++++++----
- hotspot/src/share/vm/services/attachListener.cpp |  1 +
- hotspot/src/share/vm/services/attachListener.hpp |  2 +-
+ .../src/os/linux/vm/attachListener_linux.cpp  | 20 +++++++++++++++----
+ .../src/share/vm/services/attachListener.cpp  |  1 +
+ .../src/share/vm/services/attachListener.hpp  |  2 +-
  3 files changed, 18 insertions(+), 5 deletions(-)
 
 diff --git a/hotspot/src/os/linux/vm/attachListener_linux.cpp b/hotspot/src/os/linux/vm/attachListener_linux.cpp
@@ -71,5 +72,5 @@ index 5204c4c62..11ec525c6 100644
    // indicates if this VM supports attach-on-demand
    static bool is_attach_supported()             { return !DisableAttachMechanism; }
 -- 
-2.12.3
+2.19.0
 

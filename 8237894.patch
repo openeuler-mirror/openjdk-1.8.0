@@ -1,0 +1,263 @@
+From 1f8f5bac958a2655d9188744e6402b96a5f6d666 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:37:39 +0800
+Subject: 8237894: C1 compilation fails with
+ assert(x->type()->tag() == f->type()->tag())
+
+Summary: <c1>: C1 compilation fails with assert(x->type()->tag() == f->type()->tag()) failed: should have same type
+LLT: hotspot/test/compiler/c1/TestValueNumberingNullObject.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8237894
+---
+ hotspot/src/share/vm/c1/c1_GraphBuilder.cpp   |  29 ++--
+ hotspot/src/share/vm/c1/c1_Instruction.hpp    |  14 +-
+ .../c1/TestValueNumberingNullObject.java      | 131 ++++++++++++++++++
+ 3 files changed, 157 insertions(+), 17 deletions(-)
+ create mode 100644 hotspot/test/compiler/c1/TestValueNumberingNullObject.java
+
+diff --git a/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp b/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp
+index 99f1c510c..174e59436 100644
+--- a/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp
++++ b/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 1999, 2016, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 1999, 2020, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -3891,6 +3891,23 @@ bool GraphBuilder::try_inline_full(ciMethod* callee, bool holder_known, Bytecode
+     INLINE_BAILOUT("mdo allocation failed");
+   }
+ 
++  const bool is_invokedynamic = (bc == Bytecodes::_invokedynamic);
++  const bool has_receiver = (bc != Bytecodes::_invokestatic && !is_invokedynamic);
++
++  const int args_base = state()->stack_size() - callee->arg_size();
++  assert(args_base >= 0, "stack underflow during inlining");
++
++  Value recv = NULL;
++  if (has_receiver) {
++    assert(!callee->is_static(), "callee must not be static");
++    assert(callee->arg_size() > 0, "must have at least a receiver");
++
++    recv = state()->stack_at(args_base);
++    if (recv->is_null_obj()) {
++      INLINE_BAILOUT("receiver is always null");
++    }
++  }
++
+   // now perform tests that are based on flag settings
+   if (callee->force_inline() || callee->should_inline()) {
+     if (inline_level() > MaxForceInlineLevel                    ) INLINE_BAILOUT("MaxForceInlineLevel");
+@@ -3932,21 +3949,11 @@ bool GraphBuilder::try_inline_full(ciMethod* callee, bool holder_known, Bytecode
+ 
+   BlockBegin* orig_block = block();
+ 
+-  const bool is_invokedynamic = bc == Bytecodes::_invokedynamic;
+-  const bool has_receiver = (bc != Bytecodes::_invokestatic && !is_invokedynamic);
+-
+-  const int args_base = state()->stack_size() - callee->arg_size();
+-  assert(args_base >= 0, "stack underflow during inlining");
+-
+   // Insert null check if necessary
+-  Value recv = NULL;
+   if (has_receiver) {
+     // note: null check must happen even if first instruction of callee does
+     //       an implicit null check since the callee is in a different scope
+     //       and we must make sure exception handling does the right thing
+-    assert(!callee->is_static(), "callee must not be static");
+-    assert(callee->arg_size() > 0, "must have at least a receiver");
+-    recv = state()->stack_at(args_base);
+     null_check(recv);
+   }
+ 
+diff --git a/hotspot/src/share/vm/c1/c1_Instruction.hpp b/hotspot/src/share/vm/c1/c1_Instruction.hpp
+index ee4adbc48..6e61358e6 100644
+--- a/hotspot/src/share/vm/c1/c1_Instruction.hpp
++++ b/hotspot/src/share/vm/c1/c1_Instruction.hpp
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 1999, 2016, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 1999, 2020, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -277,7 +277,7 @@ class InstructionVisitor: public StackObj {
+ 
+ 
+ #define HASHING3(class_name, enabled, f1, f2, f3)     \
+-  virtual intx hash() const {                          \
++  virtual intx hash() const {                         \
+     return (enabled) ? HASH4(name(), f1, f2, f3) : 0; \
+   }                                                   \
+   virtual bool is_equal(Value v) const {              \
+@@ -462,6 +462,8 @@ class Instruction: public CompilationResourceObj {
+   bool is_linked() const                         { return check_flag(IsLinkedInBlockFlag); }
+   bool can_be_linked()                           { return as_Local() == NULL && as_Phi() == NULL; }
+ 
++  bool is_null_obj()                             { return as_Constant() != NULL && type()->as_ObjectType()->constant_value()->is_null_object(); }
++
+   bool has_uses() const                          { return use_count() > 0; }
+   ValueStack* state_before() const               { return _state_before; }
+   ValueStack* exception_state() const            { return _exception_state; }
+@@ -839,8 +841,8 @@ LEAF(LoadField, AccessField)
+ 
+   ciType* declared_type() const;
+ 
+-  // generic
+-  HASHING2(LoadField, !needs_patching() && !field()->is_volatile(), obj()->subst(), offset())  // cannot be eliminated if needs patching or if volatile
++  // generic; cannot be eliminated if needs patching or if volatile.
++  HASHING3(LoadField, !needs_patching() && !field()->is_volatile(), obj()->subst(), offset(), declared_type())
+ };
+ 
+ 
+@@ -966,8 +968,8 @@ LEAF(LoadIndexed, AccessIndexed)
+   ciType* exact_type() const;
+   ciType* declared_type() const;
+ 
+-  // generic
+-  HASHING2(LoadIndexed, true, array()->subst(), index()->subst())
++  // generic;
++  HASHING3(LoadIndexed, true, type()->tag(), array()->subst(), index()->subst())
+ };
+ 
+ 
+diff --git a/hotspot/test/compiler/c1/TestValueNumberingNullObject.java b/hotspot/test/compiler/c1/TestValueNumberingNullObject.java
+new file mode 100644
+index 000000000..66d5581f5
+--- /dev/null
++++ b/hotspot/test/compiler/c1/TestValueNumberingNullObject.java
+@@ -0,0 +1,131 @@
++/*
++ * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++
++/*
++ * @test
++ * @bug 8237894
++ * @summary CTW: C1 compilation fails with assert(x->type()->tag() == f->type()->tag()) failed: should have same type
++ *
++ * @run main/othervm
++ *      -Xcomp -Xbatch -XX:CompileCommand=compileonly,compiler.c1.T*::*
++ *      -XX:CompileCommand=exclude,compiler.c1.TestValueNumberingNullObject::main
++ *      -XX:CompileCommand=inline,*.*
++ *      -XX:TieredStopAtLevel=3
++ *      compiler.c1.TestValueNumberingNullObject
++ */
++
++package compiler.c1;
++
++class T1 {
++
++    public T2 f1;
++
++    public int za() {
++        return 0;
++    }
++
++    public int zb() {
++        return 0;
++    }
++
++    public int zc() {
++        return 0;
++    }
++
++    public int zd() {
++        return 0;
++    }
++
++    public int ze() {
++        return 0;
++    }
++
++    public int zf() {
++        return 0;
++    }
++
++    public int zg() {
++        return 0;
++    }
++
++    public int zh() {
++        return 0;
++    }
++}
++
++class T2 {
++
++    public T1 f1;
++
++    public int zh() {
++        return 0;
++    }
++}
++
++public class TestValueNumberingNullObject {
++
++    public static void main(String args[]) {
++        new T1();  // Load
++        new T2();  // Load
++        try {
++            // case 1
++            // Null based field access.
++            // Value Numbering null based field access causes instructions to be eliminated across type/subtypes.
++            // declared type of these instructions are field type, so it being receiver causes problems to Type System.
++            // to mitigate this issue, we hash declared type in addition to existing hashing.
++            testFieldAccess();
++        } catch (Exception e) {
++        }
++        try {
++            // case 2
++            // Null based indexed access.
++            // Value Numbering null based indexed access causes instructions to be eliminated across type/subtypes.
++            // element basic type in encoded in the access instruction, this causes problems to Type system.
++            // declared type of these instructions are null, so it being receiver doesn't cause any problem to Type System.
++            // to mitigate this issue, we hash basic type in addition to existing hashing
++            basicTypeAccess();
++        } catch (Exception e) {
++        }
++    }
++
++    static long testFieldAccess() {
++        T1 t1 = null;
++        T2 t2 = null;
++        T1[] t3 = null;
++        T2[] t4 = null;
++
++        long value = t1.f1.zh() + t2.f1.zh();
++        // null array object based field access.
++        value += t3[2].f1.zh() + t4[2].f1.zh();
++        return value;
++    }
++
++    static long basicTypeAccess() {
++        long[] f1 = null;
++        int[] f2 = null;
++        T2[] t2 = null;
++        T1[] t1 = null;
++        return f1[5] + f2[5] + t2[5].zh() + t1[5].zh();
++    }
++}
++
+-- 
+2.19.0
+

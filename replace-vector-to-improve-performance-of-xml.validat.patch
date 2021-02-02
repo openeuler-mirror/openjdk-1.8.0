@@ -1,6 +1,6 @@
-From 6ee202c81902416a9ec5ec5a32c536d3294bd5e6 Mon Sep 17 00:00:00 2001
-Date: Fri, 19 Apr 2019 17:23:48 +0000
-Subject: [PATCH] replace vector to improve performance of xml.validation
+From 329323e9ca450efd1a87fd36753eb6c060203cca Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:13:19 +0800
+Subject: replace vector to improve performance of xml.validation
 
 ---
  .../internal/impl/dv/ValidatedInfo.java       |   5 +
@@ -10,7 +10,7 @@ Subject: [PATCH] replace vector to improve performance of xml.validation
  4 files changed, 97 insertions(+), 72 deletions(-)
 
 diff --git a/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/ValidatedInfo.java b/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/ValidatedInfo.java
-index e6b8f267a5..8d5d86772f 100644
+index e6b8f267a..8d5d86772 100644
 --- a/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/ValidatedInfo.java
 +++ b/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/ValidatedInfo.java
 @@ -95,4 +95,9 @@ public class ValidatedInfo {
@@ -24,7 +24,7 @@ index e6b8f267a5..8d5d86772f 100644
 +
  }
 diff --git a/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/xs/XSSimpleTypeDecl.java b/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/xs/XSSimpleTypeDecl.java
-index c9c913464e..98546f2d50 100644
+index c9c913464..98546f2d5 100644
 --- a/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/xs/XSSimpleTypeDecl.java
 +++ b/jaxp/src/com/sun/org/apache/xerces/internal/impl/dv/xs/XSSimpleTypeDecl.java
 @@ -20,11 +20,6 @@
@@ -377,7 +377,7 @@ index c9c913464e..98546f2d50 100644
 +    }
  } // class XSSimpleTypeDecl
 diff --git a/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/Op.java b/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/Op.java
-index 372242ff6e..ab6cdb8455 100644
+index 372242ff6..ab6cdb845 100644
 --- a/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/Op.java
 +++ b/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/Op.java
 @@ -20,7 +20,7 @@
@@ -414,7 +414,7 @@ index 372242ff6e..ab6cdb8455 100644
      }
  
 diff --git a/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/RegularExpression.java b/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/RegularExpression.java
-index fa488d64ad..913740fe0d 100644
+index fa488d64a..913740fe0 100644
 --- a/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/RegularExpression.java
 +++ b/jaxp/src/com/sun/org/apache/xerces/internal/impl/xpath/regex/RegularExpression.java
 @@ -22,7 +22,7 @@ package com.sun.org.apache.xerces.internal.impl.xpath.regex;

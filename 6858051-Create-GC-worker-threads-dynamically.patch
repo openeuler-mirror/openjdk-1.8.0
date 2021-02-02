@@ -1,18 +1,18 @@
-From 4ebab5f80152a4f807206f9464a261a75341c97c Mon Sep 17 00:00:00 2001
-Date: Fri, 3 Apr 2020 14:14:31 +0000
-Subject: [PATCH] 6858051: Create GC worker threads dynamically
+From 28b440ef9821dd8cccbdead7039e0d8eb1cc939f Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:17:32 +0800
+Subject: 6858051: Create GC worker threads dynamically
 
 Summary: <gc>: Create GC worker threads dynamically
 LLT: hotspot/test/gc/ergonomics/TestDynamicNumberOfGCThreads.java
 Bug url: https://bugs.openjdk.java.net/browse/JDK-6858051
 ---
- .../parallelScavenge/gcTaskManager.cpp             | 70 ++++++++++++++------
- .../parallelScavenge/gcTaskManager.hpp             | 12 +++-
- .../parallelScavenge/gcTaskThread.cpp              |  7 --
- .../parallelScavenge/gcTaskThread.hpp              |  6 +-
- .../shared/adaptiveSizePolicy.cpp                  |  9 +--
- .../shared/adaptiveSizePolicy.hpp                  |  2 +-
- .../vm/gc_implementation/shared/workerManager.hpp  | 77 ++++++++++++++++++++++
+ .../parallelScavenge/gcTaskManager.cpp        | 70 ++++++++++++-----
+ .../parallelScavenge/gcTaskManager.hpp        | 12 ++-
+ .../parallelScavenge/gcTaskThread.cpp         |  7 --
+ .../parallelScavenge/gcTaskThread.hpp         |  6 +-
+ .../shared/adaptiveSizePolicy.cpp             |  9 +--
+ .../shared/adaptiveSizePolicy.hpp             |  2 +-
+ .../shared/workerManager.hpp                  | 77 +++++++++++++++++++
  7 files changed, 144 insertions(+), 39 deletions(-)
  create mode 100644 hotspot/src/share/vm/gc_implementation/shared/workerManager.hpp
 
@@ -454,5 +454,5 @@ index 000000000..1a840cf2b
 +};
 +#endif // SHARE_VM_GC_SHARED_WORKERMANAGER_HPP
 -- 
-2.12.3
+2.19.0
 

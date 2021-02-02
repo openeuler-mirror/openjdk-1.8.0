@@ -1,0 +1,148 @@
+From 27abb109817fb98fe6a52d83424bd3882c5cee4e Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 14:43:19 +0800
+Subject: 8158946: btree009 fails with assert(s > 0) failed: Bad
+ size calculated Summary: Set oop_size before setting _klass Reviewed-by:
+ coleenp, dholmes, kbarrett, tschatzl
+
+---
+ hotspot/src/share/vm/classfile/javaClasses.cpp   |  7 ++++++-
+ .../src/share/vm/gc_interface/collectedHeap.cpp  | 16 ++++++++++++++++
+ .../src/share/vm/gc_interface/collectedHeap.hpp  |  3 +++
+ .../vm/gc_interface/collectedHeap.inline.hpp     | 12 ++++++++++++
+ .../src/share/vm/oops/instanceMirrorKlass.cpp    |  7 +++----
+ hotspot/src/share/vm/oops/oop.inline.hpp         |  4 ++--
+ 6 files changed, 42 insertions(+), 7 deletions(-)
+
+diff --git a/hotspot/src/share/vm/classfile/javaClasses.cpp b/hotspot/src/share/vm/classfile/javaClasses.cpp
+index 97a10ac02..3e37f9bd9 100644
+--- a/hotspot/src/share/vm/classfile/javaClasses.cpp
++++ b/hotspot/src/share/vm/classfile/javaClasses.cpp
+@@ -651,12 +651,17 @@ void java_lang_Class::create_mirror(KlassHandle k, Handle class_loader,
+ 
+ int  java_lang_Class::oop_size(oop java_class) {
+   assert(_oop_size_offset != 0, "must be set");
+-  return java_class->int_field(_oop_size_offset);
++  int size = java_class->int_field(_oop_size_offset);
++  assert(size > 0, "size not set or was stomped");
++  return size;
+ }
++
+ void java_lang_Class::set_oop_size(oop java_class, int size) {
+   assert(_oop_size_offset != 0, "must be set");
++  assert(size > 0, "size must be positive");
+   java_class->int_field_put(_oop_size_offset, size);
+ }
++
+ int  java_lang_Class::static_oop_field_count(oop java_class) {
+   assert(_static_oop_field_count_offset != 0, "must be set");
+   return java_class->int_field(_static_oop_field_count_offset);
+diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.cpp b/hotspot/src/share/vm/gc_interface/collectedHeap.cpp
+index c248cba63..7646438bf 100644
+--- a/hotspot/src/share/vm/gc_interface/collectedHeap.cpp
++++ b/hotspot/src/share/vm/gc_interface/collectedHeap.cpp
+@@ -303,6 +303,22 @@ HeapWord* CollectedHeap::allocate_from_tlab_slow(KlassHandle klass, Thread* thre
+   return obj;
+ }
+ 
++void CollectedHeap::post_allocation_setup_class(KlassHandle klass,
++                                                HeapWord* obj_ptr,
++                                                int size) {
++  // Set oop_size field before setting the _klass field because a
++  // non-NULL _klass field indicates that the object is parsable by
++  // concurrent GC.
++  oop new_cls = (oop)obj_ptr;
++  assert(size > 0, "oop_size must be positive.");
++  java_lang_Class::set_oop_size(new_cls, size);
++  post_allocation_setup_common(klass, obj_ptr);
++  assert(Universe::is_bootstrapping() ||
++         !new_cls->is_array(), "must not be an array");
++  // notify jvmti and dtrace
++  post_allocation_notify(klass, new_cls, size);
++}
++
+ void CollectedHeap::flush_deferred_store_barrier(JavaThread* thread) {
+   MemRegion deferred = thread->deferred_card_mark();
+   if (!deferred.is_empty()) {
+diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp b/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
+index caf2d531f..c13d29780 100644
+--- a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
++++ b/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
+@@ -157,6 +157,8 @@ class CollectedHeap : public CHeapObj<mtInternal> {
+   inline static void post_allocation_setup_array(KlassHandle klass,
+                                                  HeapWord* obj, int length);
+ 
++  static void post_allocation_setup_class(KlassHandle klass, HeapWord* obj, int size);
++
+   // Clears an allocated object.
+   inline static void init_obj(HeapWord* obj, size_t size);
+ 
+@@ -321,6 +323,7 @@ class CollectedHeap : public CHeapObj<mtInternal> {
+   inline static oop obj_allocate(KlassHandle klass, int size, TRAPS);
+   inline static oop array_allocate(KlassHandle klass, int size, int length, TRAPS);
+   inline static oop array_allocate_nozero(KlassHandle klass, int size, int length, TRAPS);
++  inline static oop class_allocate(KlassHandle klass, int size, TRAPS);
+ 
+   // Raw memory allocation facilities
+   // The obj and array allocate methods are covers for these methods.
+diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp b/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp
+index 172bce44a..8ed2df96a 100644
+--- a/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp
++++ b/hotspot/src/share/vm/gc_interface/collectedHeap.inline.hpp
+@@ -215,6 +215,18 @@ oop CollectedHeap::obj_allocate(KlassHandle klass, int size, TRAPS) {
+   return (oop)obj;
+ }
+ 
++// Instances of j.l.Class have an oop_size field that must be set before the 
++// the header is set in order to parse the instances's size correctly.
++oop CollectedHeap::class_allocate(KlassHandle klass, int size, TRAPS) {
++  debug_only(check_for_valid_allocation_state());
++  assert(!Universe::heap()->is_gc_active(), "Allocation during gc not allowed");
++  assert(size >= 0, "int won't convert to size_t");
++  HeapWord* obj = common_mem_allocate_init(klass, size, CHECK_NULL);
++  post_allocation_setup_class(klass, obj, size); // set oop_size
++  NOT_PRODUCT(Universe::heap()->check_for_bad_heap_word_value(obj, size));
++  return (oop)obj;
++}
++
+ oop CollectedHeap::array_allocate(KlassHandle klass,
+                                   int size,
+                                   int length,
+diff --git a/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp b/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp
+index 5b4c7d0fd..73da78e5a 100644
+--- a/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp
++++ b/hotspot/src/share/vm/oops/instanceMirrorKlass.cpp
+@@ -363,13 +363,12 @@ instanceOop InstanceMirrorKlass::allocate_instance(KlassHandle k, TRAPS) {
+   // Query before forming handle.
+   int size = instance_size(k);
+   KlassHandle h_k(THREAD, this);
+-  instanceOop i = (instanceOop)CollectedHeap::obj_allocate(h_k, size, CHECK_NULL);
++
++  assert(size > 0, "total object size must be positive");
+ 
+   // Since mirrors can be variable sized because of the static fields, store
+   // the size in the mirror itself.
+-  java_lang_Class::set_oop_size(i, size);
+-
+-  return i;
++  return (instanceOop)CollectedHeap::class_allocate(h_k, size, CHECK_NULL);
+ }
+ 
+ int InstanceMirrorKlass::oop_size(oop obj) const {
+diff --git a/hotspot/src/share/vm/oops/oop.inline.hpp b/hotspot/src/share/vm/oops/oop.inline.hpp
+index e05167975..ddb9dca2d 100644
+--- a/hotspot/src/share/vm/oops/oop.inline.hpp
++++ b/hotspot/src/share/vm/oops/oop.inline.hpp
+@@ -537,8 +537,8 @@ inline int oopDesc::size_given_klass(Klass* klass)  {
+     }
+   }
+ 
+-  assert(s % MinObjAlignment == 0, "alignment check");
+-  assert(s > 0, "Bad size calculated");
++  assert(s % MinObjAlignment == 0, "Oop size is not properly aligned");
++  assert(s > 0, "Oop size must be greater than zero");
+   return s;
+ }
+ 
+-- 
+2.19.0
+

@@ -1,6 +1,6 @@
-From e01473adc4c392aa947417cbde478161b2d741bb Mon Sep 17 00:00:00 2001
-Date: Fri, 12 Jul 2019 16:10:56 +0800
-Subject: [PATCH] Backport of JDK-8060463
+From ea7cab470443b2545e2b56ec38571be2ed7da75b Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:36:59 +0800
+Subject: Backport of JDK-8060463
 
 Summary: ParNew:
 SurvivorAlignmentInBytes greater then YoungPLABSize cause assert(obj != NULL
@@ -8,15 +8,14 @@ SurvivorAlignmentInBytes greater then YoungPLABSize cause assert(obj != NULL
 allocate.
 LLT: hotspot/test/gc/survivorAlignment/TestPromotionLABLargeSurvivorAlignment.java
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8060463
-
 ---
  .../parNew/parNewGeneration.cpp               | 15 ++--
- ...estPromotionLABLargeSurvivorAlignment.java | 72 +++++++++++++++++++
- 2 files changed, 83 insertions(+), 4 deletions(-)
+ ...estPromotionLABLargeSurvivorAlignment.java | 71 +++++++++++++++++++
+ 2 files changed, 82 insertions(+), 4 deletions(-)
  create mode 100644 hotspot/test/gc/survivorAlignment/TestPromotionLABLargeSurvivorAlignment.java
 
 diff --git a/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.cpp b/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.cpp
-index 8ef1bd2cda..67b0421ebf 100644
+index 327c27e92..f05b4f177 100644
 --- a/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.cpp
 @@ -233,11 +233,15 @@ HeapWord* ParScanThreadState::alloc_in_to_space_slow(size_t word_sz) {
@@ -52,7 +51,7 @@ index 8ef1bd2cda..67b0421ebf 100644
          // even if not for this one.
 diff --git a/hotspot/test/gc/survivorAlignment/TestPromotionLABLargeSurvivorAlignment.java b/hotspot/test/gc/survivorAlignment/TestPromotionLABLargeSurvivorAlignment.java
 new file mode 100644
-index 0000000000..397b647489
+index 000000000..093d509a4
 --- /dev/null
 +++ b/hotspot/test/gc/survivorAlignment/TestPromotionLABLargeSurvivorAlignment.java
 @@ -0,0 +1,71 @@
@@ -128,5 +127,5 @@ index 0000000000..397b647489
 +    }
 +}
 -- 
-2.19.0-rc1
+2.19.0
 

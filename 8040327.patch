@@ -1,0 +1,108 @@
+From 5862fab639dfe2304f65399988c8815f52664666 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:55:53 +0800
+Subject: 8040327: Eliminate AnnotatedType && 8040319: Clean up
+ type annotation exception index generating code in Code.java
+
+Summary: <javac>: Find the correct exception_index in RuntimeInvisibleTypeAnnotations
+LLT: langtools/test/tools/javac/annotations/typeAnnotations/referenceinfos/MultiCatch.java, langtools/test/tools/javac/annotations/typeAnnotations/referenceinfos/ExceptionParameters.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8040327, https://bugs.openjdk.java.net/browse/JDK-8040319
+---
+ .../javac/code/TypeAnnotationPosition.java    | 23 +++++++++++++++++++
+ .../classes/com/sun/tools/javac/jvm/Code.java | 11 +++++----
+ .../classes/com/sun/tools/javac/jvm/Gen.java  |  4 ++--
+ 3 files changed, 32 insertions(+), 6 deletions(-)
+
+diff --git a/langtools/src/share/classes/com/sun/tools/javac/code/TypeAnnotationPosition.java b/langtools/src/share/classes/com/sun/tools/javac/code/TypeAnnotationPosition.java
+index c481ea5d3..f1f92b6ad 100644
+--- a/langtools/src/share/classes/com/sun/tools/javac/code/TypeAnnotationPosition.java
++++ b/langtools/src/share/classes/com/sun/tools/javac/code/TypeAnnotationPosition.java
+@@ -297,6 +297,29 @@ public class TypeAnnotationPosition {
+         isValidOffset = true;
+     }
+ 
++    public boolean hasCatchType() {
++        return exception_index < 0 && exception_index != Integer.MIN_VALUE;
++    }
++
++    public int getCatchType() {
++        Assert.check(hasCatchType(),
++            "exception_index does not contain valid catch info");
++        return ((-this.exception_index) - 1) & 0xff ;
++    }
++
++    public int getStartPos() {
++        Assert.check(hasCatchType(),
++            "exception_index does not contain valid catch info");
++        return ((-this.exception_index) - 1) >> 8;
++    }
++
++    public void setCatchInfo(final int catchType, final int startPos) {
++        Assert.check(this.exception_index < 0,
++            "exception_index already contains a bytecode index");
++        Assert.check(catchType >= 0, "Expected a valid catch type");
++        this.exception_index = -((catchType | startPos << 8) + 1);
++    }
++
+     /**
+      * Decode the binary representation for a type path and set
+      * the {@code location} field.
+diff --git a/langtools/src/share/classes/com/sun/tools/javac/jvm/Code.java b/langtools/src/share/classes/com/sun/tools/javac/jvm/Code.java
+index 738c5a1d9..622a5942d 100644
+--- a/langtools/src/share/classes/com/sun/tools/javac/jvm/Code.java
++++ b/langtools/src/share/classes/com/sun/tools/javac/jvm/Code.java
+@@ -2135,14 +2135,16 @@ public class Code {
+                 // same location; updating one is enough.
+                 // Use -666 as a marker that the exception_index was already updated.
+                 if (p.type_index != -666) {
+-                    p.exception_index = findExceptionIndex(p.type_index);
++                    p.exception_index = findExceptionIndex(p);
+                     p.type_index = -666;
+                 }
+             }
+         }
+     }
+ 
+-    private int findExceptionIndex(int catchType) {
++    private int findExceptionIndex(TypeAnnotationPosition p) {
++        final int catchType = p.getCatchType();
++        final int startPos = p.getStartPos();
+         if (catchType == Integer.MIN_VALUE) {
+             // We didn't set the catch type index correctly.
+             // This shouldn't happen.
+@@ -2154,8 +2156,9 @@ public class Code {
+         for (int i = 0; i < len; ++i) {
+             char[] catchEntry = iter.head;
+             iter = iter.tail;
+-            char ct = catchEntry[3];
+-            if (catchType == ct) {
++            int ct = catchEntry[3];
++            int sp = catchEntry[0];
++            if (catchType == ct && sp == startPos) {
+                 return i;
+             }
+         }
+diff --git a/langtools/src/share/classes/com/sun/tools/javac/jvm/Gen.java b/langtools/src/share/classes/com/sun/tools/javac/jvm/Gen.java
+index 4cc7fb7bf..f79d3eeeb 100644
+--- a/langtools/src/share/classes/com/sun/tools/javac/jvm/Gen.java
++++ b/langtools/src/share/classes/com/sun/tools/javac/jvm/Gen.java
+@@ -1609,7 +1609,7 @@ public class Gen extends JCTree.Visitor {
+                         if (subCatch.type.isAnnotated()) {
+                             for (Attribute.TypeCompound tc :
+                                      subCatch.type.getAnnotationMirrors()) {
+-                                tc.position.type_index = catchType;
++                                tc.position.setCatchInfo(catchType, startpc);
+                             }
+                         }
+                     }
+@@ -1626,7 +1626,7 @@ public class Gen extends JCTree.Visitor {
+                         if (subCatch.type.isAnnotated()) {
+                             for (Attribute.TypeCompound tc :
+                                      subCatch.type.getAnnotationMirrors()) {
+-                                tc.position.type_index = catchType;
++                                tc.position.setCatchInfo(catchType, startpc);
+                             }
+                         }
+                     }
+-- 
+2.19.0
+

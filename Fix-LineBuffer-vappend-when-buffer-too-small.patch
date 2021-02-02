@@ -1,6 +1,6 @@
-From a409bdd4982a6a463b65b529ed3aedb0c3e29144 Mon Sep 17 00:00:00 2001
-Date: Mon, 17 Aug 2020 19:32:33 +0000
-Subject: [PATCH] Fix LineBuffer::vappend when buffer too small
+From 51bf279a63f1ae3f4a8fc255d12f3b339741dd2e Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:25:49 +0800
+Subject: Fix LineBuffer::vappend when buffer too small
 
 Summary: <runtime>: fix LineBuffer::vappend when buffer too small
 LLT: NA
@@ -23,5 +23,5 @@ index 75a9a5f95..185b7d67e 100644
        _buffer[BUFFER_LEN -1] = 0;
        _cur = BUFFER_LEN; // vsnprintf above should not add to _buffer if we are called again
 -- 
-2.12.3
+2.19.0
 

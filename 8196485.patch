@@ -1,0 +1,278 @@
+From 8194e6260c4006165da6a4344aadceba25d5129d Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:28:23 +0800
+Subject: 8196485: FromCardCache default card index can cause crashes
+
+Summary: FromCardCache default card index can cause crashes
+LLT: hotspot/test/gc/g1/TestFromCardCacheIndex.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8196485
+
+---
+ .../gc_implementation/g1/heapRegionRemSet.cpp |  36 +++---
+ .../gc_implementation/g1/heapRegionRemSet.hpp |  17 +--
+ .../test/gc/g1/TestFromCardCacheIndex.java    | 119 ++++++++++++++++++
+ 3 files changed, 145 insertions(+), 27 deletions(-)
+ create mode 100644 hotspot/test/gc/g1/TestFromCardCacheIndex.java
+
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.cpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.cpp
+index 437636281..ad8a3562e 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.cpp
+@@ -102,17 +102,8 @@ protected:
+     // If the test below fails, then this table was reused concurrently
+     // with this operation.  This is OK, since the old table was coarsened,
+     // and adding a bit to the new table is never incorrect.
+-    // If the table used to belong to a continues humongous region and is
+-    // now reused for the corresponding start humongous region, we need to
+-    // make sure that we detect this. Thus, we call is_in_reserved_raw()
+-    // instead of just is_in_reserved() here.
+     if (loc_hr->is_in_reserved_raw(from)) {
+-      size_t hw_offset = pointer_delta((HeapWord*)from, loc_hr->bottom());
+-      CardIdx_t from_card = (CardIdx_t)
+-          hw_offset >> (CardTableModRefBS::card_shift - LogHeapWordSize);
+-
+-      assert(0 <= from_card && (size_t)from_card < HeapRegion::CardsPerRegion,
+-             "Must be in range.");
++      CardIdx_t from_card = OtherRegionsTable::card_within_region(from, loc_hr);
+       add_card_work(from_card, par);
+     }
+   }
+@@ -331,6 +322,12 @@ void OtherRegionsTable::link_to_all(PerRegionTable* prt) {
+          "just checking");
+ }
+ 
++CardIdx_t OtherRegionsTable::card_within_region(OopOrNarrowOopStar within_region, HeapRegion* hr) {
++  assert(hr->is_in_reserved(within_region),"should be");
++  CardIdx_t result = (CardIdx_t)(pointer_delta((HeapWord*)within_region, hr->bottom()) >> (CardTableModRefBS::card_shift - LogHeapWordSize));
++  return result;
++}
++
+ void OtherRegionsTable::unlink_from_all(PerRegionTable* prt) {
+   if (prt->prev() != NULL) {
+     assert(_first_all_fine_prts != prt, "just checking");
+@@ -364,18 +361,17 @@ void OtherRegionsTable::unlink_from_all(PerRegionTable* prt) {
+          "just checking");
+ }
+ 
+-int**  FromCardCache::_cache = NULL;
+-uint   FromCardCache::_max_regions = 0;
+-size_t FromCardCache::_static_mem_size = 0;
++uintptr_t** FromCardCache::_cache = NULL;
++uint        FromCardCache::_max_regions = 0;
++size_t      FromCardCache::_static_mem_size = 0;
+ 
+ void FromCardCache::initialize(uint n_par_rs, uint max_num_regions) {
+   guarantee(_cache == NULL, "Should not call this multiple times");
+ 
+   _max_regions = max_num_regions;
+-  _cache = Padded2DArray<int, mtGC>::create_unfreeable(n_par_rs,
+-                                                       _max_regions,
+-                                                       &_static_mem_size);
+-
++  _cache = Padded2DArray<uintptr_t, mtGC>::create_unfreeable(n_par_rs,
++                                                             _max_regions,
++                                                             &_static_mem_size);
+   invalidate(0, _max_regions);
+ }
+ 
+@@ -396,7 +392,8 @@ void FromCardCache::invalidate(uint start_idx, size_t new_num_regions) {
+ void FromCardCache::print(outputStream* out) {
+   for (uint i = 0; i < HeapRegionRemSet::num_par_rem_sets(); i++) {
+     for (uint j = 0; j < _max_regions; j++) {
+-      out->print_cr("_from_card_cache[" UINT32_FORMAT "][" UINT32_FORMAT "] = " INT32_FORMAT ".",
++      out->print_cr("_from_card_cache[%u][%u] = " SIZE_FORMAT ".",
++
+                     i, j, at(i, j));
+     }
+   }
+@@ -433,7 +430,8 @@ void OtherRegionsTable::add_reference(OopOrNarrowOopStar from, int tid) {
+                                                     : (void *)oopDesc::load_decode_heap_oop((oop*)from));
+   }
+ 
+-  int from_card = (int)(uintptr_t(from) >> CardTableModRefBS::card_shift);
++  uintptr_t from_card = uintptr_t(from) >> CardTableModRefBS::card_shift;
++
+ 
+   if (G1TraceHeapRegionRememberedSet) {
+     gclog_or_tty->print_cr("Table for [" PTR_FORMAT "...): card %d (cache = " INT32_FORMAT ")",
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.hpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.hpp
+index 1646e8cb9..77751b4a9 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.hpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegionRemSet.hpp
+@@ -51,21 +51,19 @@ class FromCardCache : public AllStatic {
+  private:
+   // Array of card indices. Indexed by thread X and heap region to minimize
+   // thread contention.
+-  static int** _cache;
++  static uintptr_t** _cache;
+   static uint _max_regions;
+   static size_t _static_mem_size;
+ 
+  public:
+-  enum {
+-    InvalidCard = -1 // Card value of an invalid card, i.e. a card index not otherwise used.
+-  };
++  static const uintptr_t InvalidCard = UINTPTR_MAX;
+ 
+   static void clear(uint region_idx);
+ 
+   // Returns true if the given card is in the cache at the given location, or
+   // replaces the card at that location and returns false.
+-  static bool contains_or_replace(uint worker_id, uint region_idx, int card) {
+-    int card_in_cache = at(worker_id, region_idx);
++  static bool contains_or_replace(uint worker_id, uint region_idx, uintptr_t card) {
++    uintptr_t card_in_cache = at(worker_id, region_idx);
+     if (card_in_cache == card) {
+       return true;
+     } else {
+@@ -74,11 +72,11 @@ class FromCardCache : public AllStatic {
+     }
+   }
+ 
+-  static int at(uint worker_id, uint region_idx) {
++  static uintptr_t at(uint worker_id, uint region_idx) {
+     return _cache[worker_id][region_idx];
+   }
+ 
+-  static void set(uint worker_id, uint region_idx, int val) {
++  static void set(uint worker_id, uint region_idx, uintptr_t val) {
+     _cache[worker_id][region_idx] = val;
+   }
+ 
+@@ -177,6 +175,9 @@ public:
+ 
+   HeapRegion* hr() const { return _hr; }
+ 
++  // Returns the card index of the given within_region pointer relative to the bottom  ————————————————————heapRegionRemSet.hpp:312  OtherRegionsTable
++  // of the given heap region.
++  static CardIdx_t card_within_region(OopOrNarrowOopStar within_region, HeapRegion* hr);
+   // For now.  Could "expand" some tables in the future, so that this made
+   // sense.
+   void add_reference(OopOrNarrowOopStar from, int tid);
+diff --git a/hotspot/test/gc/g1/TestFromCardCacheIndex.java b/hotspot/test/gc/g1/TestFromCardCacheIndex.java
+new file mode 100644
+index 000000000..92950cf68
+--- /dev/null
++++ b/hotspot/test/gc/g1/TestFromCardCacheIndex.java
+@@ -0,0 +1,119 @@
++/*
++ * @test TestFromCardCacheIndex.java
++ * @bug 8196485
++ * @summary Ensure that G1 does not miss a remembered set entry due to from card cache default value indices.
++ * @key gc
++ * @requires vm.gc.G1
++ * @requires vm.debug
++ * @requires vm.bits != "32"
++ * @library /test/lib
++ * @modules java.base/jdk.internal.misc
++ *          java.management
++ * @build sun.hotspot.WhiteBox
++ * @run driver ClassFileInstaller sun.hotspot.WhiteBox
++ * @run main/othervm -XX:+UnlockDiagnosticVMOptions -XX:+WhiteBoxAPI -Xbootclasspath/a:. -Xms20M -Xmx20M -XX:+UseCompressedOops -XX:G1HeapRegionSize=1M -XX:HeapBaseMinAddress=2199011721216 -XX:+UseG1GC -verbose:gc TestFromCardCacheIndex
++ */
++
++import sun.hotspot.WhiteBox;
++
++/**
++ * Repeatedly tries to generate references from objects that contained a card with the same index
++ * of the from card cache default value.
++ */
++public class TestFromCardCacheIndex {
++    private static WhiteBox WB;
++
++    // Shift value to calculate card indices from addresses.
++    private static final int CardSizeShift = 9;
++
++    /**
++     * Returns the last address on the heap within the object.
++     *
++     * @param The Object array to get the last address from.
++     */
++    private static long getObjectLastAddress(Object[] o) {
++        return WB.getObjectAddress(o) + WB.getObjectSize(o) - 1;
++    }
++
++    /**
++     * Returns the (truncated) 32 bit card index for the given address.
++     *
++     * @param The address to get the 32 bit card index from.
++     */
++    private static int getCardIndex32bit(long address) {
++        return (int)(address >> CardSizeShift);
++    }
++
++    // The source arrays that are placed on the heap in old gen.
++    private static int numArrays = 7000;
++    private static int arraySize = 508;
++    // Size of a humongous byte array, a bit less than a 1M region. This makes sure
++    // that we always create a cross-region reference when referencing it.
++    private static int byteArraySize = 1024*1023;
++
++    public static void main(String[] args) {
++        WB = sun.hotspot.WhiteBox.getWhiteBox();
++        for (int i = 0; i < 5; i++) {
++          runTest();
++          WB.fullGC();
++        }
++    }
++
++    public static void runTest() {
++        System.out.println("Starting test");
++
++        // Spray the heap with random object arrays in the hope that we get one
++        // at the proper place.
++        Object[][] arrays = new Object[numArrays][];
++        for (int i = 0; i < numArrays; i++) {
++            arrays[i] = new Object[arraySize];
++        }
++
++        // Make sure that everything is in old gen.
++        WB.fullGC();
++
++        // Find if we got an allocation at the right spot.
++        Object[] arrayWithCardMinus1 = findArray(arrays);
++
++        if (arrayWithCardMinus1 == null) {
++            System.out.println("Array with card -1 not found. Trying again.");
++            return;
++        } else {
++            System.out.println("Array with card -1 found.");
++        }
++
++        System.out.println("Modifying the last card in the array with a new object in a different region...");
++        // Create a target object that is guaranteed to be in a different region.
++        byte[] target = new byte[byteArraySize];
++
++        // Modify the last entry of the object we found.
++        arrayWithCardMinus1[arraySize - 1] = target;
++
++        target = null;
++        // Make sure that the dirty cards are flushed by doing a GC.
++        System.out.println("Doing a GC.");
++        WB.youngGC();
++
++        System.out.println("The crash didn't reproduce. Trying again.");
++    }
++
++    /**
++     * Finds an returns an array that contains a (32 bit truncated) card with value -1.
++     */
++    private static Object[] findArray(Object[][] arrays) {
++        for (int i = 0; i < arrays.length; i++) {
++            Object[] target = arrays[i];
++            if (target == null) {
++                continue;
++            }
++            final long startAddress = WB.getObjectAddress(target);
++            final long lastAddress = getObjectLastAddress(target);
++            final int card = getCardIndex32bit(lastAddress);
++            if (card == -1) {
++                Object[] foundArray = target;
++                return foundArray;
++            }
++        }
++        return null;
++    }
++}
+-- 
+2.19.0
+

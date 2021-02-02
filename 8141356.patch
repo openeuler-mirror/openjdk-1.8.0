@@ -1,6 +1,6 @@
-From 81c4aa5c13e38b701a0ace0765ab153b750a1e7e Mon Sep 17 00:00:00 2001
-Date: Tue, 25 Jun 2019 10:06:19 +0000
-Subject: [PATCH] backport of JDK-8141356
+From 055f8e3d684105857ad1a51e8f811d4149333dbc Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:34:34 +0800
+Subject: backport of JDK-8141356
 
 Summary: Explicitly stop CMS threads during VM termination
 LLT:
@@ -11,10 +11,10 @@ Bug url: https://bugs.openjdk.java.net/browse/JDK-8141356
  2 files changed, 11 insertions(+)
 
 diff --git a/hotspot/src/share/vm/memory/genCollectedHeap.cpp b/hotspot/src/share/vm/memory/genCollectedHeap.cpp
-index f7c9591d90..eeb56f02a1 100644
+index 1221da276..7f4fc0d61 100644
 --- a/hotspot/src/share/vm/memory/genCollectedHeap.cpp
 +++ b/hotspot/src/share/vm/memory/genCollectedHeap.cpp
-@@ -1408,3 +1408,11 @@ jlong GenCollectedHeap::millis_since_last_gc() {
+@@ -1406,3 +1406,11 @@ jlong GenCollectedHeap::millis_since_last_gc() {
    }
    return retVal;
  }
@@ -27,7 +27,7 @@ index f7c9591d90..eeb56f02a1 100644
 +#endif
 +}
 diff --git a/hotspot/src/share/vm/memory/genCollectedHeap.hpp b/hotspot/src/share/vm/memory/genCollectedHeap.hpp
-index 58786eded2..c3eb0db064 100644
+index 1a2fcaa06..416ae8741 100644
 --- a/hotspot/src/share/vm/memory/genCollectedHeap.hpp
 +++ b/hotspot/src/share/vm/memory/genCollectedHeap.hpp
 @@ -538,6 +538,9 @@ private:
@@ -41,5 +41,5 @@ index 58786eded2..c3eb0db064 100644
  
  #endif // SHARE_VM_MEMORY_GENCOLLECTEDHEAP_HPP
 -- 
-2.19.0-rc1
+2.19.0
 
