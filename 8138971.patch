@@ -1,6 +1,6 @@
-From ffb7c326ceb85f9bab196a23d3c2adb4a27613ce Mon Sep 17 00:00:00 2001
-Date: Wed, 17 Jul 2019 09:26:19 +0000
-Subject: [PATCH] Backport of JDK-8138971
+From 830b5806b508f180b44845b54d7d977706de5984 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:38:12 +0800
+Subject: Backport of JDK-8138971
 
 summary: G1CollectorPolicy::_rs_lengths_prediction is not initialized before use
 LLT:
@@ -10,7 +10,7 @@ Bug url: https://bugs.openjdk.java.net/browse/JDK-8138971
  1 file changed, 1 insertion(+)
 
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp
-index c4463f50fc..066aa40b25 100644
+index 761b0e953..046f8a848 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp
 @@ -122,6 +122,7 @@ G1CollectorPolicy::G1CollectorPolicy() :
@@ -22,5 +22,5 @@ index c4463f50fc..066aa40b25 100644
    _initiate_conc_mark_if_possible(false),
    _during_initial_mark_pause(false),
 -- 
-2.12.3
+2.19.0
 

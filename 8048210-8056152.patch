@@ -1,0 +1,39 @@
+From d47f002ce4b016b077b99fa5430b6ca448988b13 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:24:23 +0800
+Subject: 8048210 8056152: fix assert fail for an InnocuousThread
+
+Summary: <java.lang>: fix assert fail for an InnocuousThread
+LLT: jdk8u/jdk/test/java/rmi/transport/pinLastArguments/PinLastArguments.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8048210 https://bugs.openjdk.java.net/browse/JDK-8056152
+---
+ jdk/src/share/classes/sun/misc/InnocuousThread.java | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/jdk/src/share/classes/sun/misc/InnocuousThread.java b/jdk/src/share/classes/sun/misc/InnocuousThread.java
+index 3acd9424c..e585a9c0b 100644
+--- a/jdk/src/share/classes/sun/misc/InnocuousThread.java
++++ b/jdk/src/share/classes/sun/misc/InnocuousThread.java
+@@ -70,6 +70,7 @@ public final class InnocuousThread extends Thread {
+     public InnocuousThread(Runnable target) {
+         super(INNOCUOUSTHREADGROUP, target, newName());
+         UNSAFE.putOrderedObject(this, INHERITEDACCESSCONTROLCONTEXT, ACC);
++        UNSAFE.putOrderedObject(this, CONTEXTCLASSLOADER, ClassLoader.getSystemClassLoader());
+         eraseThreadLocals();
+     }
+ 
+@@ -80,12 +81,6 @@ public final class InnocuousThread extends Thread {
+         eraseThreadLocals();
+     }
+ 
+-    @Override
+-    public ClassLoader getContextClassLoader() {
+-        // always report system class loader
+-        return ClassLoader.getSystemClassLoader();
+-    }
+-
+     @Override
+     public void setUncaughtExceptionHandler(UncaughtExceptionHandler x) {
+         // silently fail
+-- 
+2.19.0
+

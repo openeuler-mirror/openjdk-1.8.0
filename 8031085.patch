@@ -1,17 +1,17 @@
-From 727421f7f1abdcc90ac203fa03b279090a208cd7 Mon Sep 17 00:00:00 2001
-Date: Fri, 18 Oct 2019 12:06:46 +0000
-Subject: [PATCH] backport of JDK-8031085
+From 1767fdf19ccf9dea510371641360e1ed65965db6 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 15:16:23 +0800
+Subject: backport of JDK-8031085
 
 Summary: <class DateTimeFormatterBuilder.java>: DateTimeFormatter won't parse dates with custom format "yyyyMMddHHmmssSSS"
 LLT: jdk/test/java/time/tck/java/time/format/TCKDateTimeFormatterBuilder.java
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8031085
 ---
- .../java/time/format/DateTimeFormatterBuilder.java | 79 ++++++++++++++++++----
- .../time/format/TCKDateTimeFormatterBuilder.java   | 20 +++++-
+ .../time/format/DateTimeFormatterBuilder.java | 79 ++++++++++++++++---
+ .../format/TCKDateTimeFormatterBuilder.java   | 20 ++++-
  2 files changed, 86 insertions(+), 13 deletions(-)
 
 diff --git a/jdk/src/share/classes/java/time/format/DateTimeFormatterBuilder.java b/jdk/src/share/classes/java/time/format/DateTimeFormatterBuilder.java
-index 7e0698dfce..d57a167302 100644
+index 7e0698dfc..d57a16730 100644
 --- a/jdk/src/share/classes/java/time/format/DateTimeFormatterBuilder.java
 +++ b/jdk/src/share/classes/java/time/format/DateTimeFormatterBuilder.java
 @@ -664,8 +664,11 @@ public final class DateTimeFormatterBuilder {
@@ -139,7 +139,7 @@ index 7e0698dfce..d57a167302 100644
              if (position == length) {
                  // valid if whole field is optional, invalid if minimum width
 diff --git a/jdk/test/java/time/tck/java/time/format/TCKDateTimeFormatterBuilder.java b/jdk/test/java/time/tck/java/time/format/TCKDateTimeFormatterBuilder.java
-index c5a017c911..f689cf6512 100644
+index c5a017c91..f689cf651 100644
 --- a/jdk/test/java/time/tck/java/time/format/TCKDateTimeFormatterBuilder.java
 +++ b/jdk/test/java/time/tck/java/time/format/TCKDateTimeFormatterBuilder.java
 @@ -69,6 +69,7 @@ import static org.testng.Assert.assertEquals;
@@ -182,5 +182,5 @@ index c5a017c911..f689cf6512 100644
 +
  }
 -- 
-2.12.3
+2.19.0
 

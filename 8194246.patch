@@ -1,6 +1,6 @@
-From 86d65f4258c2c47751ae42281e84b6ba36712a08 Mon Sep 17 00:00:00 2001
-Date: Tue, 9 Jul 2019 10:41:26 +0000
-Subject: [PATCH] Backport of JDK-8194246
+From 9aafe43836f718794f223e1484d20961a2858fc8 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:31:40 +0800
+Subject: Backport of JDK-8194246
 
 summary: JVM crashes when calling getStackTrace if stack contains a method that is a member of a very large class
 LLT:
@@ -10,10 +10,10 @@ Bug url: https://bugs.openjdk.java.net/browse/JDK-8194246
  1 file changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/hotspot/src/share/vm/classfile/javaClasses.cpp b/hotspot/src/share/vm/classfile/javaClasses.cpp
-index ff65cb97e2..a9b40d235e 100644
+index a6a452ff3..97a10ac02 100644
 --- a/hotspot/src/share/vm/classfile/javaClasses.cpp
 +++ b/hotspot/src/share/vm/classfile/javaClasses.cpp
-@@ -1434,9 +1434,9 @@ class BacktraceBuilder: public StackObj {
+@@ -1454,9 +1454,9 @@ class BacktraceBuilder: public StackObj {
        method = mhandle();
      }
  
@@ -25,7 +25,7 @@ index ff65cb97e2..a9b40d235e 100644
  
      // We need to save the mirrors in the backtrace to keep the class
      // from being unloaded while we still have this stack trace.
-@@ -1553,10 +1553,10 @@ void java_lang_Throwable::print_stack_trace(oop throwable, outputStream* st) {
+@@ -1573,10 +1573,10 @@ void java_lang_Throwable::print_stack_trace(oop throwable, outputStream* st) {
          Handle mirror(THREAD, mirrors->obj_at(index));
          // NULL mirror means end of stack trace
          if (mirror.is_null()) goto handle_cause;
@@ -38,7 +38,7 @@ index ff65cb97e2..a9b40d235e 100644
          print_stack_element(st, mirror, method, version, bci, cpref);
        }
        result = objArrayHandle(THREAD, objArrayOop(result->obj_at(trace_next_offset)));
-@@ -1849,10 +1849,10 @@ oop java_lang_Throwable::get_stack_trace_element(oop throwable, int index, TRAPS
+@@ -1869,10 +1869,10 @@ oop java_lang_Throwable::get_stack_trace_element(oop throwable, int index, TRAPS
  
    assert(methods != NULL && bcis != NULL && mirrors != NULL, "sanity check");
  
@@ -52,5 +52,5 @@ index ff65cb97e2..a9b40d235e 100644
  
    // Chunk can be partial full
 -- 
-2.19.0-rc1
+2.19.0
 

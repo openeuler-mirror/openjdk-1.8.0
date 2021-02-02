@@ -1,3 +1,21 @@
+From 7cb30e69748be16c082d016a94694990ef7f40bc Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:22:34 +0800
+Subject: leaf optimize in ParallelScanvageGC
+
+Summary: <leaf gc optimization>:1. add _is_gc_leaf field in klass, if none of klass field is reference,then this klass's oop is leaf, set this at classfile parser. 2. aarch64 use relax cas when gc cas_forward_to. 3. ParallelScanvage copy before push_depth if oop is leaf 4. leaf oop don't push_contents 5. Use gcc builtin __atomic_compare_exchange instead of hand-written asm.
+LLT: N/A
+Bug url: N/A
+---
+ .../vm/atomic_linux_aarch64.inline.hpp        |  8 +++++
+ .../share/vm/classfile/classFileParser.cpp    |  5 ++++
+ .../psPromotionManager.inline.hpp             | 24 ++++++++++++---
+ hotspot/src/share/vm/oops/klass.cpp           |  2 ++
+ hotspot/src/share/vm/oops/klass.hpp           |  5 ++++
+ hotspot/src/share/vm/oops/oop.hpp             |  7 +++++
+ hotspot/src/share/vm/oops/oop.inline.hpp      | 30 +++++++++++++++++++
+ hotspot/src/share/vm/runtime/atomic.hpp       |  4 +++
+ 8 files changed, 81 insertions(+), 4 deletions(-)
+
 diff --git a/hotspot/src/os_cpu/linux_aarch64/vm/atomic_linux_aarch64.inline.hpp b/hotspot/src/os_cpu/linux_aarch64/vm/atomic_linux_aarch64.inline.hpp
 index fba64e15f..1c92314f9 100644
 --- a/hotspot/src/os_cpu/linux_aarch64/vm/atomic_linux_aarch64.inline.hpp
@@ -18,10 +36,10 @@ index fba64e15f..1c92314f9 100644
  {
    return (void *) cmpxchg_ptr((intptr_t) exchange_value,
 diff --git a/hotspot/src/share/vm/classfile/classFileParser.cpp b/hotspot/src/share/vm/classfile/classFileParser.cpp
-index 07d07e4f2..f001a94e7 100644
+index 59bd021a1..f8bba7821 100644
 --- a/hotspot/src/share/vm/classfile/classFileParser.cpp
 +++ b/hotspot/src/share/vm/classfile/classFileParser.cpp
-@@ -4393,6 +4393,11 @@ void ClassFileParser::fill_oop_maps(instanceKlassHandle k,
+@@ -4490,6 +4490,11 @@ void ClassFileParser::fill_oop_maps(instanceKlassHandle k,
    OopMapBlock* this_oop_map = k->start_of_nonstatic_oop_maps();
    const InstanceKlass* const super = k->superklass();
    const unsigned int super_count = super ? super->nonstatic_oop_map_count() : 0;
@@ -34,7 +52,7 @@ index 07d07e4f2..f001a94e7 100644
      // Copy maps from superklass
      OopMapBlock* super_oop_map = super->start_of_nonstatic_oop_maps();
 diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp
-index b2de74d41..dde9ac426 100644
+index a33132009..e517abcee 100644
 --- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp
 +++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp
 @@ -49,7 +49,12 @@ inline void PSPromotionManager::claim_or_forward_internal_depth(T* p) {
@@ -51,7 +69,7 @@ index b2de74d41..dde9ac426 100644
      }
    }
  }
-@@ -171,7 +176,15 @@ oop PSPromotionManager::copy_to_survivor_space(oop o) {
+@@ -202,7 +207,15 @@ oop PSPromotionManager::copy_to_survivor_space(oop o) {
      Copy::aligned_disjoint_words((HeapWord*)o, (HeapWord*)new_obj, new_obj_size);
  
      // Now we have to CAS in the header.
@@ -67,7 +85,7 @@ index b2de74d41..dde9ac426 100644
        // We won any races, we "own" this object.
        assert(new_obj == o->forwardee(), "Sanity");
  
-@@ -195,10 +208,13 @@ oop PSPromotionManager::copy_to_survivor_space(oop o) {
+@@ -226,10 +239,13 @@ oop PSPromotionManager::copy_to_survivor_space(oop o) {
          push_depth(masked_o);
          TASKQUEUE_STATS_ONLY(++_arrays_chunked; ++_masked_pushes);
        } else {
@@ -85,10 +103,10 @@ index b2de74d41..dde9ac426 100644
        guarantee(o->is_forwarded(), "Object must be forwarded if the cas failed.");
  
 diff --git a/hotspot/src/share/vm/oops/klass.cpp b/hotspot/src/share/vm/oops/klass.cpp
-index 7fda7ce62..6e8f9acde 100644
+index 0d39dbb9f..ba20471d4 100644
 --- a/hotspot/src/share/vm/oops/klass.cpp
 +++ b/hotspot/src/share/vm/oops/klass.cpp
-@@ -207,6 +207,8 @@ Klass::Klass() {
+@@ -208,6 +208,8 @@ Klass::Klass() {
    clear_modified_oops();
    clear_accumulated_modified_oops();
    _shared_class_path_index = -1;
@@ -98,10 +116,10 @@ index 7fda7ce62..6e8f9acde 100644
  
  jint Klass::array_layout_helper(BasicType etype) {
 diff --git a/hotspot/src/share/vm/oops/klass.hpp b/hotspot/src/share/vm/oops/klass.hpp
-index 22ae48f5c..4aea54795 100644
+index 5931abc1c..428df4242 100644
 --- a/hotspot/src/share/vm/oops/klass.hpp
 +++ b/hotspot/src/share/vm/oops/klass.hpp
-@@ -177,6 +177,8 @@ class Klass : public Metadata {
+@@ -179,6 +179,8 @@ class Klass : public Metadata {
    jbyte _modified_oops;             // Card Table Equivalent (YC/CMS support)
    jbyte _accumulated_modified_oops; // Mod Union Equivalent (CMS support)
  
@@ -110,7 +128,7 @@ index 22ae48f5c..4aea54795 100644
  private:
    // This is an index into FileMapHeader::_classpath_entry_table[], to
    // associate this class with the JAR file where it's loaded from during
-@@ -569,6 +571,9 @@ protected:
+@@ -571,6 +573,9 @@ protected:
                                                      oop_is_typeArray_slow()); }
    #undef assert_same_query
  
@@ -121,7 +139,7 @@ index 22ae48f5c..4aea54795 100644
    AccessFlags access_flags() const         { return _access_flags;  }
    void set_access_flags(AccessFlags flags) { _access_flags = flags; }
 diff --git a/hotspot/src/share/vm/oops/oop.hpp b/hotspot/src/share/vm/oops/oop.hpp
-index a703a54ef..41a7bce4d 100644
+index a5ff97260..ce4881bf6 100644
 --- a/hotspot/src/share/vm/oops/oop.hpp
 +++ b/hotspot/src/share/vm/oops/oop.hpp
 @@ -76,6 +76,9 @@ class oopDesc {
@@ -134,7 +152,7 @@ index a703a54ef..41a7bce4d 100644
  
    // Used only to re-initialize the mark word (e.g., of promoted
    // objects during a GC) -- requires a valid klass pointer
-@@ -317,6 +320,10 @@ class oopDesc {
+@@ -316,6 +319,10 @@ class oopDesc {
    void forward_to(oop p);
    bool cas_forward_to(oop p, markOop compare);
  
@@ -146,7 +164,7 @@ index a703a54ef..41a7bce4d 100644
    // Like "forward_to", but inserts the forwarding pointer atomically.
    // Exactly one thread succeeds in inserting the forwarding pointer, and
 diff --git a/hotspot/src/share/vm/oops/oop.inline.hpp b/hotspot/src/share/vm/oops/oop.inline.hpp
-index d4c4d75c0..c3abdb128 100644
+index 7e03033b0..6512ec576 100644
 --- a/hotspot/src/share/vm/oops/oop.inline.hpp
 +++ b/hotspot/src/share/vm/oops/oop.inline.hpp
 @@ -76,6 +76,12 @@ inline markOop oopDesc::cas_set_mark(markOop new_mark, markOop old_mark) {
@@ -208,3 +226,6 @@ index 9ca5fce97..015178b61 100644
    inline static void*    cmpxchg_ptr(void*    exchange_value, volatile void*     dest, void*    compare_value);
  };
  
+-- 
+2.19.0
+

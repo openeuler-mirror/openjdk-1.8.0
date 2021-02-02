@@ -1,16 +1,17 @@
-From 0cf95d445b1f6854249987ec55591e26cc21c6a1 Mon Sep 17 00:00:00 2001
-Date: Thu, 14 May 2020 09:59:34 +0800
-Subject: [PATCH] Test8167409.sh fails to run with 32bit jdk on 64bit system
+From ae2c3958cb7e238c1112de18e216f82b72771db0 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 16:23:19 +0800
+Subject: Test8167409.sh fails to run with 32bit jdk on 64bit
+ system
 
 Summary: <test case>: Test8167409.sh fails to run with 32bit jdk on 64bit system
 LLT: jdk8u/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
-Bug url: 
+Bug url: https://gitlab.huawei.com/huaweijdk/jdk8u-dev/issues/2157
 ---
  .../criticalnatives/argumentcorruption/Test8167409.sh       | 6 +++++-
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh b/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
-index 81695e75..1108aaf9 100644
+index 81695e758..1108aaf93 100644
 --- a/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
 +++ b/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
 @@ -61,13 +61,17 @@ case "$OS" in

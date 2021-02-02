@@ -1,6 +1,6 @@
-From 0350ff861595f4d3b8d903533def704ac319dd45 Mon Sep 17 00:00:00 2001
-Date: Sat, 29 Jun 2019 12:05:00 +0000
-Subject: [PATCH] Backport of JDK-8166253
+From d472c4bc5ff1cb72d6ecb0d691f239b9088378dc Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:35:09 +0800
+Subject: Backport of JDK-8166253
 
 summary: (ch) FileLock object can get GC'd and result in unexpected release of file lock
 LLT: jdk/test/java/nio/channels/FileLock/FileLockGC.java
@@ -13,7 +13,7 @@ bug link: https://bugs.openjdk.java.net/browse/JDK-8166253
  create mode 100644 jdk/test/java/nio/channels/FileLock/FileLockGC.java
 
 diff --git a/jdk/src/share/classes/sun/nio/ch/FileLockTable.java b/jdk/src/share/classes/sun/nio/ch/FileLockTable.java
-index e77e1c4cec..b0351e5668 100644
+index e77e1c4ce..b0351e566 100644
 --- a/jdk/src/share/classes/sun/nio/ch/FileLockTable.java
 +++ b/jdk/src/share/classes/sun/nio/ch/FileLockTable.java
 @@ -1,5 +1,5 @@
@@ -81,7 +81,7 @@ index e77e1c4cec..b0351e5668 100644
              }
 diff --git a/jdk/test/java/nio/channels/FileLock/FileLockGC.java b/jdk/test/java/nio/channels/FileLock/FileLockGC.java
 new file mode 100644
-index 0000000000..fb66186884
+index 000000000..fb6618688
 --- /dev/null
 +++ b/jdk/test/java/nio/channels/FileLock/FileLockGC.java
 @@ -0,0 +1,143 @@
@@ -229,5 +229,5 @@ index 0000000000..fb66186884
 +    }
 +}
 -- 
-2.19.0-rc1
+2.19.0
 
