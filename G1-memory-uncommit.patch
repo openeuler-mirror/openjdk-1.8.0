@@ -1825,6 +1825,18 @@ index d374a47a..2a155ea1 100644
      $(JDK_TOPDIR)/src/share/native/java/util \
      $(JDK_TOPDIR)/src/share/native/java/util/concurrent/atomic \
      $(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/common \
+diff --git a/jdk/make/mapfiles/libjava/mapfile-linux b/jdk/make/mapfiles/libjava/mapfile-linux
+index 509279c..52959f7 100644
+--- a/jdk/make/mapfiles/libjava/mapfile-linux
++++ b/jdk/make/mapfiles/libjava/mapfile-linux
+@@ -215,6 +215,7 @@ SUNWprivate_1.1 {
+                Java_java_lang_System_setErr0;
+                Java_java_lang_System_setIn0;
+                Java_java_lang_System_setOut0;
++               Java_com_huawei_jvm_gc_AdaptiveHeapMXBeanImpl_registerNatives;
+                Java_java_lang_Thread_registerNatives;
+                Java_java_lang_Throwable_fillInStackTrace;
+                 Java_java_lang_Throwable_getStackTraceDepth;
 diff --git a/jdk/make/mapfiles/libjava/mapfile-vers b/jdk/make/mapfiles/libjava/mapfile-vers
 index d686924a..7aeab583 100644
 --- a/jdk/make/mapfiles/libjava/mapfile-vers
