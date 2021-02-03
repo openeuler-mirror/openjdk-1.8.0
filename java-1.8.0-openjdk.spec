@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1
+Release: 2
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2109,6 +2109,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Wed Feb 3 2021 jdkboy <ge.guo@huawei.com> - 1:1.8.0.282-b08.2
+- add missing mapfile in G1-memory-uncommit.patch
+
 * Wed Feb 3 2021 jdkboy <ge.guo@huawei.com> - 1:1.8.0.282-b08.1
 - update sha512sum of arch64-port-jdk8u-shenandoah-aarch64-shenandoah-jdk8u282-b08.tar.xz
 
