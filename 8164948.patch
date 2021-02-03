@@ -1,6 +1,7 @@
-From d0c532d9b3e657fea7ce93602553c9d74aab85a6 Mon Sep 17 00:00:00 2001
-Date: Fri, 21 Jun 2019 14:21:55 +0000
-Subject: [PATCH] 8164948: Initializing stores of HeapRegions are not ordered with regards to their use in G1ConcurrentMark
+From 82736f1e847b8de654f1d2c4c2a7de942a9ba132 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 15:24:25 +0800
+Subject: 8164948: Initializing stores of HeapRegions are not
+ ordered with regards to their use in G1ConcurrentMark
 
 Summary: Initializing stores of HeapRegions are not ordered with regards to their use in G1ConcurrentMark
 LLT:
@@ -11,7 +12,7 @@ bug link: https://bugs.openjdk.java.net/browse/JDK-8164948
  2 files changed, 3 insertions(+)
 
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp b/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp
-index ea0e564b73..0c12478f2f 100644
+index 14b5749f9..2f17dce61 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp
 @@ -3006,6 +3006,8 @@ ConcurrentMark::claim_region(uint worker_id) {
@@ -24,7 +25,7 @@ index ea0e564b73..0c12478f2f 100644
      // until the end of the heap. In this case, just jump to the next region.
      HeapWord* end = curr_region != NULL ? curr_region->end() : finger + HeapRegion::GrainWords;
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp
-index 14673df747..49c231d89b 100644
+index 14673df74..49c231d89 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp
 @@ -124,6 +124,7 @@ void HeapRegionManager::make_regions_available(uint start, uint num_regions) {
@@ -36,5 +37,5 @@ index 14673df747..49c231d89b 100644
        _allocated_heapregions_length = MAX2(_allocated_heapregions_length, i + 1);
      }
 -- 
-2.12.3
+2.19.0
 

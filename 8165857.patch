@@ -1,0 +1,42 @@
+From 0ed610485661235817121f82772b92742ac3743d Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 15:20:00 +0800
+Subject: 8165857: CMS _overflow_list is missing volatile
+ specifiers.
+
+Summary: <gc>: [backport of JDK-8165857][Change _overflow_list from "oop" to "oopDesc* volatile", both CMS and ParNew.]
+LLT: NA
+Bug url: http://hg.openjdk.java.net/jdk9/jdk9/hotspot/rev/f1ad14991f86
+---
+ .../concurrentMarkSweep/concurrentMarkSweepGeneration.hpp       | 2 +-
+ .../src/share/vm/gc_implementation/parNew/parNewGeneration.hpp  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp
+index a023b9fb9..c28f8d6c1 100644
+--- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp
++++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp
+@@ -556,7 +556,7 @@ class CMSCollector: public CHeapObj<mtGC> {
+ 
+   // Overflow list of grey objects, threaded through mark-word
+   // Manipulated with CAS in the parallel/multi-threaded case.
+-  oop _overflow_list;
++  oopDesc* volatile _overflow_list;
+   // The following array-pair keeps track of mark words
+   // displaced for accomodating overflow list above.
+   // This code will likely be revisited under RFE#4922830.
+diff --git a/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.hpp b/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.hpp
+index 7685353ed..5c6b6181f 100644
+--- a/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.hpp
+@@ -326,7 +326,7 @@ class ParNewGeneration: public DefNewGeneration {
+   // A list of from-space images of to-be-scanned objects, threaded through
+   // klass-pointers (klass information already copied to the forwarded
+   // image.)  Manipulated with CAS.
+-  oop _overflow_list;
++  oopDesc* volatile _overflow_list;
+   NOT_PRODUCT(ssize_t _num_par_pushes;)
+ 
+   // If true, older generation does not support promotion undo, so avoid.
+-- 
+2.19.0
+

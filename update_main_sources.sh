@@ -31,7 +31,7 @@ if [ "x$REPO_NAME" = "x" ] ; then
     REPO_NAME="jdk8u-shenandoah"
 fi
 if [ "x$VERSION" = "x" ] ; then
-    VERSION="aarch64-shenandoah-jdk8u272-b10"
+    VERSION="aarch64-shenandoah-jdk8u282-b08"
 fi
 
 if [ "x$COMPRESSION" = "x" ] ; then

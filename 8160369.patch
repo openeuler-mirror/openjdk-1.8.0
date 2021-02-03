@@ -1,22 +1,22 @@
-From 822f93a00af8300b0516707c2fded59c7487b3ea Mon Sep 17 00:00:00 2001
-Date: Mon, 14 Oct 2019 16:34:52 +0000
-Subject: [PATCH] Backport of JDK-8160369
+From be5a699028cd0b8fd49eb2df0c4b3d1653eca4f3 Mon Sep 17 00:00:00 2001
+Date: Mon, 25 Jan 2021 17:22:52 +0800
+Subject: Backport of JDK-8160369
 
 Summary:<GC>:[Backport of JDK-8160369 and it's subtasks] Memory fences needed around setting and reading object lengths
 LLT:
 bug url: https://bugs.openjdk.java.net/browse/JDK-8160369
 ---
- .../vm/gc_implementation/g1/g1BlockOffsetTable.cpp |   2 +-
- .../g1/g1BlockOffsetTable.inline.hpp               |   4 +-
- .../src/share/vm/gc_implementation/g1/g1RemSet.cpp | 137 ++++++++++-------
- .../share/vm/gc_implementation/g1/heapRegion.cpp   | 166 ++++++++++-----------
- .../share/vm/gc_implementation/g1/heapRegion.hpp   |  26 ++--
- .../vm/gc_implementation/g1/heapRegionType.hpp     |   3 +
- .../gc_implementation/parNew/parNewGeneration.cpp  |  21 ++-
- 7 files changed, 203 insertions(+), 156 deletions(-)
+ .../g1/g1BlockOffsetTable.cpp                 |   2 +-
+ .../g1/g1BlockOffsetTable.inline.hpp          |   4 +-
+ .../vm/gc_implementation/g1/g1RemSet.cpp      | 101 +++++++++----
+ .../vm/gc_implementation/g1/heapRegion.cpp    | 140 ++++++++++--------
+ .../vm/gc_implementation/g1/heapRegion.hpp    |   2 +
+ .../gc_implementation/g1/heapRegionType.hpp   |   3 +
+ .../parNew/parNewGeneration.cpp               |  21 ++-
+ 7 files changed, 173 insertions(+), 100 deletions(-)
 
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.cpp
-index ead98e24a0..1977fc83da 100644
+index ead98e24a..1977fc83d 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.cpp
 @@ -264,7 +264,7 @@ G1BlockOffsetArray::forward_to_block_containing_addr_slow(HeapWord* q,
@@ -29,7 +29,7 @@ index ead98e24a0..1977fc83da 100644
      }
      assert(q <= next_boundary && n > next_boundary, "Consequence of loop");
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.inline.hpp b/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.inline.hpp
-index bcfd52a4a2..ffc56a0ba0 100644
+index bcfd52a4a..ffc56a0ba 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.inline.hpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.inline.hpp
 @@ -166,7 +166,7 @@ forward_to_block_containing_addr_const(HeapWord* q, HeapWord* n,
@@ -51,7 +51,7 @@ index bcfd52a4a2..ffc56a0ba0 100644
    // In the normal case, where the query "addr" is a card boundary, and the
    // offset table chunks are the same size as cards, the block starting at
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1RemSet.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1RemSet.cpp
-index da4d632487..da417fb725 100644
+index 4cad9234c..b062947c8 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/g1RemSet.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/g1RemSet.cpp
 @@ -460,18 +460,26 @@ bool G1RemSet::refine_card(jbyte* card_ptr, uint worker_i,
@@ -175,56 +175,20 @@ index da4d632487..da417fb725 100644
  
  #if CARD_REPEAT_HISTO
    init_ct_freq_table(_g1->max_capacity());
-@@ -555,33 +606,17 @@ bool G1RemSet::refine_card(jbyte* card_ptr, uint worker_i,
-                                 (OopClosure*)&mux :
-                                 (OopClosure*)&update_rs_oop_cl));
+@@ -570,7 +621,7 @@ bool G1RemSet::refine_card(jbyte* card_ptr, uint worker_i,
+   // allocation in this region and making it safe to check the young type.
  
--  // The region for the current card may be a young region. The
--  // current card may have been a card that was evicted from the
--  // card cache. When the card was inserted into the cache, we had
--  // determined that its region was non-young. While in the cache,
--  // the region may have been freed during a cleanup pause, reallocated
--  // and tagged as young.
--  //
--  // We wish to filter out cards for such a region but the current
--  // thread, if we're running concurrently, may "see" the young type
--  // change at any time (so an earlier "is_young" check may pass or
--  // fail arbitrarily). We tell the iteration code to perform this
--  // filtering when it has been determined that there has been an actual
--  // allocation in this region and making it safe to check the young type.
--  bool filter_young = true;
--
--  HeapWord* stop_point =
+   bool card_processed =
 -    r->oops_on_card_seq_iterate_careful(dirtyRegion,
--                                        &filter_then_update_rs_oop_cl,
--                                        filter_young,
--                                        card_ptr);
--
--  // If stop_point is non-null, then we encountered an unallocated region
--  // (perhaps the unfilled portion of a TLAB.)  For now, we'll dirty the
--  // card and re-enqueue: if we put off the card until a GC pause, then the
--  // unallocated portion will be filled in.  Alternatively, we might try
--  // the full complexity of the technique used in "regular" precleaning.
--  if (stop_point != NULL) {
-+  bool card_processed =
 +    r->oops_on_card_seq_iterate_careful(dirty_region,
-+                                        &filter_then_update_rs_oop_cl);
-+
-+  // If unable to process the card then we encountered an unparsable
-+  // part of the heap (e.g. a partially allocated object) while
-+  // processing a stale card.  Despite the card being stale, redirty
-+  // and re-enqueue, because we've already cleaned the card.  Without
-+  // this we could incorrectly discard a non-stale card.
-+  if (!card_processed) {
-+    assert(!_g1->is_gc_active(), "Unparsable heap during GC");
-     // The card might have gotten re-dirtied and re-enqueued while we
-     // worked.  (In fact, it's pretty likely.)
-     if (*card_ptr != CardTableModRefBS::dirty_card_val()) {
+                                         &filter_then_update_rs_oop_cl,
+                                         card_ptr);
+ 
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp
-index eefa1c9499..5d1578a248 100644
+index 794911ef6..7c48501f3 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp
-@@ -339,6 +339,50 @@ void HeapRegion::note_self_forwarding_removal_end(bool during_initial_mark,
+@@ -375,6 +375,50 @@ void HeapRegion::note_self_forwarding_removal_end(bool during_initial_mark,
    _prev_marked_bytes = marked_bytes;
  }
  
@@ -275,7 +239,7 @@ index eefa1c9499..5d1578a248 100644
  HeapWord*
  HeapRegion::object_iterate_mem_careful(MemRegion mr,
                                                   ObjectClosure* cl) {
-@@ -363,106 +407,62 @@ HeapRegion::object_iterate_mem_careful(MemRegion mr,
+@@ -399,9 +443,6 @@ HeapRegion::object_iterate_mem_careful(MemRegion mr,
      } else if (!g1h->is_obj_dead(obj)) {
        cl->do_object(obj);
      }
@@ -285,23 +249,10 @@ index eefa1c9499..5d1578a248 100644
      cur += block_size(cur);
    }
    return NULL;
- }
- 
--HeapWord*
--HeapRegion::
--oops_on_card_seq_iterate_careful(MemRegion mr,
--                                 FilterOutOfRegionClosure* cl,
--                                 bool filter_young,
--                                 jbyte* card_ptr) {
--  // Currently, we should only have to clean the card if filter_young
--  // is true and vice versa.
--  if (filter_young) {
--    assert(card_ptr != NULL, "pre-condition");
--  } else {
--    assert(card_ptr == NULL, "pre-condition");
--  }
-+bool HeapRegion::oops_on_card_seq_iterate_careful(MemRegion mr,
-+                                                  FilterOutOfRegionClosure* cl) {
+@@ -411,30 +452,14 @@ bool HeapRegion::oops_on_card_seq_iterate_careful(MemRegion mr,
+                                                   FilterOutOfRegionClosure* cl,
+                                                   jbyte* card_ptr) {
+   assert(card_ptr != NULL, "pre-condition");
 +  assert(MemRegion(bottom(), end()).contains(mr), "Card region not in heap region");
    G1CollectedHeap* g1h = G1CollectedHeap::heap();
  
@@ -313,7 +264,9 @@ index eefa1c9499..5d1578a248 100644
 -  } else {
 -    mr = mr.intersection(used_region());
 -  }
--  if (mr.is_empty()) return NULL;
+-  if (mr.is_empty()) {
+-    return true;
+-  }
 -  // Otherwise, find the obj that extends onto mr.start().
 -
 -  // The intersection of the incoming mr (for the card) and the
@@ -322,35 +275,21 @@ index eefa1c9499..5d1578a248 100644
 -  // G1CollectedHeap.cpp that allocates a new region sets the
 -  // is_young tag on the region before allocating. Thus we
 -  // safely know if this region is young.
--  if (is_young() && filter_young) {
--    return NULL;
+-  if (is_young()) {
+-    return true;
 +  // Special handling for humongous regions.
 +  if (isHumongous()) {
 +    return do_oops_on_card_in_humongous(mr, cl, this, g1h);
    }
 +  assert(is_old(), "precondition");
  
--  assert(!is_young(), "check value of filter_young");
--
--  // We can only clean the card here, after we make the decision that
--  // the card is not young. And we only clean the card if we have been
--  // asked to (i.e., card_ptr != NULL).
--  if (card_ptr != NULL) {
--    *card_ptr = CardTableModRefBS::clean_card_val();
--    // We must complete this write before we do any of the reads below.
--    OrderAccess::storeload();
--  }
-+  // Because mr has been trimmed to what's been allocated in this
-+  // region, the parts of the heap that are examined here are always
-+  // parsable; there's no need to use klass_or_null to detect
-+  // in-progress allocation.
- 
-   // Cache the boundaries of the memory region in some const locals
+   // We can only clean the card here, after we make the decision that
+   // the card is not young.
+@@ -446,50 +471,37 @@ bool HeapRegion::oops_on_card_seq_iterate_careful(MemRegion mr,
    HeapWord* const start = mr.start();
    HeapWord* const end = mr.end();
  
--  // We used to use "block_start_careful" here.  But we're actually happy
--  // to update the BOT while we do this...
+-  // Update BOT as needed while finding start of (potential) object.
 +  // Find the obj that extends onto mr.start().
 +  // Update BOT as needed while finding start of (possibly dead)
 +  // object containing the start of the region.
@@ -365,12 +304,14 @@ index eefa1c9499..5d1578a248 100644
 -    obj = oop(cur);
 -    if (obj->klass_or_null() == NULL) {
 -      // Ran into an unparseable point.
--      return cur;
+-      assert(!g1h->is_gc_active(),
+-             err_msg("Unparsable heap during GC at " PTR_FORMAT, p2i(cur)));
+-      return false;
 -    }
 -    // Otherwise...
 -    next = cur + block_size(cur);
 -  } while (next <= start);
- 
+-
 -  // If we finish the above loop...We have a parseable object that
 -  // begins on or before the start of the memory region, and ends
 -  // inside or spans the entire region.
@@ -379,10 +320,10 @@ index eefa1c9499..5d1578a248 100644
 +#ifdef ASSERT
 +  {
 +    assert(cur <= start,
-+           "cur: " PTR_FORMAT ", start: " PTR_FORMAT);
++           err_msg("cur: " PTR_FORMAT ", start: " PTR_FORMAT, p2i(cur), p2i(start)));
 +    HeapWord* next = cur + block_size(cur);
 +    assert(start < next,
-+           "start: " PTR_FORMAT ", next: " PTR_FORMAT);
++           err_msg("start: " PTR_FORMAT ", next: " PTR_FORMAT, p2i(start), p2i(next)));
 +  }
 +#endif
  
@@ -391,21 +332,17 @@ index eefa1c9499..5d1578a248 100644
 -    assert((cur + block_size(cur)) > (HeapWord*)obj, "Loop invariant");
 -    if (obj->klass_or_null() == NULL) {
 -      // Ran into an unparseable point.
--      return cur;
+-      assert(!g1h->is_gc_active(),
+-             err_msg("Unparsable heap during GC at " PTR_FORMAT, p2i(cur)));
+-      return false;
 -    }
 -
 -    // Advance the current pointer. "obj" still points to the object to iterate.
 -    cur = cur + block_size(cur);
--
--    if (!g1h->is_obj_dead(obj)) {
--      // Non-objArrays are sometimes marked imprecise at the object start. We
--      // always need to iterate over them in full.
--      // We only iterate over object arrays in full if they are completely contained
--      // in the memory region.
 +    oop obj = oop(cur);
-+    assert(obj->is_oop(true), "Not an oop at " PTR_FORMAT);
++    assert(obj->is_oop(true), err_msg("Not an oop at " PTR_FORMAT, p2i(obj)));
 +    assert(obj->klass_or_null() != NULL,
-+           "Unparsable heap at " PTR_FORMAT);
++           err_msg("Unparsable heap at " PTR_FORMAT, p2i(obj)));
 +
 +    if (g1h->is_obj_dead(obj, this)) {
 +      // Carefully step over dead object.
@@ -417,23 +354,20 @@ index eefa1c9499..5d1578a248 100644
 +      // start, in which case we need to iterate over them in full.
 +      // objArrays are precisely marked, but can still be iterated
 +      // over in full if completely covered.
+ 
+-    if (!g1h->is_obj_dead(obj)) {
+-      // Non-objArrays are sometimes marked imprecise at the object start. We
+-      // always need to iterate over them in full.
+-      // We only iterate over object arrays in full if they are completely contained
+-      // in the memory region.
        if (!obj->is_objArray() || (((HeapWord*)obj) >= start && cur <= end)) {
          obj->oop_iterate(cl);
        } else {
-@@ -471,7 +471,7 @@ oops_on_card_seq_iterate_careful(MemRegion mr,
-     }
-   } while (cur < end);
- 
--  return NULL;
-+  return true;
- }
- 
- // Code roots support
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp
-index 76627e7ba4..a3f5e506a5 100644
+index 52ef1d0d2..8a45b3915 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp
-@@ -418,6 +418,8 @@ class HeapRegion: public G1OffsetTableContigSpace {
+@@ -422,6 +422,8 @@ class HeapRegion: public G1OffsetTableContigSpace {
  
    bool is_old() const { return _type.is_old(); }
  
@@ -442,49 +376,11 @@ index 76627e7ba4..a3f5e506a5 100644
    // For a humongous region, region in which it starts.
    HeapRegion* humongous_start_region() const {
      return _humongous_start_region;
-@@ -702,7 +704,7 @@ class HeapRegion: public G1OffsetTableContigSpace {
-       _next_marked_bytes = 0;
-     }
-   }
--
-+
-   // Requires that "mr" be entirely within the region.
-   // Apply "cl->do_object" to all objects that intersect with "mr".
-   // If the iteration encounters an unparseable portion of the region,
-@@ -714,16 +716,18 @@ class HeapRegion: public G1OffsetTableContigSpace {
-   HeapWord*
-   object_iterate_mem_careful(MemRegion mr, ObjectClosure* cl);
- 
--  // filter_young: if true and the region is a young region then we
--  // skip the iteration.
--  // card_ptr: if not NULL, and we decide that the card is not young
--  // and we iterate over it, we'll clean the card before we start the
--  // iteration.
--  HeapWord*
--  oops_on_card_seq_iterate_careful(MemRegion mr,
--                                   FilterOutOfRegionClosure* cl,
--                                   bool filter_young,
--                                   jbyte* card_ptr);
-+  // Iterate over the objects overlapping part of a card, applying cl
-+  // to all references in the region.  This is a helper for
-+  // G1RemSet::refine_card, and is tightly coupled with it.
-+  // mr: the memory region covered by the card, trimmed to the
-+  // allocated space for this region.  Must not be empty.
-+  // This region must be old or humongous.
-+  // Returns true if the designated objects were successfully
-+  // processed, false if an unparsable part of the heap was
-+  // encountered; that only happens when invoked concurrently with the
-+  // mutator.
-+  bool oops_on_card_seq_iterate_careful(MemRegion mr,
-+                                        FilterOutOfRegionClosure* cl);
- 
-   size_t recorded_rs_length() const        { return _recorded_rs_length; }
-   double predicted_elapsed_time_ms() const { return _predicted_elapsed_time_ms; }
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegionType.hpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegionType.hpp
-index b00590a6b7..3b9904c39b 100644
+index a9a4fbc25..007dabf19 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/heapRegionType.hpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegionType.hpp
-@@ -110,6 +110,9 @@ public:
+@@ -111,6 +111,9 @@ public:
  
    bool is_old() const { return get() == OldTag; }
  
@@ -495,7 +391,7 @@ index b00590a6b7..3b9904c39b 100644
  
    void set_free() { set(FreeTag); }
 diff --git a/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.cpp b/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.cpp
-index 67b0421ebf..2b9fb53293 100644
+index f05b4f177..9481dba10 100644
 --- a/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/parNew/parNewGeneration.cpp
 @@ -1551,22 +1551,25 @@ bool ParNewGeneration::take_from_overflow_list_work(ParScanThreadState* par_scan
@@ -544,5 +440,5 @@ index 67b0421ebf..2b9fb53293 100644
        // Atomically prepend suffix to current overflow list
        observed_overflow_list = _overflow_list;
 -- 
-2.12.3
+2.19.0
 

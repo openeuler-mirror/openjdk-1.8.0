@@ -1,0 +1,25 @@
+From 5fafa8bd0a85d93ff0480bc2d163c4070742d8f5 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:26:11 +0800
+Subject: 8202952:C2:Unexpected dead nodes after
+ matching
+
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8202952
+---
+ hotspot/src/share/vm/opto/matcher.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hotspot/src/share/vm/opto/matcher.cpp b/hotspot/src/share/vm/opto/matcher.cpp
+index 70e8af221..f5d30c3af 100644
+--- a/hotspot/src/share/vm/opto/matcher.cpp
++++ b/hotspot/src/share/vm/opto/matcher.cpp
+@@ -2230,6 +2230,7 @@ void Matcher::find_shared( Node *n ) {
+                 // AtomicAdd is not an addressing expression.
+                 // Cheap to find it by looking for screwy base.
+                 !adr->in(AddPNode::Base)->is_top() &&
++                LP64_ONLY( off->get_long() == (int) (off->get_long()) && ) // immL32
+                 // Are there other uses besides address expressions?
+                 !is_visited(adr) ) {
+               address_visited.set(adr->_idx); // Flag as address_visited
+-- 
+2.19.0
+

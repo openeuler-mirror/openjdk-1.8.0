@@ -1,6 +1,6 @@
-From 8ae431d4207547ccd5a1d74c3a074c6b79097adb Mon Sep 17 00:00:00 2001
-Date: Fri, 28 Jun 2019 14:34:24 +0000
-Subject: [PATCH] Backport of JDK-8191483
+From 20109e1a7f9941662abd5069d30ad693c181f415 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 11:33:53 +0800
+Subject: Backport of JDK-8191483
 
 summary: AbstractQueuedSynchronizer cancel/cancel race
 LLT:
@@ -11,7 +11,7 @@ Bug url: https://bugs.openjdk.java.net/browse/JDK-8191483
  2 files changed, 40 insertions(+), 28 deletions(-)
 
 diff --git a/jdk/src/share/classes/java/util/concurrent/locks/AbstractQueuedLongSynchronizer.java b/jdk/src/share/classes/java/util/concurrent/locks/AbstractQueuedLongSynchronizer.java
-index 47fdbfb944..8699fc9b8f 100644
+index 47fdbfb94..8699fc9b8 100644
 --- a/jdk/src/share/classes/java/util/concurrent/locks/AbstractQueuedLongSynchronizer.java
 +++ b/jdk/src/share/classes/java/util/concurrent/locks/AbstractQueuedLongSynchronizer.java
 @@ -531,7 +531,9 @@ public abstract class AbstractQueuedLongSynchronizer
@@ -75,7 +75,7 @@ index 47fdbfb944..8699fc9b8f 100644
  
      /**
 diff --git a/jdk/src/share/classes/java/util/concurrent/locks/AbstractQueuedSynchronizer.java b/jdk/src/share/classes/java/util/concurrent/locks/AbstractQueuedSynchronizer.java
-index dce35765df..9088e5894b 100644
+index dce35765d..9088e5894 100644
 --- a/jdk/src/share/classes/java/util/concurrent/locks/AbstractQueuedSynchronizer.java
 +++ b/jdk/src/share/classes/java/util/concurrent/locks/AbstractQueuedSynchronizer.java
 @@ -753,7 +753,9 @@ public abstract class AbstractQueuedSynchronizer
@@ -139,5 +139,5 @@ index dce35765df..9088e5894b 100644
  
      /**
 -- 
-2.19.0-rc1
+2.19.0
 

@@ -1,22 +1,22 @@
-From aee65626b97f366705d47c2d02df34aca5c64251 Mon Sep 17 00:00:00 2001
-Date: Fri, 12 Jul 2019 12:45:54 +0000
-Subject: [PATCH] Backport of JDK-8191129
+From 8591ace51cb262bc6f35b4213f2ebac8a4b9111f Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 14:29:52 +0800
+Subject: Backport of JDK-8191129
 
 summary: AARCH64: Invalid value passed to critical JNI function
 LLT:
 Bug url: https://bugs.openjdk.java.net/browse/JDK-8191129
 ---
- .../src/cpu/aarch64/vm/sharedRuntime_aarch64.cpp   |  2 +-
- hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp  |  3 +++
- hotspot/src/share/vm/runtime/arguments.cpp         | 22 ----------------------
- hotspot/src/share/vm/runtime/arguments.hpp         | 22 ++++++++++++++++++++++
+ .../cpu/aarch64/vm/sharedRuntime_aarch64.cpp  |  2 +-
+ .../src/cpu/aarch64/vm/vm_version_aarch64.cpp |  3 +++
+ hotspot/src/share/vm/runtime/arguments.cpp    | 22 -------------------
+ hotspot/src/share/vm/runtime/arguments.hpp    | 22 +++++++++++++++++++
  4 files changed, 26 insertions(+), 23 deletions(-)
 
 diff --git a/hotspot/src/cpu/aarch64/vm/sharedRuntime_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/sharedRuntime_aarch64.cpp
-index 3eec8a3273..c48f2235ee 100644
+index 55c2b5d6d..7143db519 100644
 --- a/hotspot/src/cpu/aarch64/vm/sharedRuntime_aarch64.cpp
 +++ b/hotspot/src/cpu/aarch64/vm/sharedRuntime_aarch64.cpp
-@@ -1660,7 +1660,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
+@@ -1545,7 +1545,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
    // critical natives they are offset down.
    GrowableArray<int> arg_order(2 * total_in_args);
    VMRegPair tmp_vmreg;
@@ -26,10 +26,10 @@ index 3eec8a3273..c48f2235ee 100644
    if (!is_critical_native) {
      for (int i = total_in_args - 1, c_arg = total_c_args - 1; i >= 0; i--, c_arg--) {
 diff --git a/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
-index fe0f49a209..df81bacbd7 100644
+index 211baa9dc..ae7265dfc 100644
 --- a/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
 +++ b/hotspot/src/cpu/aarch64/vm/vm_version_aarch64.cpp
-@@ -31,6 +31,7 @@
+@@ -30,6 +30,7 @@
  #include "runtime/java.hpp"
  #include "runtime/stubCodeGenerator.hpp"
  #include "vm_version_aarch64.hpp"
@@ -37,7 +37,7 @@ index fe0f49a209..df81bacbd7 100644
  #ifdef TARGET_OS_FAMILY_linux
  # include "os_linux.inline.hpp"
  #endif
-@@ -343,4 +344,6 @@ void VM_Version::initialize() {
+@@ -339,4 +340,6 @@ void VM_Version::initialize() {
                                     g.generate_getPsrInfo());
  
    get_processor_features();
@@ -45,10 +45,10 @@ index fe0f49a209..df81bacbd7 100644
 +  UNSUPPORTED_OPTION(CriticalJNINatives, "CriticalJNINatives");
  }
 diff --git a/hotspot/src/share/vm/runtime/arguments.cpp b/hotspot/src/share/vm/runtime/arguments.cpp
-index 6995c30405..83f5d3cfee 100644
+index bd789f637..a9eb3fb10 100644
 --- a/hotspot/src/share/vm/runtime/arguments.cpp
 +++ b/hotspot/src/share/vm/runtime/arguments.cpp
-@@ -76,28 +76,6 @@
+@@ -79,28 +79,6 @@
  #endif
  #define DEFAULT_JAVA_LAUNCHER  "generic"
  
@@ -78,7 +78,7 @@ index 6995c30405..83f5d3cfee 100644
  int     Arguments::_num_jvm_flags               = 0;
  char**  Arguments::_jvm_args_array              = NULL;
 diff --git a/hotspot/src/share/vm/runtime/arguments.hpp b/hotspot/src/share/vm/runtime/arguments.hpp
-index 86c415e6a2..a5cd59ea60 100644
+index 86c415e6a..a5cd59ea6 100644
 --- a/hotspot/src/share/vm/runtime/arguments.hpp
 +++ b/hotspot/src/share/vm/runtime/arguments.hpp
 @@ -39,6 +39,28 @@ extern "C" {
@@ -111,5 +111,5 @@ index 86c415e6a2..a5cd59ea60 100644
  
  class SysClassPath;
 -- 
-2.12.3
+2.19.0
 

@@ -1,19 +1,18 @@
-From 8f0acd949be2c01c445e402ae81421d4554f7d2b Mon Sep 17 00:00:00 2001
-Date: Fri, 13 Dec 2019 12:02:23 +0000
-Subject: [PATCH] PS GC: adding acquire_size method for
- PSParallelCompact::mark_obj.
+From 124ad73c00d643445653ad9a0d424b50316df1c6 Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 15:25:45 +0800
+Subject: PS GC: adding acquire_size method for
 
 Summary: GC: adding acquire_size method for PSParallelCompact::mark_obj.
 LLT: NA
 Bug url:
 ---
- .../share/vm/gc_implementation/parallelScavenge/psParallelCompact.hpp | 2 +-
- hotspot/src/share/vm/oops/oop.hpp                                     | 1 +
- hotspot/src/share/vm/oops/oop.inline.hpp                              | 4 ++++
- 3 files changed, 6 insertions(+), 1 deletion(-)
+ .../gc_implementation/parallelScavenge/psParallelCompact.hpp  | 2 +-
+ hotspot/src/share/vm/oops/oop.hpp                             | 2 +-
+ hotspot/src/share/vm/oops/oop.inline.hpp                      | 4 ++++
+ 3 files changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psParallelCompact.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psParallelCompact.hpp
-index 881f380cea..f971383a09 100644
+index 881f380ce..f971383a0 100644
 --- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psParallelCompact.hpp
 +++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psParallelCompact.hpp
 @@ -1326,7 +1326,7 @@ class PSParallelCompact : AllStatic {
@@ -26,22 +25,23 @@ index 881f380cea..f971383a09 100644
      _summary_data.add_obj(obj, obj_size);
      return true;
 diff --git a/hotspot/src/share/vm/oops/oop.hpp b/hotspot/src/share/vm/oops/oop.hpp
-index 142ab2769c..42ad9307f7 100644
+index 97d44c046..a5ff97260 100644
 --- a/hotspot/src/share/vm/oops/oop.hpp
 +++ b/hotspot/src/share/vm/oops/oop.hpp
-@@ -123,6 +123,7 @@ class oopDesc {
+@@ -105,7 +105,7 @@ class oopDesc {
  
    // Returns the actual oop size of the object
    int size();
+-
 +  int acquire_size();
- 
    // Sometimes (for complicated concurrency-related reasons), it is useful
    // to be able to figure out the size of an object knowing its klass.
+   int size_given_klass(Klass* klass);
 diff --git a/hotspot/src/share/vm/oops/oop.inline.hpp b/hotspot/src/share/vm/oops/oop.inline.hpp
-index b519d86118..803080c9e7 100644
+index 2ba94158f..7e03033b0 100644
 --- a/hotspot/src/share/vm/oops/oop.inline.hpp
 +++ b/hotspot/src/share/vm/oops/oop.inline.hpp
-@@ -839,6 +839,10 @@ inline int oopDesc::size()  {
+@@ -551,6 +551,10 @@ inline int oopDesc::size()  {
    return size_given_klass(klass());
  }
  
@@ -53,5 +53,5 @@ index b519d86118..803080c9e7 100644
    assert(oopDesc::bs() != NULL, "Uninitialized bs in oop!");
    oopDesc::bs()->write_ref_field(p, v, release);
 -- 
-2.12.3
+2.19.0
 

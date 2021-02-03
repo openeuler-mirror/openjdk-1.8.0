@@ -1,6 +1,6 @@
-From 29e183488a96a4c169f89eab9410e0a91a903476 Mon Sep 17 00:00:00 2001
-Date: Tue, 22 Oct 2019 19:18:39 +0000
-Subject: [PATCH] Reduce the probability of the crash related to
+From b0eb81f7e030ceaa908f9dc492e70562a4f40a7c Mon Sep 17 00:00:00 2001
+Date: Fri, 22 Jan 2021 15:18:14 +0800
+Subject: Reduce the probability of the crash related to
  ciObjectFactory::create_new_metadata
 
 Summary: <interpreter>: add load acquire barriers when profiling klass
@@ -13,10 +13,10 @@ Bug url:
  3 files changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
-index d8926cd87d..58fc267f99 100644
+index 70ab1bcb8..f4ce39661 100644
 --- a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
 +++ b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.cpp
-@@ -3234,6 +3234,16 @@ void MacroAssembler::load_klass(Register dst, Register src) {
+@@ -3177,6 +3177,16 @@ void MacroAssembler::load_klass(Register dst, Register src) {
    }
  }
  
@@ -34,10 +34,10 @@ index d8926cd87d..58fc267f99 100644
    if (UseCompressedClassPointers) {
      ldrw(tmp, Address(oop, oopDesc::klass_offset_in_bytes()));
 diff --git a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp
-index 2cf827dcf0..168fe4d3b1 100644
+index 0b083c834..02216f1b1 100644
 --- a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp
 +++ b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp
-@@ -790,6 +790,7 @@ public:
+@@ -788,6 +788,7 @@ public:
  
    // oop manipulations
    void load_klass(Register dst, Register src);
@@ -46,10 +46,10 @@ index 2cf827dcf0..168fe4d3b1 100644
    void cmp_klass(Register oop, Register trial_klass, Register tmp);
  
 diff --git a/hotspot/src/cpu/aarch64/vm/templateTable_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/templateTable_aarch64.cpp
-index 1e590780b7..7ee4e317d4 100644
+index a0446cd4d..65e56661b 100644
 --- a/hotspot/src/cpu/aarch64/vm/templateTable_aarch64.cpp
 +++ b/hotspot/src/cpu/aarch64/vm/templateTable_aarch64.cpp
-@@ -3243,7 +3243,7 @@ void TemplateTable::invokevirtual_helper(Register index,
+@@ -3250,7 +3250,7 @@ void TemplateTable::invokevirtual_helper(Register index,
  
    // get receiver klass
    __ null_check(recv, oopDesc::klass_offset_in_bytes());
@@ -59,5 +59,5 @@ index 1e590780b7..7ee4e317d4 100644
    // profile this call
    __ profile_virtual_call(r0, rlocals, r3);
 -- 
-2.12.3
+2.19.0
 
