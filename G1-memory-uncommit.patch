@@ -86,7 +86,7 @@ index 4abd2f03..b078bee0 100644
  // For now just return the system wide load average (no processor sets).
  int os::loadavg(double values[], int nelem) {
 diff --git a/hotspot/src/os/bsd/vm/os_bsd.cpp b/hotspot/src/os/bsd/vm/os_bsd.cpp
-index 46673771..7cd79123 100644
+index 6d1009b8..3e4d8c7e 100644
 --- a/hotspot/src/os/bsd/vm/os_bsd.cpp
 +++ b/hotspot/src/os/bsd/vm/os_bsd.cpp
 @@ -4293,6 +4293,10 @@ bool os::is_thread_cpu_time_supported() {
@@ -101,7 +101,7 @@ index 46673771..7cd79123 100644
  // Bsd doesn't yet have a (official) notion of processor sets,
  // so just return the system wide load average.
 diff --git a/hotspot/src/os/linux/vm/os_linux.cpp b/hotspot/src/os/linux/vm/os_linux.cpp
-index 5e0c18e6..ad3a82c4 100644
+index 5848bd80..0b7f4a6e 100644
 --- a/hotspot/src/os/linux/vm/os_linux.cpp
 +++ b/hotspot/src/os/linux/vm/os_linux.cpp
 @@ -38,6 +38,7 @@
@@ -112,7 +112,7 @@ index 5e0c18e6..ad3a82c4 100644
  #include "prims/jniFastGetField.hpp"
  #include "prims/jvm.h"
  #include "prims/jvm_misc.hpp"
-@@ -5889,6 +5890,15 @@ int os::loadavg(double loadavg[], int nelem) {
+@@ -5892,6 +5893,15 @@ int os::loadavg(double loadavg[], int nelem) {
    return ::getloadavg(loadavg, nelem);
  }
  
@@ -588,7 +588,7 @@ index 05a8dc44..8fa52137 100644
    virtual void run();
    // Constructor
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp b/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp
-index d782c892..a69db6eb 100644
+index 14b5749f..ad696e08 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/concurrentMark.cpp
 @@ -1354,6 +1354,7 @@ void ConcurrentMark::checkpointRootsFinal(bool clear_all_soft_refs) {
@@ -600,7 +600,7 @@ index d782c892..a69db6eb 100644
        HandleMark hm;  // handle scope
        Universe::heap()->prepare_for_verify();
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.inline.hpp b/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.inline.hpp
-index a90c15ea..b2d3b282 100644
+index 70646a41..ed891c50 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.inline.hpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/g1BlockOffsetTable.inline.hpp
 @@ -47,15 +47,15 @@ G1BlockOffsetTable::block_start_const(const void* addr) const {
@@ -629,7 +629,7 @@ index a90c15ea..b2d3b282 100644
  
  u_char G1BlockOffsetSharedArray::offset_array(size_t index) const {
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
-index 91ad2e98..722e5985 100644
+index 4eccf980..273a4dd2 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
 @@ -1873,6 +1873,7 @@ G1CollectedHeap::G1CollectedHeap(G1CollectorPolicy* policy_) :
@@ -793,7 +793,7 @@ index 4783cbde..bde0ca4d 100644
  
    // A set of cards where updates happened during the GC
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp
-index b416917f..05a270d2 100644
+index 761b0e95..c41e6b65 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp
 @@ -93,6 +93,9 @@ G1CollectorPolicy::G1CollectorPolicy() :
@@ -820,7 +820,7 @@ index b416917f..05a270d2 100644
  
    _during_marking(false),
    _in_marking_window(false),
-@@ -153,7 +163,8 @@ G1CollectorPolicy::G1CollectorPolicy() :
+@@ -152,7 +162,8 @@ G1CollectorPolicy::G1CollectorPolicy() :
    _inc_cset_recorded_rs_lengths_diffs(0),
    _inc_cset_predicted_elapsed_time_ms(0.0),
    _inc_cset_predicted_elapsed_time_ms_diffs(0.0),
@@ -830,7 +830,7 @@ index b416917f..05a270d2 100644
  #ifdef _MSC_VER // the use of 'this' below gets a warning, make it go away
  #pragma warning( disable:4355 ) // 'this' : used in base member initializer list
  #endif // _MSC_VER
-@@ -976,6 +987,8 @@ void G1CollectorPolicy::record_collection_pause_end(double pause_time_ms, Evacua
+@@ -975,6 +986,8 @@ void G1CollectorPolicy::record_collection_pause_end(double pause_time_ms, Evacua
    }
  #endif // PRODUCT
  
@@ -839,7 +839,7 @@ index b416917f..05a270d2 100644
    last_pause_included_initial_mark = during_initial_mark_pause();
    if (last_pause_included_initial_mark) {
      record_concurrent_mark_init_end(0.0);
-@@ -1204,6 +1217,7 @@ void G1CollectorPolicy::record_heap_size_info_at_start(bool full) {
+@@ -1203,6 +1216,7 @@ void G1CollectorPolicy::record_heap_size_info_at_start(bool full) {
    _heap_capacity_bytes_before_gc = _g1->capacity();
    _heap_used_bytes_before_gc = _g1->used();
    _cur_collection_pause_used_regions_at_start = _g1->num_used_regions();
@@ -847,7 +847,7 @@ index b416917f..05a270d2 100644
  
    _eden_capacity_bytes_before_gc =
           (_young_list_target_length * HeapRegion::GrainBytes) - _survivor_used_bytes_before_gc;
-@@ -1247,6 +1261,13 @@ void G1CollectorPolicy::print_detailed_heap_transition(bool full) {
+@@ -1246,6 +1260,13 @@ void G1CollectorPolicy::print_detailed_heap_transition(bool full) {
      EXT_SIZE_PARAMS(heap_used_bytes_after_gc),
      EXT_SIZE_PARAMS(heap_capacity_bytes_after_gc));
  
@@ -861,7 +861,7 @@ index b416917f..05a270d2 100644
    if (full) {
      MetaspaceAux::print_metaspace_change(_metaspace_used_bytes_before_gc);
    }
-@@ -2160,6 +2181,53 @@ void G1CollectorPolicy::finalize_cset(double target_pause_time_ms, EvacuationInf
+@@ -2159,6 +2180,53 @@ void G1CollectorPolicy::finalize_cset(double target_pause_time_ms, EvacuationInf
    evacuation_info.set_collectionset_regions(cset_region_length());
  }
  
@@ -1005,7 +1005,7 @@ index 02217ce4..1c918070 100644
    // called when a GC alloc region is being retired.
    void record_bytes_copied_during_gc(size_t bytes) {
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1RemSet.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1RemSet.cpp
-index da417fb7..3066f9e6 100644
+index 4cad9234..2be3ac1b 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/g1RemSet.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/g1RemSet.cpp
 @@ -206,6 +206,9 @@ public:
@@ -1303,7 +1303,7 @@ index e24cc959..db7ddece 100644
  G1_FLAGS(DECLARE_DEVELOPER_FLAG, DECLARE_PD_DEVELOPER_FLAG, DECLARE_PRODUCT_FLAG, DECLARE_PD_PRODUCT_FLAG, DECLARE_DIAGNOSTIC_FLAG, DECLARE_EXPERIMENTAL_FLAG, DECLARE_NOTPRODUCT_FLAG, DECLARE_MANAGEABLE_FLAG, DECLARE_PRODUCT_RW_FLAG)
  
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp
-index f0e24811..32f8b198 100644
+index 794911ef..409399fa 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp
 @@ -310,7 +310,8 @@ HeapRegion::HeapRegion(uint hrm_index,
@@ -1317,7 +1317,7 @@ index f0e24811..32f8b198 100644
      _predicted_bytes_to_copy(0)
  {
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp
-index b1f94fb9..27b1048f 100644
+index 52ef1d0d..9077381b 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp
 @@ -227,6 +227,9 @@ class HeapRegion: public G1OffsetTableContigSpace {
@@ -1330,7 +1330,7 @@ index b1f94fb9..27b1048f 100644
    // True iff the region is in current collection_set.
    bool _in_collection_set;
  
-@@ -429,6 +432,8 @@ class HeapRegion: public G1OffsetTableContigSpace {
+@@ -427,6 +430,8 @@ class HeapRegion: public G1OffsetTableContigSpace {
      return _humongous_start_region;
    }
  
@@ -1340,7 +1340,7 @@ index b1f94fb9..27b1048f 100644
    // 1 if the region is not humongous, >= 1 if the region is humongous.
    uint region_num() const {
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp
-index 49c231d8..842550d2 100644
+index 14673df7..c4e96fda 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp
 +++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp
 @@ -53,12 +53,25 @@ void HeapRegionManager::initialize(G1RegionToSpaceMapper* heap_storage,
@@ -1390,7 +1390,7 @@ index 49c231d8..842550d2 100644
    _heap_mapper->uncommit_regions(start, num_regions);
  
    // Also uncommit auxiliary data
-@@ -198,7 +211,7 @@ uint HeapRegionManager::find_contiguous(size_t num, bool empty_only) {
+@@ -197,7 +210,7 @@ uint HeapRegionManager::find_contiguous(size_t num, bool empty_only) {
  
    while (length_found < num && cur < max_length()) {
      HeapRegion* hr = _regions.get_by_index(cur);
@@ -1399,7 +1399,7 @@ index 49c231d8..842550d2 100644
        // This region is a potential candidate for allocation into.
        length_found++;
      } else {
-@@ -213,7 +226,7 @@ uint HeapRegionManager::find_contiguous(size_t num, bool empty_only) {
+@@ -212,7 +225,7 @@ uint HeapRegionManager::find_contiguous(size_t num, bool empty_only) {
      for (uint i = found; i < (found + num); i++) {
        HeapRegion* hr = _regions.get_by_index(i);
        // sanity check
@@ -1408,7 +1408,7 @@ index 49c231d8..842550d2 100644
                  err_msg("Found region sequence starting at " UINT32_FORMAT ", length " SIZE_FORMAT
                          " that is not empty at " UINT32_FORMAT ". Hr is " PTR_FORMAT, found, num, i, p2i(hr)));
      }
-@@ -239,7 +252,8 @@ void HeapRegionManager::iterate(HeapRegionClosure* blk) const {
+@@ -238,7 +251,8 @@ void HeapRegionManager::iterate(HeapRegionClosure* blk) const {
    uint len = max_length();
  
    for (uint i = 0; i < len; i++) {
@@ -1418,7 +1418,7 @@ index 49c231d8..842550d2 100644
        continue;
      }
      guarantee(at(i) != NULL, err_msg("Tried to access region %u that has a NULL HeapRegion*", i));
-@@ -265,15 +279,15 @@ uint HeapRegionManager::find_unavailable_from_idx(uint start_idx, uint* res_idx)
+@@ -264,15 +278,15 @@ uint HeapRegionManager::find_unavailable_from_idx(uint start_idx, uint* res_idx)
      return num_regions;
    }
    *res_idx = cur;
@@ -1437,7 +1437,7 @@ index 49c231d8..842550d2 100644
           err_msg("The region at the current position %u must be available or at the end of the heap.", cur));
  #endif
    return num_regions;
-@@ -294,10 +308,10 @@ void HeapRegionManager::par_iterate(HeapRegionClosure* blk, uint worker_id, uint
+@@ -293,10 +307,10 @@ void HeapRegionManager::par_iterate(HeapRegionClosure* blk, uint worker_id, uint
      const uint index = (start_index + count) % _allocated_heapregions_length;
      assert(0 <= index && index < _allocated_heapregions_length, "sanity");
      // Skip over unavailable regions
@@ -1450,7 +1450,7 @@ index 49c231d8..842550d2 100644
      // We'll ignore "continues humongous" regions (we'll process them
      // when we come across their corresponding "start humongous"
      // region) and regions already claimed.
-@@ -425,12 +439,12 @@ void HeapRegionManager::verify() {
+@@ -424,12 +438,12 @@ void HeapRegionManager::verify() {
    uint num_committed = 0;
    HeapWord* prev_end = heap_bottom();
    for (uint i = 0; i < _allocated_heapregions_length; i++) {
@@ -1465,7 +1465,7 @@ index 49c231d8..842550d2 100644
      guarantee(hr != NULL, err_msg("invariant: i: %u", i));
      guarantee(!prev_committed || hr->bottom() == prev_end,
                err_msg("invariant i: %u " HR_FORMAT " prev_end: " PTR_FORMAT,
-@@ -454,10 +468,38 @@ void HeapRegionManager::verify() {
+@@ -453,10 +467,38 @@ void HeapRegionManager::verify() {
      guarantee(_regions.get_by_index(i) == NULL, err_msg("invariant i: %u", i));
    }
  
@@ -1689,7 +1689,7 @@ index 29408d77..5be14548 100644
      _shenandoah_stop_vm,
      _shenandoah_metadata_gc_clear_softrefs,
 diff --git a/hotspot/src/share/vm/memory/threadLocalAllocBuffer.hpp b/hotspot/src/share/vm/memory/threadLocalAllocBuffer.hpp
-index 9335a9f7..4e8dae21 100644
+index 0f8727fe..8bbcbda4 100644
 --- a/hotspot/src/share/vm/memory/threadLocalAllocBuffer.hpp
 +++ b/hotspot/src/share/vm/memory/threadLocalAllocBuffer.hpp
 @@ -98,7 +98,7 @@ private:
@@ -1702,7 +1702,7 @@ index 9335a9f7..4e8dae21 100644
    }
  
 diff --git a/hotspot/src/share/vm/prims/jvm.cpp b/hotspot/src/share/vm/prims/jvm.cpp
-index 38cddfed..3a032d04 100644
+index de01fefd..e149ca64 100644
 --- a/hotspot/src/share/vm/prims/jvm.cpp
 +++ b/hotspot/src/share/vm/prims/jvm.cpp
 @@ -3286,6 +3286,23 @@ JVM_ENTRY(void, JVM_SetThreadPriority(JNIEnv* env, jobject jthread, jint prio))
@@ -1769,7 +1769,7 @@ index ab3148e3..cff2e9c3 100644
    static bool obsolete_option(const JavaVMOption *option);
  
 diff --git a/hotspot/src/share/vm/runtime/thread.cpp b/hotspot/src/share/vm/runtime/thread.cpp
-index d0185280..710f8cbc 100644
+index 3db27350..7374eee5 100644
 --- a/hotspot/src/share/vm/runtime/thread.cpp
 +++ b/hotspot/src/share/vm/runtime/thread.cpp
 @@ -99,6 +99,7 @@
@@ -1780,7 +1780,7 @@ index d0185280..710f8cbc 100644
  #include "gc_implementation/parallelScavenge/pcTasks.hpp"
  #endif // INCLUDE_ALL_GCS
  #ifdef COMPILER1
-@@ -3690,6 +3691,7 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
+@@ -3677,6 +3678,7 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
        ShenandoahControlThread::makeSurrogateLockerThread(THREAD);
      } else {
        ConcurrentMarkThread::makeSurrogateLockerThread(THREAD);
@@ -1814,7 +1814,7 @@ index 2a3915c0..737aefe2 100644
 +com/huawei/jvm/gc
  # eea35d9d56e0006e
 diff --git a/jdk/make/lib/CoreLibraries.gmk b/jdk/make/lib/CoreLibraries.gmk
-index d374a47a..2a155ea1 100644
+index 75886a62..ea03025f 100644
 --- a/jdk/make/lib/CoreLibraries.gmk
 +++ b/jdk/make/lib/CoreLibraries.gmk
 @@ -143,6 +143,7 @@ LIBJAVA_SRC_DIRS += $(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/java/l
@@ -1826,19 +1826,19 @@ index d374a47a..2a155ea1 100644
      $(JDK_TOPDIR)/src/share/native/java/util/concurrent/atomic \
      $(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/common \
 diff --git a/jdk/make/mapfiles/libjava/mapfile-linux b/jdk/make/mapfiles/libjava/mapfile-linux
-index 509279c..52959f7 100644
+index 509279ca..52959f78 100644
 --- a/jdk/make/mapfiles/libjava/mapfile-linux
 +++ b/jdk/make/mapfiles/libjava/mapfile-linux
 @@ -215,6 +215,7 @@ SUNWprivate_1.1 {
-                Java_java_lang_System_setErr0;
-                Java_java_lang_System_setIn0;
-                Java_java_lang_System_setOut0;
-+               Java_com_huawei_jvm_gc_AdaptiveHeapMXBeanImpl_registerNatives;
-                Java_java_lang_Thread_registerNatives;
-                Java_java_lang_Throwable_fillInStackTrace;
+ 		Java_java_lang_System_setErr0;
+ 		Java_java_lang_System_setIn0;
+ 		Java_java_lang_System_setOut0;
++		Java_com_huawei_jvm_gc_AdaptiveHeapMXBeanImpl_registerNatives;
+ 		Java_java_lang_Thread_registerNatives;
+ 		Java_java_lang_Throwable_fillInStackTrace;
                  Java_java_lang_Throwable_getStackTraceDepth;
 diff --git a/jdk/make/mapfiles/libjava/mapfile-vers b/jdk/make/mapfiles/libjava/mapfile-vers
-index d686924a..7aeab583 100644
+index 24454049..58801c19 100644
 --- a/jdk/make/mapfiles/libjava/mapfile-vers
 +++ b/jdk/make/mapfiles/libjava/mapfile-vers
 @@ -215,6 +215,7 @@ SUNWprivate_1.1 {
@@ -1872,7 +1872,7 @@ index e0566b32..5b7a7ee1 100644
  text: .text%Java_java_lang_ClassLoader_registerNatives;
 diff --git a/jdk/src/share/classes/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.java b/jdk/src/share/classes/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.java
 new file mode 100644
-index 00000000..1443fb04
+index 00000000..c23dd231
 --- /dev/null
 +++ b/jdk/src/share/classes/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.java
 @@ -0,0 +1,62 @@
@@ -1940,7 +1940,7 @@ index 00000000..1443fb04
 +}
 diff --git a/jdk/src/share/classes/com/huawei/management/AdaptiveHeapMXBean.java b/jdk/src/share/classes/com/huawei/management/AdaptiveHeapMXBean.java
 new file mode 100644
-index 00000000..70563b58
+index 00000000..a8cce6eb
 --- /dev/null
 +++ b/jdk/src/share/classes/com/huawei/management/AdaptiveHeapMXBean.java
 @@ -0,0 +1,32 @@
@@ -2074,7 +2074,7 @@ index 6e64cb0d..9eafbbb8 100644
   * for the JVM version and capabilities.  sun.misc.Version defines
 diff --git a/jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c b/jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c
 new file mode 100644
-index 00000000..1f75e7cb
+index 00000000..7647daaa
 --- /dev/null
 +++ b/jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c
 @@ -0,0 +1,40 @@
