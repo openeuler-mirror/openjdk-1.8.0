@@ -915,7 +915,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 3
+Release: 4
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1070,6 +1070,7 @@ Patch146: 8168926.patch
 Patch147: 8215047.patch
 Patch148: 8237894.patch
 Patch149: Remove-the-parentheses-around-company-name.patch
+Patch150: 8240353.patch
 
 #############################################
 #
@@ -1493,6 +1494,7 @@ pushd %{top_level_dir_name}
 %patch147 -p1
 %patch148 -p1
 %patch149 -p1
+%patch150 -p1
 
 popd
 
@@ -2109,6 +2111,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Feb 4 2021 jdkboy <ge.guo@huawei.com> - 1:1.8.0.282-b08.4
+- add 8240353.patch
+
 * Thu Feb 4 2021 jdkboy <ge.guo@huawei.com> - 1:1.8.0.282-b08.3
 - fix wrong patch G1-memory-uncommit.patch
 
