@@ -33,12 +33,10 @@ new file mode 100644
 index 000000000..8ab268b57
 --- /dev/null
 +++ b/jdk/test/java/lang/invoke/lookup/TestDefenderMethodLookup.java
-@@ -0,0 +1,166 @@
+@@ -0,0 +1,164 @@
 +/*
 + * @test
-+ * @author zhangli
 + * @bug 8203699
-+ * @summary see https://code.huawei.com/HuaweiJDK/JVM-team/JVM/issues/1368
 + * @run testng/othervm test.java.lang.invoke.lookup.TestDefenderMethodLookup
 + */
 +
