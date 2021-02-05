@@ -5,7 +5,6 @@ Subject: Test8167409.sh fails to run with 32bit jdk on 64bit
 
 Summary: <test case>: Test8167409.sh fails to run with 32bit jdk on 64bit system
 LLT: jdk8u/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
-Bug url: https://gitlab.huawei.com/huaweijdk/jdk8u-dev/issues/2157
 ---
  .../criticalnatives/argumentcorruption/Test8167409.sh       | 6 +++++-
  1 file changed, 5 insertions(+), 1 deletion(-)
