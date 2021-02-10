@@ -20,7 +20,6 @@ Bug url: https://bugs.openjdk.java.net/browse/JDK-8205921
  .../parallelScavenge/psCompactionManager.hpp  |  12 +-
  .../parallelScavenge/psPromotionManager.hpp   |   4 +-
  .../parallelScavenge/psTasks.cpp              |   3 +-
- .../shenandoah/shenandoahConcurrentMark.cpp   |   3 +-
  hotspot/src/share/vm/utilities/taskqueue.cpp  |  18 ---
  hotspot/src/share/vm/utilities/taskqueue.hpp  | 105 ++++++++++++++----
  16 files changed, 113 insertions(+), 92 deletions(-)
@@ -389,27 +388,6 @@ index f829e9344..4fe869fd6 100644
        TASKQUEUE_STATS_ONLY(pm->record_steal(p));
        pm->process_popped_location_depth(p);
        pm->drain_stacks_depth(true);
-diff --git a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahConcurrentMark.cpp b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahConcurrentMark.cpp
-index 85bbea6cd..afcb0dd4a 100644
---- a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahConcurrentMark.cpp
-+++ b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahConcurrentMark.cpp
-@@ -939,7 +939,6 @@ void ShenandoahConcurrentMark::mark_loop_prework(uint w, ShenandoahTaskTerminato
- 
- template <class T, bool CANCELLABLE>
- void ShenandoahConcurrentMark::mark_loop_work(T* cl, ShenandoahLiveData* live_data, uint worker_id, ShenandoahTaskTerminator *terminator) {
--  int seed = 17;
-   uintx stride = ShenandoahMarkLoopStride;
- 
-   ShenandoahHeap* heap = ShenandoahHeap::heap();
-@@ -999,7 +998,7 @@ void ShenandoahConcurrentMark::mark_loop_work(T* cl, ShenandoahLiveData* live_da
-     uint work = 0;
-     for (uint i = 0; i < stride; i++) {
-       if (q->pop(t) ||
--          queues->steal(worker_id, &seed, t)) {
-+          queues->steal(worker_id, t)) {
-         do_task<T>(q, cl, live_data, &t);
-         work++;
-       } else {
 diff --git a/hotspot/src/share/vm/utilities/taskqueue.cpp b/hotspot/src/share/vm/utilities/taskqueue.cpp
 index 0f4dcc90b..37f4066ab 100644
 --- a/hotspot/src/share/vm/utilities/taskqueue.cpp
@@ -515,10 +493,10 @@ index 0f1376b49..77556a7d4 100644
  public:
    // Returns "true" if some TaskQueue in the set contains a task.
    virtual bool peek() = 0;
-@@ -520,27 +560,23 @@ private:
+@@ -517,27 +557,23 @@ private:
  public:
    typedef typename T::element_type E;
- 
+
 -  GenericTaskQueueSet(int n) : _n(n) {
 +  GenericTaskQueueSet(uint n) : _n(n) {
      typedef T* GenericTaskQueuePtr;
@@ -528,14 +506,14 @@ index 0f1376b49..77556a7d4 100644
        _queues[i] = NULL;
      }
    }
- 
+
 -  bool steal_best_of_2(uint queue_num, int* seed, E& t);
 +  bool steal_best_of_2(uint queue_num, E& t);
- 
+
    void register_queue(uint i, T* q);
- 
+
    T* queue(uint n);
- 
+
 -  // The thread with queue number "queue_num" (and whose random number seed is
 -  // at "seed") is trying to steal a task from some other queue.  (It may try
 -  // several queues, according to some configuration parameter.)  If some steal
@@ -547,8 +525,8 @@ index 0f1376b49..77556a7d4 100644
 +  // Returns if stealing succeeds, and sets "t" to the stolen task.
 +  bool steal(uint queue_num, E& t);
    bool peek();
-   uint tasks() const;
-   size_t tasks();
+ };
+
 @@ -560,9 +596,9 @@ GenericTaskQueueSet<T, F>::queue(uint i) {
  }
  

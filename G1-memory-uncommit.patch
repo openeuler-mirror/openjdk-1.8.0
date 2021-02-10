@@ -3,13 +3,13 @@ index 84f0a4ac..b38ee52e 100644
 --- a/hotspot/agent/src/share/classes/sun/jvm/hotspot/gc_interface/GCCause.java
 +++ b/hotspot/agent/src/share/classes/sun/jvm/hotspot/gc_interface/GCCause.java
 @@ -54,6 +54,7 @@ public enum GCCause {
- 
+
    _g1_inc_collection_pause ("G1 Evacuation Pause"),
    _g1_humongous_allocation ("G1 Humongous Allocation"),
 +  _g1_periodic_gc ("G1 Periodic GC"),
- 
-   _shenandoah_allocation_failure_evac ("Allocation Failure During Evacuation"),
-   _shenandoah_stop_vm ("Stopping VM"),
+
+   _last_ditch_collection ("Last ditch collection"),
+   _last_gc_cause ("ILLEGAL VALUE - last gc cause - ILLEGAL VALUE");
 diff --git a/hotspot/make/bsd/makefiles/mapfile-vers-debug b/hotspot/make/bsd/makefiles/mapfile-vers-debug
 index 49a70edc..00651d42 100644
 --- a/hotspot/make/bsd/makefiles/mapfile-vers-debug
@@ -1669,38 +1669,25 @@ index bdac7cb0..283df9bf 100644
 @@ -100,6 +100,9 @@ const char* GCCause::to_string(GCCause::Cause cause) {
      case _g1_humongous_allocation:
        return "G1 Humongous Allocation";
- 
+
 +    case _g1_periodic_collection:
 +      return "G1 Periodic Collection";
 +
-     case _shenandoah_allocation_failure_evac:
-       return "Allocation Failure During Evacuation";
- 
+     case _last_ditch_collection:
+       return "Last ditch collection";
+
 diff --git a/hotspot/src/share/vm/gc_interface/gcCause.hpp b/hotspot/src/share/vm/gc_interface/gcCause.hpp
 index 29408d77..5be14548 100644
 --- a/hotspot/src/share/vm/gc_interface/gcCause.hpp
 +++ b/hotspot/src/share/vm/gc_interface/gcCause.hpp
 @@ -72,6 +72,7 @@ class GCCause : public AllStatic {
- 
+
      _g1_inc_collection_pause,
      _g1_humongous_allocation,
 +    _g1_periodic_collection,
- 
-     _shenandoah_stop_vm,
-     _shenandoah_metadata_gc_clear_softrefs,
-diff --git a/hotspot/src/share/vm/memory/threadLocalAllocBuffer.hpp b/hotspot/src/share/vm/memory/threadLocalAllocBuffer.hpp
-index 0f8727fe..8bbcbda4 100644
---- a/hotspot/src/share/vm/memory/threadLocalAllocBuffer.hpp
-+++ b/hotspot/src/share/vm/memory/threadLocalAllocBuffer.hpp
-@@ -98,7 +98,7 @@ private:
-   static GlobalTLABStats* global_stats() { return _global_stats; }
- 
- public:
--  ThreadLocalAllocBuffer() : _allocation_fraction(TLABAllocationWeight), _allocated_before_last_gc(0), _initialized(false) {
-+  ThreadLocalAllocBuffer() : _allocation_fraction(TLABAllocationWeight), _allocated_before_last_gc(0), _initialized(false), _gclab(false) {
-     // do nothing.  tlabs must be inited by initialize() calls
-   }
- 
+
+     _last_ditch_collection,
+     _last_gc_cause
 diff --git a/hotspot/src/share/vm/prims/jvm.cpp b/hotspot/src/share/vm/prims/jvm.cpp
 index de01fefd..e149ca64 100644
 --- a/hotspot/src/share/vm/prims/jvm.cpp
@@ -1772,16 +1759,16 @@ diff --git a/hotspot/src/share/vm/runtime/thread.cpp b/hotspot/src/share/vm/runt
 index 3db27350..7374eee5 100644
 --- a/hotspot/src/share/vm/runtime/thread.cpp
 +++ b/hotspot/src/share/vm/runtime/thread.cpp
-@@ -99,6 +99,7 @@
- #include "gc_implementation/shenandoah/shenandoahControlThread.hpp"
+@@ -98,6 +98,7 @@
+ #if INCLUDE_ALL_GCS
  #include "gc_implementation/concurrentMarkSweep/concurrentMarkSweepThread.hpp"
  #include "gc_implementation/g1/concurrentMarkThread.inline.hpp"
 +#include "gc_implementation/g1/g1CollectedHeap.hpp"
  #include "gc_implementation/parallelScavenge/pcTasks.hpp"
  #endif // INCLUDE_ALL_GCS
  #ifdef COMPILER1
-@@ -3677,6 +3678,7 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
-       ShenandoahControlThread::makeSurrogateLockerThread(THREAD);
+@@ -3605,6 +3619,7 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
+       ConcurrentMarkSweepThread::makeSurrogateLockerThread(THREAD);
      } else {
        ConcurrentMarkThread::makeSurrogateLockerThread(THREAD);
 +      G1CollectedHeap::heap()->init_periodic_gc_thread();
