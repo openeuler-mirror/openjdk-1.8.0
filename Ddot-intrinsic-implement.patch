@@ -3,9 +3,9 @@ index 1e9b1cb91..c0fd37d05 100644
 --- a/hotspot/src/cpu/aarch64/vm/assembler_aarch64.hpp
 +++ b/hotspot/src/cpu/aarch64/vm/assembler_aarch64.hpp
 @@ -2061,6 +2061,14 @@ public:
-     ld_st(Vt, T, a, op1, op2);                                          \
+     ld_st(Vt, T, a, op1, op2);						\
    }
-
+ 
 +  void ld1_d(FloatRegister Vt, int index, const Address &a) {
 +    starti;
 +    assert(index == 0 || index == 1, "Index must be 0 or 1 for Vx.2D");
@@ -164,16 +164,16 @@ diff --git a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp b/hotspot/src
 index 388177589..1abc7e3b0 100644
 --- a/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp
 +++ b/hotspot/src/cpu/aarch64/vm/macroAssembler_aarch64.hpp
-@@ -1173,6 +1181,9 @@ public:
+@@ -1180,6 +1180,9 @@ public:
          Register table0, Register table1, Register table2, Register table3,
          bool upper = false);
-
+ 
 +  void f2j_ddot(Register n, Register dx, Register incx,
 +                  Register dy, Register incy, Register temp_reg);
 +
    void string_compare(Register str1, Register str2,
-                       Register cnt1, Register cnt2, Register result,
-                       Register tmp1);
+ 		      Register cnt1, Register cnt2, Register result,
+ 		      Register tmp1);
 @@ -1236,6 +1239,11 @@ private:
    // Uses rscratch2 if the address is not directly reachable
    Address spill_address(int size, int offset, Register tmp=rscratch2);
@@ -190,6 +190,14 @@ diff --git a/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp b/hotspot/src/
 index 0d73c0c0c..337d5c1dd 100644
 --- a/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp
 +++ b/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp
+@@ -45,6 +45,7 @@
+ 
+ #include "stubRoutines_aarch64.hpp"
+ 
++
+ #ifdef COMPILER2
+ #include "opto/runtime.hpp"
+ #endif
 @@ -3220,6 +3221,39 @@ class StubGenerator: public StubCodeGenerator {
      return start;
    }
