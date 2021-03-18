@@ -587,6 +587,9 @@ exit 0
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnet.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnio.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnpt.so
+%ifarch %{aarch64}
+%{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libj2kae.so
+%endif
 %ifarch %{sa_arches}
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libsaproc.so
 %endif
@@ -628,6 +631,9 @@ exit 0
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/sunjce_provider.jar
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/sunpkcs11.jar
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/zipfs.jar
+%ifarch %{aarch64}
+%{_jvmdir}/%{jredir -- %{?1}}/lib/ext/kae_openssl.jar
+%endif
 %ifarch %{jfr_arches}
 %{_jvmdir}/%{jredir -- %{?1}}/lib/jfr.jar
 %{_jvmdir}/%{jredir -- %{?1}}/lib/jfr/default.jfc
@@ -915,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 5
+Release: 6
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1072,6 +1078,9 @@ Patch148: 8237894.patch
 Patch149: Remove-the-parentheses-around-company-name.patch
 Patch150: 8240353.patch
 
+# 8u292
+Patch151: kae-phase1.patch
+
 #############################################
 #
 # Upstreamable patches
@@ -1154,6 +1163,7 @@ BuildRequires: pkgconfig
 BuildRequires: xorg-x11-proto-devel
 BuildRequires: zip
 BuildRequires: unzip
+BuildRequires: openssl-devel
 
 BuildRequires: java-1.8.0-openjdk-devel
 
@@ -1495,6 +1505,7 @@ pushd %{top_level_dir_name}
 %patch148 -p1
 %patch149 -p1
 %patch150 -p1
+%patch151 -p1
 
 popd
 
@@ -2111,6 +2122,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Wed Mar 17 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b01.1
+- add kae-phase1.patch
+
 * Fri Feb 5 2021 noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.5
 - delete some file header
 
