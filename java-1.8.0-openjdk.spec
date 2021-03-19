@@ -921,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 6
+Release: 7
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1080,6 +1080,16 @@ Patch150: 8240353.patch
 
 # 8u292
 Patch151: kae-phase1.patch
+Patch152: 8231841-debug.cpp-help-is-missing-an-AArch64-line-fo.patch
+Patch153: initialized-value-should-be-0-in-perfInit.patch
+Patch154: 8254078-DataOutputStream-is-very-slow-post-disabling.patch
+Patch155: Use-atomic-operation-when-G1Uncommit.patch
+Patch156: 8168996-backport-of-C2-crash-at-postaloc.cpp-140-ass.patch
+Patch157: 8140597-Postpone-the-initial-mark-request-until-the-.patch
+Patch158: Use-Mutex-when-G1Uncommit.patch
+Patch159: C1-typos-repair.patch
+Patch160: 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
+Patch161: 8259886-Improve-SSL-session-cache-performance-and-sc.patch
 
 #############################################
 #
@@ -1506,6 +1516,16 @@ pushd %{top_level_dir_name}
 %patch149 -p1
 %patch150 -p1
 %patch151 -p1
+%patch152 -p1
+%patch153 -p1
+%patch154 -p1
+%patch155 -p1
+%patch156 -p1
+%patch157 -p1
+%patch158 -p1
+%patch159 -p1
+%patch160 -p1
+%patch161 -p1
 
 popd
 
@@ -2122,7 +2142,19 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
-* Wed Mar 17 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b01.1
+* Fri Mar 19 2021 DataAndOperation <mashoubing1@huawei.com> - 1:1.8.0.282-b08.7
+- add 8231841-debug.cpp-help-is-missing-an-AArch64-line-fo.patch
+- add initialized-value-should-be-0-in-perfInit.patch
+- add 8254078-DataOutputStream-is-very-slow-post-disabling.patch
+- add Use-atomic-operation-when-G1Uncommit.patch
+- add 8168996-backport-of-C2-crash-at-postaloc.cpp-140-ass.patch
+- add 8140597-Postpone-the-initial-mark-request-until-the-.patch
+- add Use-Mutex-when-G1Uncommit.patch
+- add C1-typos-repair.patch
+- add 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
+- add 8259886-Improve-SSL-session-cache-performance-and-sc.patch
+
+* Wed Mar 17 2021 noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.6
 - add kae-phase1.patch
 
 * Fri Feb 5 2021 noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.5

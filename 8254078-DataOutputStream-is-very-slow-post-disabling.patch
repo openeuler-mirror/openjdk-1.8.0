@@ -1,0 +1,92 @@
+From 4deae815b41e9dd02eb49bae3148f774c346e8a5 Mon Sep 17 00:00:00 2001
+Date: Mon, 25 Jan 2021 15:48:35 +0800
+Subject: 8254078: DataOutputStream is very slow post-disabling
+ of Biased Locking
+
+DTS/AR: DTS202101180520BWP1D00
+Summary: <JDK> : DataOutputStream is very slow post-disabling of Biased Locking
+LLT: jtreg
+Patch Type: backport
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8254078
+---
+ .../classes/java/io/DataInputStream.java      |  7 +++---
+ .../classes/java/io/DataOutputStream.java     | 24 ++++++++++++-------
+ 2 files changed, 20 insertions(+), 11 deletions(-)
+
+diff --git a/jdk/src/share/classes/java/io/DataInputStream.java b/jdk/src/share/classes/java/io/DataInputStream.java
+index 7b24b74de..9516d0a7d 100644
+--- a/jdk/src/share/classes/java/io/DataInputStream.java
++++ b/jdk/src/share/classes/java/io/DataInputStream.java
+@@ -31,9 +31,10 @@ package java.io;
+  * way. An application uses a data output stream to write data that
+  * can later be read by a data input stream.
+  * <p>
+- * DataInputStream is not necessarily safe for multithreaded access.
+- * Thread safety is optional and is the responsibility of users of
+- * methods in this class.
++ * A DataInputStream is not safe for use by multiple concurrent
++ * threads. If a DataInputStream is to be used by more than one
++ * thread then access to the data input stream should be controlled
++ * by appropriate synchronization.
+  *
+  * @author  Arthur van Hoff
+  * @see     java.io.DataOutputStream
+diff --git a/jdk/src/share/classes/java/io/DataOutputStream.java b/jdk/src/share/classes/java/io/DataOutputStream.java
+index 99fafed84..7628fb916 100644
+--- a/jdk/src/share/classes/java/io/DataOutputStream.java
++++ b/jdk/src/share/classes/java/io/DataOutputStream.java
+@@ -29,6 +29,11 @@ package java.io;
+  * A data output stream lets an application write primitive Java data
+  * types to an output stream in a portable way. An application can
+  * then use a data input stream to read the data back in.
++ * <p>
++ * A DataOutputStream is not safe for use by multiple concurrent
++ * threads. If a DataOutputStream is to be used by more than one
++ * thread then access to the data output stream should be controlled
++ * by appropriate synchronization.
+  *
+  * @author  unascribed
+  * @see     java.io.DataInputStream
+@@ -164,8 +169,9 @@ class DataOutputStream extends FilterOutputStream implements DataOutput {
+      * @see        java.io.FilterOutputStream#out
+      */
+     public final void writeShort(int v) throws IOException {
+-        out.write((v >>> 8) & 0xFF);
+-        out.write((v >>> 0) & 0xFF);
++        writeBuffer[0] = (byte)(v >>> 8);
++        writeBuffer[1] = (byte)(v >>> 0);
++        out.write(writeBuffer, 0, 2);
+         incCount(2);
+     }
+ 
+@@ -179,8 +185,9 @@ class DataOutputStream extends FilterOutputStream implements DataOutput {
+      * @see        java.io.FilterOutputStream#out
+      */
+     public final void writeChar(int v) throws IOException {
+-        out.write((v >>> 8) & 0xFF);
+-        out.write((v >>> 0) & 0xFF);
++        writeBuffer[0] = (byte)(v >>> 8);
++        writeBuffer[1] = (byte)(v >>> 0);
++        out.write(writeBuffer, 0, 2);
+         incCount(2);
+     }
+ 
+@@ -194,10 +201,11 @@ class DataOutputStream extends FilterOutputStream implements DataOutput {
+      * @see        java.io.FilterOutputStream#out
+      */
+     public final void writeInt(int v) throws IOException {
+-        out.write((v >>> 24) & 0xFF);
+-        out.write((v >>> 16) & 0xFF);
+-        out.write((v >>>  8) & 0xFF);
+-        out.write((v >>>  0) & 0xFF);
++        writeBuffer[0] = (byte)(v >>> 24);
++        writeBuffer[1] = (byte)(v >>> 16);
++        writeBuffer[2] = (byte)(v >>> 8);
++        writeBuffer[3] = (byte)(v >>> 0);
++        out.write(writeBuffer, 0, 4);
+         incCount(4);
+     }
+ 
+-- 
+2.19.0
+
