@@ -1,0 +1,133 @@
+From 120ea606bc94b68e8a8d7d8c2cfc41bf472b5742 Mon Sep 17 00:00:00 2001
+Date: Mon, 8 Feb 2021 10:32:10 +0800
+Subject: Use Mutex when G1Uncommit
+
+DTS/AR: DTS2021021804F2O5P0H00
+Summary: <g1>: <Use Mutex when G1Uncommit>
+LLT: jtreg
+Patch Type: huawei
+Bug url: https://dts-szv.clouddragon.huawei.com/DTSPortal/ticket/DTS2021021804F2O5P0H00
+---
+ .../g1/g1PageBasedVirtualSpace.cpp            |  8 +++----
+ .../g1/g1RegionToSpaceMapper.cpp              | 22 +++++++++++++------
+ 2 files changed, 19 insertions(+), 11 deletions(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1PageBasedVirtualSpace.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1PageBasedVirtualSpace.cpp
+index 1a22af82a..075217d60 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1PageBasedVirtualSpace.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1PageBasedVirtualSpace.cpp
+@@ -211,12 +211,12 @@ bool G1PageBasedVirtualSpace::commit(size_t start_page, size_t size_in_pages) {
+     // Check for dirty pages and update zero_filled if any found.
+     if (_dirty.get_next_one_offset(start_page, end_page) < end_page) {
+       zero_filled = false;
+-      _dirty.clear_range(start_page, end_page);
++      _dirty.par_clear_range(start_page, end_page, BitMap::unknown_range);
+     }
+   } else {
+     commit_internal(start_page, end_page);
+   }
+-  _committed.set_range(start_page, end_page);
++  _committed.par_set_range(start_page, end_page, BitMap::unknown_range);
+ 
+   if (AlwaysPreTouch) {
+     pretouch_internal(start_page, end_page);
+@@ -239,12 +239,12 @@ void G1PageBasedVirtualSpace::uncommit(size_t start_page, size_t size_in_pages)
+   if (_special) {
+     // Mark that memory is dirty. If committed again the memory might
+     // need to be cleared explicitly.
+-    _dirty.set_range(start_page, end_page);
++    _dirty.par_set_range(start_page, end_page, BitMap::unknown_range);
+   } else {
+     uncommit_internal(start_page, end_page);
+   }
+ 
+-  _committed.clear_range(start_page, end_page);
++  _committed.par_clear_range(start_page, end_page, BitMap::unknown_range);
+ }
+ 
+ bool G1PageBasedVirtualSpace::contains(const void* p) const {
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1RegionToSpaceMapper.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1RegionToSpaceMapper.cpp
+index 51b2bd8ad..f07c27107 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1RegionToSpaceMapper.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1RegionToSpaceMapper.cpp
+@@ -26,6 +26,8 @@
+ #include "gc_implementation/g1/g1BiasedArray.hpp"
+ #include "gc_implementation/g1/g1RegionToSpaceMapper.hpp"
+ #include "memory/allocation.inline.hpp"
++#include "runtime/mutex.hpp"
++#include "runtime/mutexLocker.hpp"
+ #include "runtime/virtualspace.hpp"
+ #include "services/memTracker.hpp"
+ #include "utilities/bitMap.inline.hpp"
+@@ -68,13 +70,13 @@ class G1RegionsLargerThanCommitSizeMapper : public G1RegionToSpaceMapper {
+ 
+   virtual void commit_regions(uint start_idx, size_t num_regions) {
+     bool zero_filled = _storage.commit((size_t)start_idx * _pages_per_region, num_regions * _pages_per_region);
+-    _commit_map.set_range(start_idx, start_idx + num_regions);
++    _commit_map.par_set_range(start_idx, start_idx + num_regions, BitMap::unknown_range);
+     fire_on_commit(start_idx, num_regions, zero_filled);
+   }
+ 
+   virtual void uncommit_regions(uint start_idx, size_t num_regions) {
+     _storage.uncommit((size_t)start_idx * _pages_per_region, num_regions * _pages_per_region);
+-    _commit_map.clear_range(start_idx, start_idx + num_regions);
++    _commit_map.par_clear_range(start_idx, start_idx + num_regions, BitMap::unknown_range);
+   }
+ };
+ 
+@@ -89,7 +91,7 @@ class G1RegionsSmallerThanCommitSizeMapper : public G1RegionToSpaceMapper {
+   };
+ 
+   size_t _regions_per_page;
+-
++  Mutex _par_lock;
+   CommitRefcountArray _refcounts;
+ 
+   uintptr_t region_idx_to_page_idx(uint region) const {
+@@ -104,6 +106,7 @@ class G1RegionsSmallerThanCommitSizeMapper : public G1RegionToSpaceMapper {
+                                        size_t commit_factor,
+                                        MemoryType type) :
+     G1RegionToSpaceMapper(rs, actual_size, page_size, alloc_granularity, type),
++    _par_lock(Mutex::leaf, "G1RegionsSmallerThanCommitSizeMapper par lock"),
+     _regions_per_page((page_size * commit_factor) / alloc_granularity), _refcounts() {
+ 
+     guarantee((page_size * commit_factor) >= alloc_granularity, "allocation granularity smaller than commit granularity");
+@@ -113,13 +116,15 @@ class G1RegionsSmallerThanCommitSizeMapper : public G1RegionToSpaceMapper {
+ 
+   virtual void commit_regions(uint start_idx, size_t num_regions) {
+     for (uint i = start_idx; i < start_idx + num_regions; i++) {
++      MutexLockerEx x(&_par_lock);
+       assert(!_commit_map.at(i), err_msg("Trying to commit storage at region %u that is already committed", i));
+       size_t idx = region_idx_to_page_idx(i);
+-      uint new_refcount = Atomic::add(1, (volatile jint*)_refcounts.get_address_by_index(idx));
++      uint old_refcount = _refcounts.get_by_index(idx);
+       bool zero_filled = false;
+-      if (new_refcount == 1) {
++      if (old_refcount == 0) {
+         zero_filled = _storage.commit(idx, 1);
+       }
++      _refcounts.set_by_index(idx, old_refcount + 1);
+       _commit_map.set_bit(i);
+       fire_on_commit(i, 1, zero_filled);
+     }
+@@ -127,12 +132,15 @@ class G1RegionsSmallerThanCommitSizeMapper : public G1RegionToSpaceMapper {
+ 
+   virtual void uncommit_regions(uint start_idx, size_t num_regions) {
+     for (uint i = start_idx; i < start_idx + num_regions; i++) {
++      MutexLockerEx x(&_par_lock);
+       assert(_commit_map.at(i), err_msg("Trying to uncommit storage at region %u that is not committed", i));
+       size_t idx = region_idx_to_page_idx(i);
+-      uint new_refcount = Atomic::add(-1, (volatile jint*)_refcounts.get_address_by_index(idx));
+-      if (new_refcount == 0) {
++      uint old_refcount = _refcounts.get_by_index(idx);
++      assert(old_refcount > 0, "must be");
++      if (old_refcount == 1) {
+         _storage.uncommit(idx, 1);
+       }
++      _refcounts.set_by_index(idx, old_refcount - 1);
+       _commit_map.clear_bit(i);
+     }
+   }
+-- 
+2.19.0
+
