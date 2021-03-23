@@ -1,0 +1,95 @@
+From c30e6789e2406ef5085978458c1342505f0eeb0b Mon Sep 17 00:00:00 2001
+Date: Thu, 11 Mar 2021 14:34:12 +0800
+Subject: 8259886: Improve SSL session cache performance and
+ scalability
+
+DTS/AR: DTS202103110E0APCP0H00
+Summary: <javax.net.ssl>: Improve SSL session cache performance and scalability
+LLT: NA
+Patch Type: backport
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8259886
+---
+ .../classes/sun/security/util/Cache.java      | 21 ++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/jdk/src/share/classes/sun/security/util/Cache.java b/jdk/src/share/classes/sun/security/util/Cache.java
+index 7a2e6f394..1ba64a2c7 100644
+--- a/jdk/src/share/classes/sun/security/util/Cache.java
++++ b/jdk/src/share/classes/sun/security/util/Cache.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2002, 2020, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2002, 2021, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -252,6 +252,7 @@ class MemoryCache<K,V> extends Cache<K,V> {
+     private final Map<K, CacheEntry<K,V>> cacheMap;
+     private int maxSize;
+     private long lifetime;
++    private long nextExpirationTime = Long.MAX_VALUE;
+ 
+     // ReferenceQueue is of type V instead of Cache<K,V>
+     // to allow SoftCacheEntry to extend SoftReference<V>
+@@ -321,12 +322,18 @@ class MemoryCache<K,V> extends Cache<K,V> {
+         }
+         int cnt = 0;
+         long time = System.currentTimeMillis();
++        if (nextExpirationTime > time) {
++            return;
++        }
++        nextExpirationTime = Long.MAX_VALUE;
+         for (Iterator<CacheEntry<K,V>> t = cacheMap.values().iterator();
+                 t.hasNext(); ) {
+             CacheEntry<K,V> entry = t.next();
+             if (entry.isValid(time) == false) {
+                 t.remove();
+                 cnt++;
++            } else if (nextExpirationTime > entry.getExpirationTime()) {
++                nextExpirationTime = entry.getExpirationTime();
+             }
+         }
+         if (DEBUG) {
+@@ -360,6 +367,9 @@ class MemoryCache<K,V> extends Cache<K,V> {
+         emptyQueue();
+         long expirationTime = (lifetime == 0) ? 0 :
+                                         System.currentTimeMillis() + lifetime;
++        if (expirationTime < nextExpirationTime) {
++            nextExpirationTime = expirationTime;
++        }
+         CacheEntry<K,V> newEntry = newEntry(key, value, expirationTime, queue);
+         CacheEntry<K,V> oldEntry = cacheMap.put(key, newEntry);
+         if (oldEntry != null) {
+@@ -474,6 +484,7 @@ class MemoryCache<K,V> extends Cache<K,V> {
+ 
+         V getValue();
+ 
++        long getExpirationTime();
+     }
+ 
+     private static class HardCacheEntry<K,V> implements CacheEntry<K,V> {
+@@ -496,6 +507,10 @@ class MemoryCache<K,V> extends Cache<K,V> {
+             return value;
+         }
+ 
++        public long getExpirationTime() {
++            return expirationTime;
++        }
++
+         public boolean isValid(long currentTime) {
+             boolean valid = (currentTime <= expirationTime);
+             if (valid == false) {
+@@ -533,6 +548,10 @@ class MemoryCache<K,V> extends Cache<K,V> {
+             return get();
+         }
+ 
++        public long getExpirationTime() {
++            return expirationTime;
++        }
++
+         public boolean isValid(long currentTime) {
+             boolean valid = (currentTime <= expirationTime) && (get() != null);
+             if (valid == false) {
+-- 
+2.19.0
+
