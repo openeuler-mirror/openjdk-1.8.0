@@ -146,10 +146,9 @@
 %global origin_nice     OpenJDK
 %global top_level_dir_name   %{origin}
 # Define old aarch64/jdk8u tree variables for compatibility
-%global project		aarch64-port
-%global repo		jdk8u-shenandoah
-%global revision    	aarch64-shenandoah-jdk8u282-b08
-%global full_revision	%{project}-%{repo}-%{revision}
+%global project	        jdk8u
+%global repo            jdk8u
+%global revision        jdk8u292-b01
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
 
@@ -915,7 +914,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 5
+Release: 0
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -943,7 +942,7 @@ Group:   Development/Languages
 License:  ASL 1.1 and ASL 2.0 and BSD and BSD with advertising and GPL+ and GPLv2 and GPLv2 with exceptions and IJG and LGPLv2+ and MIT and MPLv2.0 and Public Domain and W3C and zlib
 URL:      http://openjdk.java.net/
 
-Source0: %{full_revision}.tar.xz
+Source0: %{project}-%{repo}-%{revision}.tar.xz
 
 # Custom README for -src subpackage
 Source2:  README.md
@@ -1011,7 +1010,6 @@ Patch75: Add-ability-to-configure-third-port-for-remote-JMX.patch
 Patch76: 8203196.patch
 Patch77: 8190332.patch
 Patch78: 8171410.patch
-Patch83: 8204947.patch
 Patch85: 8139041.patch
 
 # 8u252
@@ -1044,7 +1042,6 @@ Patch114: 8181503.patch
 Patch115: 8243670.patch
 Patch116: fix-crash-in-JVMTI-debug.patch
 Patch118: Fix-LineBuffer-vappend-when-buffer-too-small.patch
-Patch121: Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
 Patch122: optimize-jmap-F-dump-xxx.patch
 Patch123: recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
 Patch124: Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
@@ -1054,20 +1051,17 @@ Patch127: add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
 
 # 8u272
 Patch129: 8248336.patch
-Patch133: 8160369.patch
 Patch134: PS-GC-adding-acquire_size-method-for-PSParallelCompa.patch
 Patch138: add-appcds-file-lock.patch
 Patch139: G1-memory-uncommit.patch
 Patch140: 8015927.patch
 Patch141: 8040327.patch
 Patch142: 8207160.patch
-Patch143: delete-untrustworthy-cacert-files.patch
 Patch144: add-appcds-test-case.patch
 
 # 8u282
 Patch145: 8080911.patch
 Patch146: 8168926.patch
-Patch147: 8215047.patch
 Patch148: 8237894.patch
 Patch149: Remove-the-parentheses-around-company-name.patch
 Patch150: 8240353.patch
@@ -1445,7 +1439,6 @@ pushd %{top_level_dir_name}
 %patch76 -p1
 %patch77 -p1
 %patch78 -p1
-%patch83 -p1
 %patch85 -p1
 %patch86 -p1
 %patch87 -p1
@@ -1472,7 +1465,6 @@ pushd %{top_level_dir_name}
 %patch115 -p1
 %patch116 -p1
 %patch118 -p1
-%patch121 -p1
 %patch122 -p1
 %patch123 -p1
 %patch124 -p1
@@ -1480,18 +1472,15 @@ pushd %{top_level_dir_name}
 %patch126 -p1
 %patch127 -p1
 %patch129 -p1
-%patch133 -p1
 %patch134 -p1
 %patch138 -p1
 %patch139 -p1
 %patch140 -p1
 %patch141 -p1
 %patch142 -p1
-%patch143 -p1
 %patch144 -p1
 %patch145 -p1
 %patch146 -p1
-%patch147 -p1
 %patch148 -p1
 %patch149 -p1
 %patch150 -p1
@@ -2111,6 +2100,14 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Feb 9 2021 jdkboy <ge.guo@huawei.com> - 1:1.8.0.292-b01.0
+- updated to jdk8u292-b01 (from jdk8u/jdk8u)
+- delete 8204947.patch temperarily
+- delete Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
+- delete 8160369.patch
+- delete 8215047.patch temperarily
+- delte delete-untrustworthy-cacert-files.patch
+
 * Fri Feb 5 2021 noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.5
 - delete some file header
 
