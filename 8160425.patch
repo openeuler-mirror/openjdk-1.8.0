@@ -4,6 +4,8 @@ Subject: 8160425: Vectorization with signalling NaN returns
  wrong result
 
 Summary: <hotspot>: Should not use doubles/floats for vector constants in the C code
+LLT: huawei/test/gc/zgc/DTS2020032004776.java
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8160425 https://gitlab.huawei.com/huaweijdk/jdk8u-dev/issues/2213
 ---
  hotspot/src/cpu/sparc/vm/sparc.ad             | 10 +--
  hotspot/src/cpu/x86/vm/x86.ad                 | 10 +--
