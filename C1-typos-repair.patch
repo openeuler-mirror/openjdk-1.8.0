@@ -1,0 +1,121 @@
+From 693b5eed765417ab055a19cbd5fd392cb052b06f Mon Sep 17 00:00:00 2001
+Date: Sat, 27 Feb 2021 17:06:24 +0800
+Subject:  C1 typos repair
+
+DTS/AR: DTS202102240GWU4QP1O00
+Summary: <hotspot>: <C1 typos repair>
+LLT: NA
+Patch Type: huawei
+Bug url: NA
+---
+ .../src/cpu/aarch64/vm/c1_LIRAssembler_aarch64.cpp   |  6 +++---
+ .../src/cpu/aarch64/vm/c1_LIRGenerator_aarch64.cpp   |  3 +--
+ hotspot/src/share/vm/c1/c1_GraphBuilder.cpp          |  7 +++----
+ hotspot/src/share/vm/c1/c1_LIR.hpp                   | 12 ++++++------
+ hotspot/src/share/vm/c1/c1_LIRGenerator.hpp          |  1 -
+ 5 files changed, 13 insertions(+), 16 deletions(-)
+
+diff --git a/hotspot/src/cpu/aarch64/vm/c1_LIRAssembler_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/c1_LIRAssembler_aarch64.cpp
+index 2df587d96..60b67494c 100644
+--- a/hotspot/src/cpu/aarch64/vm/c1_LIRAssembler_aarch64.cpp
++++ b/hotspot/src/cpu/aarch64/vm/c1_LIRAssembler_aarch64.cpp
+@@ -1004,7 +1004,7 @@ void LIR_Assembler::mem2reg(LIR_Opr src, LIR_Opr dest, BasicType type, LIR_Patch
+       if (UseCompressedOops && !wide) {
+         __ ldrw(dest->as_register(), as_Address(from_addr));
+       } else {
+-         __ ldr(dest->as_register(), as_Address(from_addr));
++        __ ldr(dest->as_register(), as_Address(from_addr));
+       }
+       break;
+     case T_METADATA:
+@@ -1020,9 +1020,9 @@ void LIR_Assembler::mem2reg(LIR_Opr src, LIR_Opr dest, BasicType type, LIR_Patch
+       // address that matches klass_offset_in_bytes() will be loaded
+       // as a word, not a long.
+       if (UseCompressedClassPointers && addr->disp() == oopDesc::klass_offset_in_bytes()) {
+-	__ ldrw(dest->as_register(), as_Address(from_addr));
++        __ ldrw(dest->as_register(), as_Address(from_addr));
+       } else {
+-	__ ldr(dest->as_register(), as_Address(from_addr));
++        __ ldr(dest->as_register(), as_Address(from_addr));
+       }
+       break;
+     case T_INT:
+diff --git a/hotspot/src/cpu/aarch64/vm/c1_LIRGenerator_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/c1_LIRGenerator_aarch64.cpp
+index cee0730d9..6d0b4acbd 100644
+--- a/hotspot/src/cpu/aarch64/vm/c1_LIRGenerator_aarch64.cpp
++++ b/hotspot/src/cpu/aarch64/vm/c1_LIRGenerator_aarch64.cpp
+@@ -965,7 +965,6 @@ void LIRGenerator::do_update_CRC32(Intrinsic* x) {
+   assert(UseCRC32Intrinsics, "why are we here?");
+   // Make all state_for calls early since they can emit code
+   LIR_Opr result = rlock_result(x);
+-  int flags = 0;
+   switch (x->id()) {
+     case vmIntrinsics::_updateCRC32: {
+       LIRItem crc(x->argument_at(0), this);
+@@ -992,7 +991,7 @@ void LIRGenerator::do_update_CRC32(Intrinsic* x) {
+       int offset = is_updateBytes ? arrayOopDesc::base_offset_in_bytes(T_BYTE) : 0;
+       if(off.result()->is_constant()) {
+         index = LIR_OprFact::illegalOpr;
+-       offset += off.result()->as_jint();
++        offset += off.result()->as_jint();
+       }
+       LIR_Opr base_op = buf.result();
+ 
+diff --git a/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp b/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp
+index 174e59436..459315cb7 100644
+--- a/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp
++++ b/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp
+@@ -3243,10 +3243,9 @@ GraphBuilder::GraphBuilder(Compilation* compilation, IRScope* scope)
+       // Compiles where the root method is an intrinsic need a special
+       // compilation environment because the bytecodes for the method
+       // shouldn't be parsed during the compilation, only the special
+-      // Intrinsic node should be emitted.  If this isn't done the the
+-      // code for the inlined version will be different than the root
+-      // compiled version which could lead to monotonicity problems on
+-      // intel.
++      // Intrinsic node should be emitted.  If this isn't done the code
++      // for the inlined version will be different than the root compiled
++      // version which could lead to monotonicity problems on intel.
+ 
+       // Set up a stream so that appending instructions works properly.
+       ciBytecodeStream s(scope->method());
+diff --git a/hotspot/src/share/vm/c1/c1_LIR.hpp b/hotspot/src/share/vm/c1/c1_LIR.hpp
+index 37232b9ba..cde709684 100644
+--- a/hotspot/src/share/vm/c1/c1_LIR.hpp
++++ b/hotspot/src/share/vm/c1/c1_LIR.hpp
+@@ -200,14 +200,14 @@ class LIR_Const: public LIR_OprPtr {
+ class LIR_OprDesc: public CompilationResourceObj {
+  public:
+   // value structure:
+-  //     data       opr-type opr-kind
+-  // +--------------+-------+-------+
+-  // [max...........|7 6 5 4|3 2 1 0]
+-  //                             ^
+-  //                    is_pointer bit
++  //     data      opr-type  opr-kind
++  // +-----------+----------+-------+
++  // [max........|6  5  4  3|2  1  0]
++  //                               ^
++  //                   is_pointer bit
+   //
+   // lowest bit cleared, means it is a structure pointer
+-  // we need  4 bits to represent types
++  // we need 4 bits to represent types
+ 
+  private:
+   friend class LIR_OprFact;
+diff --git a/hotspot/src/share/vm/c1/c1_LIRGenerator.hpp b/hotspot/src/share/vm/c1/c1_LIRGenerator.hpp
+index 0ae48924a..24d072b36 100644
+--- a/hotspot/src/share/vm/c1/c1_LIRGenerator.hpp
++++ b/hotspot/src/share/vm/c1/c1_LIRGenerator.hpp
+@@ -611,7 +611,6 @@ class LIRItem: public CompilationResourceObj {
+     } else {
+       return _result;
+     }
+-    return _result;
+   }
+ 
+   void set_result(LIR_Opr opr);
+-- 
+2.19.0
+
