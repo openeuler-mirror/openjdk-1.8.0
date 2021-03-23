@@ -146,9 +146,10 @@
 %global origin_nice     OpenJDK
 %global top_level_dir_name   %{origin}
 # Define old aarch64/jdk8u tree variables for compatibility
-%global project	        jdk8u
-%global repo            jdk8u
-%global revision        jdk8u292-b01
+%global project		aarch64-port
+%global repo		jdk8u-shenandoah
+%global revision    	aarch64-shenandoah-jdk8u282-b08
+%global full_revision	%{project}-%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
 
@@ -586,6 +587,9 @@ exit 0
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnet.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnio.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnpt.so
+%ifarch %{aarch64}
+%{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libj2kae.so
+%endif
 %ifarch %{sa_arches}
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libsaproc.so
 %endif
@@ -627,6 +631,9 @@ exit 0
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/sunjce_provider.jar
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/sunpkcs11.jar
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/zipfs.jar
+%ifarch %{aarch64}
+%{_jvmdir}/%{jredir -- %{?1}}/lib/ext/kae_openssl.jar
+%endif
 %ifarch %{jfr_arches}
 %{_jvmdir}/%{jredir -- %{?1}}/lib/jfr.jar
 %{_jvmdir}/%{jredir -- %{?1}}/lib/jfr/default.jfc
@@ -914,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 0
+Release: 8
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -942,7 +949,7 @@ Group:   Development/Languages
 License:  ASL 1.1 and ASL 2.0 and BSD and BSD with advertising and GPL+ and GPLv2 and GPLv2 with exceptions and IJG and LGPLv2+ and MIT and MPLv2.0 and Public Domain and W3C and zlib
 URL:      http://openjdk.java.net/
 
-Source0: %{project}-%{repo}-%{revision}.tar.xz
+Source0: %{full_revision}.tar.xz
 
 # Custom README for -src subpackage
 Source2:  README.md
@@ -1010,6 +1017,7 @@ Patch75: Add-ability-to-configure-third-port-for-remote-JMX.patch
 Patch76: 8203196.patch
 Patch77: 8190332.patch
 Patch78: 8171410.patch
+Patch83: 8204947.patch
 Patch85: 8139041.patch
 
 # 8u252
@@ -1042,6 +1050,7 @@ Patch114: 8181503.patch
 Patch115: 8243670.patch
 Patch116: fix-crash-in-JVMTI-debug.patch
 Patch118: Fix-LineBuffer-vappend-when-buffer-too-small.patch
+Patch121: Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
 Patch122: optimize-jmap-F-dump-xxx.patch
 Patch123: recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
 Patch124: Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
@@ -1051,20 +1060,35 @@ Patch127: add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
 
 # 8u272
 Patch129: 8248336.patch
+Patch133: 8160369.patch
 Patch134: PS-GC-adding-acquire_size-method-for-PSParallelCompa.patch
 Patch138: add-appcds-file-lock.patch
 Patch139: G1-memory-uncommit.patch
 Patch140: 8015927.patch
 Patch141: 8040327.patch
 Patch142: 8207160.patch
+Patch143: delete-untrustworthy-cacert-files.patch
 Patch144: add-appcds-test-case.patch
 
 # 8u282
 Patch145: 8080911.patch
 Patch146: 8168926.patch
+Patch147: 8215047.patch
 Patch148: 8237894.patch
 Patch149: Remove-the-parentheses-around-company-name.patch
 Patch150: 8240353.patch
+Patch151: kae-phase1.patch
+Patch152: 8231841-debug.cpp-help-is-missing-an-AArch64-line-fo.patch
+Patch153: initialized-value-should-be-0-in-perfInit.patch
+Patch154: 8254078-DataOutputStream-is-very-slow-post-disabling.patch
+Patch155: Use-atomic-operation-when-G1Uncommit.patch
+Patch156: 8168996-backport-of-C2-crash-at-postaloc.cpp-140-ass.patch
+Patch157: 8140597-Postpone-the-initial-mark-request-until-the-.patch
+Patch158: Use-Mutex-when-G1Uncommit.patch
+Patch159: C1-typos-repair.patch
+Patch160: 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
+Patch161: 8259886-Improve-SSL-session-cache-performance-and-sc.patch
+Patch162: 8214535-support-Jmap-parallel.patch
 
 #############################################
 #
@@ -1148,6 +1172,7 @@ BuildRequires: pkgconfig
 BuildRequires: xorg-x11-proto-devel
 BuildRequires: zip
 BuildRequires: unzip
+BuildRequires: openssl-devel
 
 BuildRequires: java-1.8.0-openjdk-devel
 
@@ -1439,6 +1464,7 @@ pushd %{top_level_dir_name}
 %patch76 -p1
 %patch77 -p1
 %patch78 -p1
+%patch83 -p1
 %patch85 -p1
 %patch86 -p1
 %patch87 -p1
@@ -1465,6 +1491,7 @@ pushd %{top_level_dir_name}
 %patch115 -p1
 %patch116 -p1
 %patch118 -p1
+%patch121 -p1
 %patch122 -p1
 %patch123 -p1
 %patch124 -p1
@@ -1472,18 +1499,33 @@ pushd %{top_level_dir_name}
 %patch126 -p1
 %patch127 -p1
 %patch129 -p1
+%patch133 -p1
 %patch134 -p1
 %patch138 -p1
 %patch139 -p1
 %patch140 -p1
 %patch141 -p1
 %patch142 -p1
+%patch143 -p1
 %patch144 -p1
 %patch145 -p1
 %patch146 -p1
+%patch147 -p1
 %patch148 -p1
 %patch149 -p1
 %patch150 -p1
+%patch151 -p1
+%patch152 -p1
+%patch153 -p1
+%patch154 -p1
+%patch155 -p1
+%patch156 -p1
+%patch157 -p1
+%patch158 -p1
+%patch159 -p1
+%patch160 -p1
+%patch161 -p1
+%patch162 -p1
 
 popd
 
@@ -2100,13 +2142,23 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
-* Tue Feb 9 2021 jdkboy <ge.guo@huawei.com> - 1:1.8.0.292-b01.0
-- updated to jdk8u292-b01 (from jdk8u/jdk8u)
-- delete 8204947.patch temperarily
-- delete Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
-- delete 8160369.patch
-- delete 8215047.patch temperarily
-- delte delete-untrustworthy-cacert-files.patch
+* Fri Mar 19 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.282-b08.8
+- add 8214535-support-Jmap-parallel.patch
+
+* Fri Mar 19 2021 DataAndOperation <mashoubing1@huawei.com> - 1:1.8.0.282-b08.7
+- add 8231841-debug.cpp-help-is-missing-an-AArch64-line-fo.patch
+- add initialized-value-should-be-0-in-perfInit.patch
+- add 8254078-DataOutputStream-is-very-slow-post-disabling.patch
+- add Use-atomic-operation-when-G1Uncommit.patch
+- add 8168996-backport-of-C2-crash-at-postaloc.cpp-140-ass.patch
+- add 8140597-Postpone-the-initial-mark-request-until-the-.patch
+- add Use-Mutex-when-G1Uncommit.patch
+- add C1-typos-repair.patch
+- add 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
+- add 8259886-Improve-SSL-session-cache-performance-and-sc.patch
+
+* Wed Mar 17 2021 noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.6
+- add kae-phase1.patch
 
 * Fri Feb 5 2021 noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.5
 - delete some file header

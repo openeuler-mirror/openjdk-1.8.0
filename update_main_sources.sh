@@ -15,16 +15,23 @@
 #
 # the used values are then substituted to spec and sources
 
+if [ ! "x$PR2126" = "x" ] ; then
+  if [ ! -f "$PR2126" ] ; then
+    echo "You have specified PR2126 as $PR2126 but it does not exists. exiting"
+    exit 1
+  fi
+fi
+
 set -e
 
 if [ "x$PROJECT_NAME" = "x" ] ; then
-    PROJECT_NAME="jdk8u"
+    PROJECT_NAME="aarch64-port"
 fi
 if [ "x$REPO_NAME" = "x" ] ; then
-    REPO_NAME="jdk8u"
+    REPO_NAME="jdk8u-shenandoah"
 fi
 if [ "x$VERSION" = "x" ] ; then
-    VERSION="jdk8u292-b01"
+    VERSION="aarch64-shenandoah-jdk8u282-b08"
 fi
 
 if [ "x$COMPRESSION" = "x" ] ; then
@@ -47,11 +54,12 @@ fi
 FILENAME=${FILE_NAME_ROOT}.tar.${COMPRESSION}
 
 if [ ! -f ${FILENAME} ] ; then
-  echo "Generating ${FILENAME}"
-  . ./generate_source_tarball.sh
+echo "Generating ${FILENAME}"
+. ./generate_source_tarball.sh
 else 
-  echo "${FILENAME} already exists, using"
+echo "${FILENAME} already exists, using"
 fi
+
 
 echo "Touching spec: $SPEC"
 echo sed -i "s/^%global\s\+project.*/%global project         ${PROJECT_NAME}/" $SPEC 
