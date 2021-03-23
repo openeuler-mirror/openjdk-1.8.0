@@ -1,0 +1,110 @@
+From bdff9eab4eb0bc16ebdbe908cc6237e0a70d53e6 Mon Sep 17 00:00:00 2001
+Date: Sat, 26 Dec 2020 11:22:37 +0800
+Subject: Use atomic operation when G1Uncommit
+
+DTS/AR: DTS2021012207P2X7P0E00
+Summary: <g1>: <Use atomic operation when G1Uncommit>
+LLT: jtreg
+Patch Type: huawei
+Bug url: https://dts-szv.clouddragon.huawei.com/DTSPortal/ticket/DTS2021012207P2X7P0E00
+---
+ .../vm/gc_implementation/g1/g1BiasedArray.hpp |  5 ++++
+ .../g1/g1RegionToSpaceMapper.cpp              | 11 ++++-----
+ .../vm/gc_implementation/g1/heapRegion.cpp    | 24 +++++++++++++++++++
+ 3 files changed, 33 insertions(+), 7 deletions(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1BiasedArray.hpp b/hotspot/src/share/vm/gc_implementation/g1/g1BiasedArray.hpp
+index 88a673574..e13c3fe8d 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1BiasedArray.hpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1BiasedArray.hpp
+@@ -109,6 +109,11 @@ public:
+     return this->base()[index];
+   }
+ 
++  T* get_address_by_index(idx_t index) const {
++    verify_index(index);
++    return this->base() + index;
++  }
++
+   // Set the element of the given array at the given index to the
+   // given value. Assume the index is valid. This is a convenience
+   // method that does sanity checking on the index.
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1RegionToSpaceMapper.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1RegionToSpaceMapper.cpp
+index 0c26b783e..51b2bd8ad 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1RegionToSpaceMapper.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1RegionToSpaceMapper.cpp
+@@ -115,12 +115,11 @@ class G1RegionsSmallerThanCommitSizeMapper : public G1RegionToSpaceMapper {
+     for (uint i = start_idx; i < start_idx + num_regions; i++) {
+       assert(!_commit_map.at(i), err_msg("Trying to commit storage at region %u that is already committed", i));
+       size_t idx = region_idx_to_page_idx(i);
+-      uint old_refcount = _refcounts.get_by_index(idx);
++      uint new_refcount = Atomic::add(1, (volatile jint*)_refcounts.get_address_by_index(idx));
+       bool zero_filled = false;
+-      if (old_refcount == 0) {
++      if (new_refcount == 1) {
+         zero_filled = _storage.commit(idx, 1);
+       }
+-      _refcounts.set_by_index(idx, old_refcount + 1);
+       _commit_map.set_bit(i);
+       fire_on_commit(i, 1, zero_filled);
+     }
+@@ -130,12 +129,10 @@ class G1RegionsSmallerThanCommitSizeMapper : public G1RegionToSpaceMapper {
+     for (uint i = start_idx; i < start_idx + num_regions; i++) {
+       assert(_commit_map.at(i), err_msg("Trying to uncommit storage at region %u that is not committed", i));
+       size_t idx = region_idx_to_page_idx(i);
+-      uint old_refcount = _refcounts.get_by_index(idx);
+-      assert(old_refcount > 0, "must be");
+-      if (old_refcount == 1) {
++      uint new_refcount = Atomic::add(-1, (volatile jint*)_refcounts.get_address_by_index(idx));
++      if (new_refcount == 0) {
+         _storage.uncommit(idx, 1);
+       }
+-      _refcounts.set_by_index(idx, old_refcount - 1);
+       _commit_map.clear_bit(i);
+     }
+   }
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp
+index 32f8b1985..987d2c138 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.cpp
+@@ -322,6 +322,29 @@ HeapRegion::HeapRegion(uint hrm_index,
+ }
+ 
+ void HeapRegion::initialize(MemRegion mr, bool clear_space, bool mangle_space) {
++  _humongous_start_region = NULL;
++  _in_collection_set = false;
++  _next_in_special_set = NULL;
++  _orig_end = NULL;
++  _claimed = InitialClaimValue;
++  _evacuation_failed = false;
++  _prev_marked_bytes = 0;
++  _next_marked_bytes = 0;
++  _gc_efficiency = 0.0;
++  _next_young_region = NULL;
++  _next_dirty_cards_region = NULL;
++  _next = NULL;
++  _prev = NULL;
++#ifdef ASSERT
++  _containing_set = NULL;
++#endif // ASSERT
++  _in_uncommit_list = false;
++  _young_index_in_cset = -1;
++  _surv_rate_group = NULL;
++  _age_index = -1;
++  _recorded_rs_length = 0;
++  _predicted_elapsed_time_ms = 0;
++  _predicted_bytes_to_copy = 0;
+   assert(_rem_set->is_empty(), "Remembered set must be empty");
+ 
+   G1OffsetTableContigSpace::initialize(mr, clear_space, mangle_space);
+@@ -1161,6 +1184,7 @@ G1OffsetTableContigSpace(G1BlockOffsetSharedArray* sharedOffsetArray,
+ 
+ void G1OffsetTableContigSpace::initialize(MemRegion mr, bool clear_space, bool mangle_space) {
+   CompactibleSpace::initialize(mr, clear_space, mangle_space);
++  _gc_time_stamp = 0;
+   _top = bottom();
+   _scan_top = bottom();
+   set_saved_mark_word(NULL);
+-- 
+2.19.0
+

@@ -1,0 +1,29 @@
+From 00c58142616a05509f005a676f786edaad88bfb4 Mon Sep 17 00:00:00 2001
+Date: Thu, 24 Dec 2020 16:12:02 +0800
+Subject: initialized value should be 0 in perfInit()
+
+DTS/AR: AR.SR.IREQ02517150.001.001
+Summary: <g1>: <initialized value should be 0 in perfInit()>
+LLT:
+Patch Type: huawei
+Bug url:
+---
+ hotspot/src/os/linux/vm/process_load.hpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hotspot/src/os/linux/vm/process_load.hpp b/hotspot/src/os/linux/vm/process_load.hpp
+index 83800b199..896754d5e 100644
+--- a/hotspot/src/os/linux/vm/process_load.hpp
++++ b/hotspot/src/os/linux/vm/process_load.hpp
+@@ -197,7 +197,7 @@ static int get_jvmticks(ticks *pticks) {
+  * This method must be called first, before any data can be gathererd.
+  */
+ int perfInit() {
+-    static int initialized=1;
++    static int initialized = 0;
+ 
+     if (!initialized) {
+         int  i;
+-- 
+2.19.0
+
