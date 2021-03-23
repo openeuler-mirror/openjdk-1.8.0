@@ -921,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 7
+Release: 8
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1077,8 +1077,6 @@ Patch147: 8215047.patch
 Patch148: 8237894.patch
 Patch149: Remove-the-parentheses-around-company-name.patch
 Patch150: 8240353.patch
-
-# 8u292
 Patch151: kae-phase1.patch
 Patch152: 8231841-debug.cpp-help-is-missing-an-AArch64-line-fo.patch
 Patch153: initialized-value-should-be-0-in-perfInit.patch
@@ -1090,6 +1088,7 @@ Patch158: Use-Mutex-when-G1Uncommit.patch
 Patch159: C1-typos-repair.patch
 Patch160: 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
 Patch161: 8259886-Improve-SSL-session-cache-performance-and-sc.patch
+Patch162: 8214535-support-Jmap-parallel.patch
 
 #############################################
 #
@@ -1526,6 +1525,7 @@ pushd %{top_level_dir_name}
 %patch159 -p1
 %patch160 -p1
 %patch161 -p1
+%patch162 -p1
 
 popd
 
@@ -2142,6 +2142,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Mar 19 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.282-b08.8
+- add 8214535-support-Jmap-parallel.patch
+
 * Fri Mar 19 2021 DataAndOperation <mashoubing1@huawei.com> - 1:1.8.0.282-b08.7
 - add 8231841-debug.cpp-help-is-missing-an-AArch64-line-fo.patch
 - add initialized-value-should-be-0-in-perfInit.patch
