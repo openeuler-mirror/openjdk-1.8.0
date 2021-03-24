@@ -1,0 +1,1047 @@
+From 7566ad6d188b9f40b828dae1d814bcdd54967d25 Mon Sep 17 00:00:00 2001
+Date: Tue, 16 Mar 2021 06:02:47 +0000
+Subject: [PATCH 2/3] backport JDK-8214535 to support Jmap parallel
+
+---
+ .../gc_implementation/g1/g1CollectedHeap.cpp  |  30 ++++++
+ .../gc_implementation/g1/g1CollectedHeap.hpp  |   7 +-
+ .../vm/gc_implementation/g1/heapRegion.hpp    |   3 +-
+ .../parallelScavenge/parallelScavengeHeap.cpp |  75 ++++++++++++-
+ .../parallelScavenge/parallelScavengeHeap.hpp |   9 +-
+ .../parallelScavenge/psOldGen.cpp             |  29 +++++
+ .../parallelScavenge/psOldGen.hpp             |  11 ++
+ .../shared/vmGCOperations.cpp                 |   2 +-
+ .../shared/vmGCOperations.hpp                 |   4 +-
+ .../shenandoah/shenandoahHeap.cpp             |   3 +
+ .../shenandoah/shenandoahHeap.hpp             |   2 +
+ .../share/vm/gc_interface/collectedHeap.hpp   |  19 +++-
+ .../src/share/vm/memory/genCollectedHeap.cpp  |   4 +
+ .../src/share/vm/memory/genCollectedHeap.hpp  |   3 +-
+ .../src/share/vm/memory/heapInspection.cpp    | 102 ++++++++++++++++--
+ .../src/share/vm/memory/heapInspection.hpp    |  46 +++++++-
+ hotspot/src/share/vm/runtime/arguments.hpp    |  12 +--
+ .../src/share/vm/services/attachListener.cpp  |  13 ++-
+ hotspot/src/share/vm/utilities/workgroup.hpp  |  21 +++-
+ .../share/classes/sun/tools/jmap/JMap.java    |  39 +++++--
+ jdk/test/sun/tools/common/ApplicationSetup.sh |  12 ++-
+ jdk/test/sun/tools/jmap/ParallelInspection.sh |  79 ++++++++++++++
+ 22 files changed, 480 insertions(+), 45 deletions(-)
+ create mode 100644 jdk/test/sun/tools/jmap/ParallelInspection.sh
+
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
+index 47d8000a..5cb13535 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
+@@ -59,6 +59,7 @@
+ #include "gc_implementation/shared/gcTraceTime.hpp"
+ #include "gc_implementation/shared/isGCActiveMark.hpp"
+ #include "memory/allocation.hpp"
++#include "memory/heapInspection.hpp"
+ #include "memory/gcLocker.inline.hpp"
+ #include "memory/generationSpec.hpp"
+ #include "memory/iterator.hpp"
+@@ -381,6 +382,11 @@ void G1RegionMappingChangedListener::on_commit(uint start_idx, size_t num_region
+   reset_from_card_cache(start_idx, num_regions);
+ }
+ 
++void G1CollectedHeap::run_task(AbstractGangTask* task) {
++    workers()->run_task(task);
++    reset_heap_region_claim_values();
++}
++
+ void G1CollectedHeap::push_dirty_cards_region(HeapRegion* hr)
+ {
+   // Claim the right to put the region on the dirty cards region list
+@@ -2647,6 +2653,30 @@ void G1CollectedHeap::object_iterate(ObjectClosure* cl) {
+   heap_region_iterate(&blk);
+ }
+ 
++class G1ParallelObjectIterator : public ParallelObjectIterator {
++private:
++    G1CollectedHeap*  _heap;
++    uint _num_threads;
++
++public:
++    G1ParallelObjectIterator(uint thread_num) :
++        _heap(G1CollectedHeap::heap()),_num_threads(thread_num) {}
++
++    virtual void object_iterate(ObjectClosure* cl, uint worker_id) {
++        _heap->object_iterate_parallel(cl, worker_id,_num_threads);
++    }
++};
++
++ParallelObjectIterator* G1CollectedHeap::parallel_object_iterator(uint thread_num) {
++    return new G1ParallelObjectIterator(thread_num);
++}
++
++void G1CollectedHeap::object_iterate_parallel(ObjectClosure* cl, uint worker_id, uint num_workers) {
++    IterateObjectClosureRegionClosure blk(cl);
++    heap_region_par_iterate_chunked(&blk, worker_id, num_workers, HeapRegion::ParInspectClaimValue);
++}
++
++
+ // Calls a SpaceClosure on a HeapRegion.
+ 
+ class SpaceClosureRegionClosure: public HeapRegionClosure {
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp
+index bde0ca4d..f8c52e68 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp
+@@ -646,6 +646,8 @@ public:
+   G1Allocator* allocator() {
+     return _allocator;
+   }
++  // Runs the given AbstractGangTask with the current active workers.
++  virtual void run_task(AbstractGangTask* task);
+ 
+   G1MonitoringSupport* g1mm() {
+     assert(_g1mm != NULL, "should have been initialized");
+@@ -1292,6 +1294,7 @@ public:
+   void cleanUpCardTable();
+ 
+   // Iteration functions.
++  void object_iterate_parallel(ObjectClosure* cl, uint worker_id, uint num_workers);
+ 
+   // Iterate over all the ref-containing fields of all objects, calling
+   // "cl.do_oop" on each.
+@@ -1299,7 +1302,7 @@ public:
+ 
+   // Iterate over all objects, calling "cl.do_object" on each.
+   virtual void object_iterate(ObjectClosure* cl);
+-
++  virtual ParallelObjectIterator* parallel_object_iterator(uint thread_num);
+   virtual void safe_object_iterate(ObjectClosure* cl) {
+     object_iterate(cl);
+   }
+@@ -1607,7 +1610,7 @@ public:
+ 
+   // Perform any cleanup actions necessary before allowing a verification.
+   virtual void prepare_for_verify();
+-
++  virtual FlexibleWorkGang* get_safepoint_workers() { return _workers; }
+   // Perform verification.
+ 
+   // vo == UsePrevMarking  -> use "prev" marking information,
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp
+index c16c906e..b58a3cc2 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegion.hpp
+@@ -347,7 +347,8 @@ class HeapRegion: public G1OffsetTableContigSpace {
+     ParEvacFailureClaimValue   = 6,
+     AggregateCountClaimValue   = 7,
+     VerifyCountClaimValue      = 8,
+-    ParMarkRootClaimValue      = 9
++    ParMarkRootClaimValue      = 9,
++    ParInspectClaimValue       = 10
+   };
+ 
+   // All allocated blocks are occupied by objects in a HeapRegion
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.cpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.cpp
+index e13fefa2..cf281259 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.cpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.cpp
+@@ -60,7 +60,12 @@ jint ParallelScavengeHeap::initialize() {
+   _collector_policy->initialize_all();
+ 
+   const size_t heap_size = _collector_policy->max_heap_byte_size();
+-
++  _workers = new FlexibleWorkGang("GC Thread",ParallelGCThreads, true, false);
++  if (_workers == NULL) {
++      vm_exit_during_initialization("Failed necessary allocation.");
++  } else {
++      _workers->initialize_workers();
++  }
+   ReservedSpace heap_rs = Universe::reserve_heap(heap_size, _collector_policy->heap_alignment());
+   MemTracker::record_virtual_memory_type((address)heap_rs.base(), mtJavaHeap);
+ 
+@@ -547,6 +552,71 @@ void ParallelScavengeHeap::object_iterate(ObjectClosure* cl) {
+   old_gen()->object_iterate(cl);
+ }
+ 
++// The HeapBlockClaimer is used during parallel iteration over the heap,
++// allowing workers to claim heap areas ("blocks"), gaining exclusive rights to these.
++// The eden and survivor spaces are treated as single blocks as it is hard to divide
++// these spaces.
++// The old space is divided into fixed-size blocks.
++class HeapBlockClaimer : public StackObj {
++    size_t _claimed_index;
++
++public:
++    static const size_t InvalidIndex = SIZE_MAX;
++    static const size_t EdenIndex = 0;
++    static const size_t SurvivorIndex = 1;
++    static const size_t NumNonOldGenClaims = 2;
++
++    HeapBlockClaimer() : _claimed_index(EdenIndex) { }
++    // Claim the block and get the block index.
++    size_t claim_and_get_block() {
++      size_t block_index;
++      block_index = Atomic::add(1u, reinterpret_cast<volatile jint *>(&_claimed_index)) - 1;
++
++      PSOldGen* old_gen = ParallelScavengeHeap::heap()->old_gen();
++      size_t num_claims = old_gen->num_iterable_blocks() + NumNonOldGenClaims;
++
++      return block_index < num_claims ? block_index : InvalidIndex;
++    }
++};
++
++void ParallelScavengeHeap::object_iterate_parallel(ObjectClosure* cl,
++                                                   HeapBlockClaimer* claimer) {
++  size_t block_index = claimer->claim_and_get_block();
++  // Iterate until all blocks are claimed
++  if (block_index == HeapBlockClaimer::EdenIndex) {
++    young_gen()->eden_space()->object_iterate(cl);
++    block_index = claimer->claim_and_get_block();
++  }
++  if (block_index == HeapBlockClaimer::SurvivorIndex) {
++    young_gen()->from_space()->object_iterate(cl);
++    young_gen()->to_space()->object_iterate(cl);
++    block_index = claimer->claim_and_get_block();
++  }
++  while (block_index != HeapBlockClaimer::InvalidIndex) {
++    old_gen()->object_iterate_block(cl, block_index - HeapBlockClaimer::NumNonOldGenClaims);
++    block_index = claimer->claim_and_get_block();
++  }
++}
++
++class PSScavengeParallelObjectIterator : public ParallelObjectIterator {
++private:
++    ParallelScavengeHeap*  _heap;
++    HeapBlockClaimer      _claimer;
++
++public:
++    PSScavengeParallelObjectIterator() :
++            _heap(ParallelScavengeHeap::heap()),
++            _claimer() {}
++
++    virtual void object_iterate(ObjectClosure* cl, uint worker_id) {
++      _heap->object_iterate_parallel(cl, &_claimer);
++    }
++};
++
++ParallelObjectIterator* ParallelScavengeHeap::parallel_object_iterator(uint thread_num) {
++  return new PSScavengeParallelObjectIterator();
++}
++
+ 
+ HeapWord* ParallelScavengeHeap::block_start(const void* addr) const {
+   if (young_gen()->is_in_reserved(addr)) {
+@@ -622,6 +692,9 @@ void ParallelScavengeHeap::print_on_error(outputStream* st) const {
+ void ParallelScavengeHeap::gc_threads_do(ThreadClosure* tc) const {
+   PSScavenge::gc_task_manager()->threads_do(tc);
+ }
++void ParallelScavengeHeap::run_task(AbstractGangTask* task) {
++  _workers->run_task(task);
++}
+ 
+ void ParallelScavengeHeap::print_gc_threads_on(outputStream* st) const {
+   PSScavenge::gc_task_manager()->print_threads_on(st);
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.hpp
+index bf3a207c..96244cb4 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/parallelScavengeHeap.hpp
+@@ -41,6 +41,7 @@ class GCHeapSummary;
+ class GCTaskManager;
+ class PSAdaptiveSizePolicy;
+ class PSHeapSummary;
++class HeapBlockClaimer;
+ 
+ class ParallelScavengeHeap : public CollectedHeap {
+   friend class VMStructs;
+@@ -55,7 +56,7 @@ class ParallelScavengeHeap : public CollectedHeap {
+   static ParallelScavengeHeap* _psh;
+ 
+   GenerationSizer* _collector_policy;
+-
++  FlexibleWorkGang* _workers;
+   // Collection of generations that are adjacent in the
+   // space reserved for the heap.
+   AdjoiningGenerations* _gens;
+@@ -208,7 +209,9 @@ class ParallelScavengeHeap : public CollectedHeap {
+   void oop_iterate(ExtendedOopClosure* cl);
+   void object_iterate(ObjectClosure* cl);
+   void safe_object_iterate(ObjectClosure* cl) { object_iterate(cl); }
+-
++  void object_iterate_parallel(ObjectClosure* cl, HeapBlockClaimer* claimer);
++  virtual ParallelObjectIterator* parallel_object_iterator(uint thread_num);
++  virtual FlexibleWorkGang* get_safepoint_workers() { return _workers; }
+   HeapWord* block_start(const void* addr) const;
+   size_t block_size(const HeapWord* addr) const;
+   bool block_is_obj(const HeapWord* addr) const;
+@@ -222,7 +225,7 @@ class ParallelScavengeHeap : public CollectedHeap {
+   virtual void print_gc_threads_on(outputStream* st) const;
+   virtual void gc_threads_do(ThreadClosure* tc) const;
+   virtual void print_tracing_info() const;
+-
++  virtual void run_task(AbstractGangTask* task);
+   void verify(bool silent, VerifyOption option /* ignored */);
+ 
+   void print_heap_change(size_t prev_used);
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psOldGen.cpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psOldGen.cpp
+index 12d0d450..dd652553 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psOldGen.cpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psOldGen.cpp
+@@ -206,6 +206,35 @@ HeapWord* PSOldGen::allocate(size_t word_size) {
+   return res;
+ }
+ 
++size_t PSOldGen::num_iterable_blocks() const {
++  return (object_space()->used_in_bytes() + IterateBlockSize - 1) / IterateBlockSize;
++}
++
++void PSOldGen::object_iterate_block(ObjectClosure* cl, size_t block_index) {
++  size_t block_word_size = IterateBlockSize / HeapWordSize;
++  assert((block_word_size % (ObjectStartArray::block_size)) == 0,
++         "Block size not a multiple of start_array block");
++
++  MutableSpace *space = object_space();
++
++  HeapWord* begin = space->bottom() + block_index * block_word_size;
++  HeapWord* end = MIN2(space->top(), begin + block_word_size);
++
++  if (!start_array()->object_starts_in_range(begin, end)) {
++    return;
++  }
++
++  // Get object starting at or reaching into this block.
++  HeapWord* start = start_array()->object_start(begin);
++  if (start < begin) {
++    start += oop(start)->size();
++  }
++  // Iterate all objects until the end.
++  for (HeapWord* p = start; p < end; p += oop(p)->size()) {
++    cl->do_object(oop(p));
++  }
++}
++
+ HeapWord* PSOldGen::expand_and_allocate(size_t word_size) {
+   expand(word_size*HeapWordSize);
+   if (GCExpandToAllocateDelayMillis > 0) {
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psOldGen.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psOldGen.hpp
+index 90fa0d56..73738b95 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psOldGen.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psOldGen.hpp
+@@ -57,6 +57,9 @@ class PSOldGen : public CHeapObj<mtGC> {
+   const size_t _min_gen_size;
+   const size_t _max_gen_size;
+ 
++  // Block size for parallel iteration
++  static const size_t IterateBlockSize = 1024 * 1024;
++
+   // Used when initializing the _name field.
+   static inline const char* select_name();
+ 
+@@ -170,6 +173,14 @@ class PSOldGen : public CHeapObj<mtGC> {
+   void oop_iterate_no_header(OopClosure* cl) { object_space()->oop_iterate_no_header(cl); }
+   void object_iterate(ObjectClosure* cl) { object_space()->object_iterate(cl); }
+ 
++  // Number of blocks to be iterated over in the used part of old gen.
++  size_t num_iterable_blocks() const;
++  // Iterate the objects starting in block block_index within [bottom, top) of the
++  // old gen. The object just reaching into this block is not iterated over.
++  // A block is an evenly sized non-overlapping part of the old gen of
++  // IterateBlockSize bytes.
++  void object_iterate_block(ObjectClosure* cl, size_t block_index);
++
+   // Debugging - do not use for time critical operations
+   virtual void print() const;
+   virtual void print_on(outputStream* st) const;
+diff --git a/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.cpp b/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.cpp
+index 85059b82..d086a56c 100644
+--- a/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.cpp
++++ b/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.cpp
+@@ -188,7 +188,7 @@ void VM_GC_HeapInspection::doit() {
+   }
+   HeapInspection inspect(_csv_format, _print_help, _print_class_stats,
+                          _columns);
+-  inspect.heap_inspection(_out);
++  inspect.heap_inspection(_out, _parallel_thread_num);
+ }
+ 
+ 
+diff --git a/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.hpp b/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.hpp
+index cb070bd7..10d37522 100644
+--- a/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.hpp
++++ b/hotspot/src/share/vm/gc_implementation/shared/vmGCOperations.hpp
+@@ -132,18 +132,20 @@ class VM_GC_HeapInspection: public VM_GC_Operation {
+  private:
+   outputStream* _out;
+   bool _full_gc;
++  uint _parallel_thread_num;
+   bool _csv_format; // "comma separated values" format for spreadsheet.
+   bool _print_help;
+   bool _print_class_stats;
+   const char* _columns;
+  public:
+-  VM_GC_HeapInspection(outputStream* out, bool request_full_gc) :
++  VM_GC_HeapInspection(outputStream* out, bool request_full_gc, uint parallel_thread_num = 1) :
+     VM_GC_Operation(0 /* total collections,      dummy, ignored */,
+                     GCCause::_heap_inspection /* GC Cause */,
+                     0 /* total full collections, dummy, ignored */,
+                     request_full_gc) {
+     _out = out;
+     _full_gc = request_full_gc;
++    _parallel_thread_num = parallel_thread_num;
+     _csv_format = false;
+     _print_help = false;
+     _print_class_stats = false;
+diff --git a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.cpp b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.cpp
+index eaf13322..2b45229c 100644
+--- a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.cpp
++++ b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.cpp
+@@ -1112,6 +1112,9 @@ void ShenandoahHeap::gc_threads_do(ThreadClosure* tcl) const {
+     ShenandoahStringDedup::threads_do(tcl);
+   }
+ }
++void ShenandoahHeap::run_task(AbstractGangTask* task) {
++    workers()->run_task(task);
++}
+ 
+ void ShenandoahHeap::print_tracing_info() const {
+   if (PrintGC || TraceGen0Time || TraceGen1Time) {
+diff --git a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.hpp b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.hpp
+index 8e3b9ee1..3cb92ed4 100644
+--- a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.hpp
++++ b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.hpp
+@@ -192,6 +192,8 @@ public:
+ 
+   void gc_threads_do(ThreadClosure* tcl) const;
+ 
++  virtual void run_task(AbstractGangTask* task);
++
+ // ---------- Heap regions handling machinery
+ //
+ private:
+diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp b/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
+index 88632ddc..7af75fd6 100644
+--- a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
++++ b/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
+@@ -25,6 +25,7 @@
+ #ifndef SHARE_VM_GC_INTERFACE_COLLECTEDHEAP_HPP
+ #define SHARE_VM_GC_INTERFACE_COLLECTEDHEAP_HPP
+ 
++#include "utilities/workgroup.hpp"
+ #include "gc_interface/gcCause.hpp"
+ #include "gc_implementation/shared/gcWhen.hpp"
+ #include "memory/allocation.hpp"
+@@ -38,7 +39,7 @@
+ // is an abstract class: there may be many different kinds of heaps.  This
+ // class defines the functions that a heap must implement, and contains
+ // infrastructure common to all heaps.
+-
++class AbstractGangTask;
+ class AdaptiveSizePolicy;
+ class BarrierSet;
+ class CollectorPolicy;
+@@ -74,6 +75,12 @@ class GCHeapLog : public EventLogBase<GCMessage> {
+   }
+ };
+ 
++class ParallelObjectIterator : public CHeapObj<mtGC> {
++public:
++    virtual void object_iterate(ObjectClosure* cl, uint worker_id) = 0;
++};
++
++
+ //
+ // CollectedHeap
+ //   SharedHeap
+@@ -461,7 +468,7 @@ class CollectedHeap : public CHeapObj<mtInternal> {
+ 
+   // Does this heap support heap inspection (+PrintClassHistogram?)
+   virtual bool supports_heap_inspection() const = 0;
+-
++  virtual FlexibleWorkGang* get_safepoint_workers() { return NULL; }
+   // Perform a collection of the heap; intended for use in implementing
+   // "System.gc".  This probably implies as full a collection as the
+   // "CollectedHeap" supports.
+@@ -514,7 +521,10 @@ class CollectedHeap : public CHeapObj<mtInternal> {
+   // Iterate over all objects, calling "cl.do_object" on each.
+   virtual void object_iterate(ObjectClosure* cl) = 0;
+ 
+-  // Similar to object_iterate() except iterates only
++  virtual ParallelObjectIterator* parallel_object_iterator(uint thread_num) {
++      return NULL;
++  }
++
+   // over live objects.
+   virtual void safe_object_iterate(ObjectClosure* cl) = 0;
+ 
+@@ -593,6 +603,9 @@ class CollectedHeap : public CHeapObj<mtInternal> {
+   // Iterator for all GC threads (other than VM thread)
+   virtual void gc_threads_do(ThreadClosure* tc) const = 0;
+ 
++  // Run given task. Possibly in parallel if the GC supports it.
++  virtual void run_task(AbstractGangTask* task) = 0;
++
+   // Print any relevant tracing info that flags imply.
+   // Default implementation does nothing.
+   virtual void print_tracing_info() const = 0;
+diff --git a/hotspot/src/share/vm/memory/genCollectedHeap.cpp b/hotspot/src/share/vm/memory/genCollectedHeap.cpp
+index bbe6370a..ed2c0afb 100644
+--- a/hotspot/src/share/vm/memory/genCollectedHeap.cpp
++++ b/hotspot/src/share/vm/memory/genCollectedHeap.cpp
+@@ -1414,3 +1414,7 @@ void GenCollectedHeap::stop() {
+   }
+ #endif
+ }
++
++void GenCollectedHeap::run_task(AbstractGangTask *task) {
++
++}
+diff --git a/hotspot/src/share/vm/memory/genCollectedHeap.hpp b/hotspot/src/share/vm/memory/genCollectedHeap.hpp
+index 6d0dd591..2c78ea15 100644
+--- a/hotspot/src/share/vm/memory/genCollectedHeap.hpp
++++ b/hotspot/src/share/vm/memory/genCollectedHeap.hpp
+@@ -120,6 +120,7 @@ public:
+ 
+   // Returns JNI_OK on success
+   virtual jint initialize();
++
+   char* allocate(size_t alignment,
+                  size_t* _total_reserved, int* _n_covered_regions,
+                  ReservedSpace* heap_rs);
+@@ -229,7 +230,7 @@ public:
+   // may not pack objects densely; a chunk may either be an object or a
+   // non-object.
+   virtual HeapWord* block_start(const void* addr) const;
+-
++  virtual void run_task(AbstractGangTask* task);
+   // Requires "addr" to be the start of a chunk, and returns its size.
+   // "addr + size" is required to be the start of a new chunk, or the end
+   // of the active area of the heap. Assumes (and verifies in non-product
+diff --git a/hotspot/src/share/vm/memory/heapInspection.cpp b/hotspot/src/share/vm/memory/heapInspection.cpp
+index cc8f4fc0..7c44c50f 100644
+--- a/hotspot/src/share/vm/memory/heapInspection.cpp
++++ b/hotspot/src/share/vm/memory/heapInspection.cpp
+@@ -28,6 +28,7 @@
+ #include "memory/genCollectedHeap.hpp"
+ #include "memory/heapInspection.hpp"
+ #include "memory/resourceArea.hpp"
++#include "runtime/atomic.hpp"
+ #include "runtime/os.hpp"
+ #include "utilities/globalDefinitions.hpp"
+ #include "utilities/macros.hpp"
+@@ -200,6 +201,41 @@ size_t KlassInfoTable::size_of_instances_in_words() const {
+   return _size_of_instances_in_words;
+ }
+ 
++// Return false if the entry could not be recorded on account
++// of running out of space required to create a new entry.
++bool KlassInfoTable::merge_entry(const KlassInfoEntry* cie) {
++    Klass*          k = cie->klass();
++    KlassInfoEntry* elt = lookup(k);
++    // elt may be NULL if it's a new klass for which we
++    // could not allocate space for a new entry in the hashtable.
++    if (elt != NULL) {
++        elt->set_count(elt->count() + cie->count());
++        elt->set_words(elt->words() + cie->words());
++        _size_of_instances_in_words += cie->words();
++        return true;
++    }
++    return false;
++}
++
++class KlassInfoTableMergeClosure : public KlassInfoClosure {
++private:
++    KlassInfoTable* _dest;
++    bool _success;
++public:
++    KlassInfoTableMergeClosure(KlassInfoTable* table) : _dest(table), _success(true) {}
++    void do_cinfo(KlassInfoEntry* cie) {
++        _success &= _dest->merge_entry(cie);
++    }
++    bool success() { return _success; }
++};
++
++// merge from table
++bool KlassInfoTable::merge(KlassInfoTable* table) {
++    KlassInfoTableMergeClosure closure(this);
++    table->iterate(&closure);
++    return closure.success();
++}
++
+ int KlassInfoHisto::sort_helper(KlassInfoEntry** e1, KlassInfoEntry** e2) {
+   return (*e1)->compare(*e1,*e2);
+ }
+@@ -461,7 +497,7 @@ class HistoClosure : public KlassInfoClosure {
+ class RecordInstanceClosure : public ObjectClosure {
+  private:
+   KlassInfoTable* _cit;
+-  size_t _missed_count;
++  uintx _missed_count;
+   BoolObjectClosure* _filter;
+  public:
+   RecordInstanceClosure(KlassInfoTable* cit, BoolObjectClosure* filter) :
+@@ -475,7 +511,7 @@ class RecordInstanceClosure : public ObjectClosure {
+     }
+   }
+ 
+-  size_t missed_count() { return _missed_count; }
++  uintx missed_count() { return _missed_count; }
+ 
+  private:
+   bool should_visit(oop obj) {
+@@ -483,17 +519,67 @@ class RecordInstanceClosure : public ObjectClosure {
+   }
+ };
+ 
+-size_t HeapInspection::populate_table(KlassInfoTable* cit, BoolObjectClosure *filter) {
+-  ResourceMark rm;
++// Heap inspection for every worker.
++// When native OOM hanppens for KlassInfoTable, set _success to false.
++void ParHeapInspectTask::work(uint worker_id) {
++    uintx missed_count = 0;
++    bool merge_success = true;
++    if (!Atomic::load(reinterpret_cast<jlong *>(&_success))) {
++        // other worker has failed on parallel iteration.
++        return;
++    }
++    KlassInfoTable cit(false);
++    if (cit.allocation_failed()) {
++        // fail to allocate memory, stop parallel mode
++        Atomic::store(false, reinterpret_cast<jlong *>(&_success));
++        return;
++    }
++    RecordInstanceClosure ric(&cit, _filter);
++    _poi->object_iterate(&ric, worker_id);
++    missed_count = ric.missed_count();
++    {
++        MutexLocker x(&_mutex);
++        merge_success = _shared_cit->merge(&cit);
++    }
++    if (merge_success) {
++        Atomic::add(missed_count, reinterpret_cast<jlong *>(&missed_count));
++    } else {
++        Atomic::store(false, reinterpret_cast<jlong *>(&_success));
++    }
++}
+ 
++size_t HeapInspection::populate_table(KlassInfoTable* cit, BoolObjectClosure *filter, uint parallel_thread_num) {
++    // Try parallel first.
++    if (parallel_thread_num > 1) {
++        ResourceMark rm;
++        FlexibleWorkGang* gang = Universe::heap()->get_safepoint_workers();
++        if (gang != NULL) {
++            // The GC provided a WorkGang to be used during a safepoint.
++            // Can't run with more threads than provided by the WorkGang.
++            WithUpdatedActiveWorkers update_and_restore(gang, parallel_thread_num);
++            ParallelObjectIterator* poi = Universe::heap()->parallel_object_iterator(gang->active_workers());
++            if (poi != NULL) {
++                // The GC supports parallel object iteration.
++                ParHeapInspectTask task(poi, cit, filter);
++                // Run task with the active workers.
++                Universe::heap()->run_task(&task);
++                delete poi;
++                if (task.success()) {
++                    return task.missed_count();
++                }
++            }
++        }
++    }
++
++    ResourceMark rm;
++    // If no parallel iteration available, run serially.
+   RecordInstanceClosure ric(cit, filter);
+   Universe::heap()->object_iterate(&ric);
+   return ric.missed_count();
+ }
+ 
+-void HeapInspection::heap_inspection(outputStream* st) {
++void HeapInspection::heap_inspection(outputStream* st, uint parallel_thread_num) {
+   ResourceMark rm;
+-
+   if (_print_help) {
+     for (int c=0; c<KlassSizeStats::_num_columns; c++) {
+       st->print("%s:\n\t", name_table[c]);
+@@ -514,9 +600,9 @@ void HeapInspection::heap_inspection(outputStream* st) {
+ 
+   KlassInfoTable cit(_print_class_stats);
+   if (!cit.allocation_failed()) {
+-    size_t missed_count = populate_table(&cit);
++    uintx missed_count = populate_table(&cit, NULL, parallel_thread_num);
+     if (missed_count != 0) {
+-      st->print_cr("WARNING: Ran out of C-heap; undercounted " SIZE_FORMAT
++      st->print_cr("WARNING: Ran out of C-heap; undercounted " UINTX_FORMAT
+                    " total instances in data below",
+                    missed_count);
+     }
+diff --git a/hotspot/src/share/vm/memory/heapInspection.hpp b/hotspot/src/share/vm/memory/heapInspection.hpp
+index c5fec15c..d2fed80b 100644
+--- a/hotspot/src/share/vm/memory/heapInspection.hpp
++++ b/hotspot/src/share/vm/memory/heapInspection.hpp
+@@ -25,11 +25,14 @@
+ #ifndef SHARE_VM_MEMORY_HEAPINSPECTION_HPP
+ #define SHARE_VM_MEMORY_HEAPINSPECTION_HPP
+ 
++#include "utilities/workgroup.hpp"
+ #include "memory/allocation.inline.hpp"
+ #include "oops/oop.inline.hpp"
+ #include "oops/annotations.hpp"
+ #include "utilities/macros.hpp"
+ 
++class ParallelObjectIterator;
++
+ #if INCLUDE_SERVICES
+ 
+ 
+@@ -254,7 +257,8 @@ class KlassInfoTable: public StackObj {
+   void iterate(KlassInfoClosure* cic);
+   bool allocation_failed() { return _buckets == NULL; }
+   size_t size_of_instances_in_words() const;
+-
++  bool merge(KlassInfoTable* table);
++  bool merge_entry(const KlassInfoEntry* cie);
+   friend class KlassInfoHisto;
+ };
+ 
+@@ -366,11 +370,47 @@ class HeapInspection : public StackObj {
+                  bool print_class_stats, const char *columns) :
+       _csv_format(csv_format), _print_help(print_help),
+       _print_class_stats(print_class_stats), _columns(columns) {}
+-  void heap_inspection(outputStream* st) NOT_SERVICES_RETURN;
+-  size_t populate_table(KlassInfoTable* cit, BoolObjectClosure* filter = NULL) NOT_SERVICES_RETURN_(0);
++  void heap_inspection(outputStream* st, uint parallel_thread_num = 1) NOT_SERVICES_RETURN;
++  size_t populate_table(KlassInfoTable* cit, BoolObjectClosure* filter = NULL, uint parallel_thread_num = 1) NOT_SERVICES_RETURN_(0);
+   static void find_instances_at_safepoint(Klass* k, GrowableArray<oop>* result) NOT_SERVICES_RETURN;
+  private:
+   void iterate_over_heap(KlassInfoTable* cit, BoolObjectClosure* filter = NULL);
+ };
+ 
++// Parallel heap inspection task. Parallel inspection can fail due to
++// a native OOM when allocating memory for TL-KlassInfoTable.
++// _success will be set false on an OOM, and serial inspection tried.
++class ParHeapInspectTask : public AbstractGangTask {
++private:
++    ParallelObjectIterator *_poi;
++    KlassInfoTable *_shared_cit;
++    BoolObjectClosure *_filter;
++    uintx _missed_count;
++    bool _success;
++    Mutex _mutex;
++
++public:
++    ParHeapInspectTask(ParallelObjectIterator *poi,
++                       KlassInfoTable *shared_cit,
++                       BoolObjectClosure *filter) :
++            AbstractGangTask("Iterating heap"),
++            _poi(poi),
++            _shared_cit(shared_cit),
++            _filter(filter),
++            _missed_count(0),
++            _success(true),
++            _mutex(Mutex::leaf, "Parallel heap iteration data merge lock") {}
++
++    uintx missed_count() const {
++        return _missed_count;
++    }
++
++    bool success() {
++        return _success;
++    }
++
++    virtual void work(uint worker_id);
++};
++
++
+ #endif // SHARE_VM_MEMORY_HEAPINSPECTION_HPP
+diff --git a/hotspot/src/share/vm/runtime/arguments.hpp b/hotspot/src/share/vm/runtime/arguments.hpp
+index 03f293e3..9dbe99ef 100644
+--- a/hotspot/src/share/vm/runtime/arguments.hpp
++++ b/hotspot/src/share/vm/runtime/arguments.hpp
+@@ -424,12 +424,6 @@ class Arguments : AllStatic {
+   static ArgsRange check_memory_size(julong size, julong min_size);
+   static ArgsRange parse_memory_size(const char* s, julong* long_arg,
+                                      julong min_size);
+-  // Parse a string for a unsigned integer.  Returns true if value
+-  // is an unsigned integer greater than or equal to the minimum
+-  // parameter passed and returns the value in uintx_arg.  Returns
+-  // false otherwise, with uintx_arg undefined.
+-  static bool parse_uintx(const char* value, uintx* uintx_arg,
+-                          uintx min_size);
+ 
+   // methods to build strings from individual args
+   static void build_jvm_args(const char* arg);
+@@ -478,6 +472,12 @@ class Arguments : AllStatic {
+  public:
+   // Parses the arguments, first phase
+   static jint parse(const JavaVMInitArgs* args);
++  // Parse a string for a unsigned integer.  Returns true if value
++  // is an unsigned integer greater than or equal to the minimum
++  // parameter passed and returns the value in uintx_arg.  Returns
++  // false otherwise, with uintx_arg undefined
++  static bool parse_uintx(const char* value, uintx* uintx_arg,
++                            uintx min_size);
+   // Apply ergonomics
+   static jint apply_ergo();
+   // Adjusts the arguments after the OS have adjusted the arguments
+diff --git a/hotspot/src/share/vm/services/attachListener.cpp b/hotspot/src/share/vm/services/attachListener.cpp
+index 0f51378d..d7529a44 100644
+--- a/hotspot/src/share/vm/services/attachListener.cpp
++++ b/hotspot/src/share/vm/services/attachListener.cpp
+@@ -214,9 +214,11 @@ jint dump_heap(AttachOperation* op, outputStream* out) {
+ //
+ // Input arguments :-
+ //   arg0: "-live" or "-all"
++//   arg1: parallel thread number
+ static jint heap_inspection(AttachOperation* op, outputStream* out) {
+   bool live_objects_only = true;   // default is true to retain the behavior before this change is made
+   const char* arg0 = op->arg(0);
++  uint parallel_thread_num = MAX2<uint>(1, (uint)os::initial_active_processor_count() * 3 / 8);
+   if (arg0 != NULL && (strlen(arg0) > 0)) {
+     if (strcmp(arg0, "-all") != 0 && strcmp(arg0, "-live") != 0) {
+       out->print_cr("Invalid argument to inspectheap operation: %s", arg0);
+@@ -224,7 +226,16 @@ static jint heap_inspection(AttachOperation* op, outputStream* out) {
+     }
+     live_objects_only = strcmp(arg0, "-live") == 0;
+   }
+-  VM_GC_HeapInspection heapop(out, live_objects_only /* request full gc */);
++  const char* num_str = op->arg(1);
++  if (num_str != NULL && num_str[0] != '\0') {
++      uintx num;
++      if (!Arguments::parse_uintx(num_str, &num, 0)) {
++          out->print_cr("Invalid parallel thread number: [%s]", num_str);
++          return JNI_ERR;
++      }
++      parallel_thread_num = num == 0 ? parallel_thread_num : (uint)num;
++  }
++  VM_GC_HeapInspection heapop(out, live_objects_only /* request full gc */, parallel_thread_num);
+   VMThread::execute(&heapop);
+   return JNI_OK;
+ }
+diff --git a/hotspot/src/share/vm/utilities/workgroup.hpp b/hotspot/src/share/vm/utilities/workgroup.hpp
+index dd956515..7e0fc973 100644
+--- a/hotspot/src/share/vm/utilities/workgroup.hpp
++++ b/hotspot/src/share/vm/utilities/workgroup.hpp
+@@ -163,6 +163,7 @@ public:
+   virtual uint active_workers() const {
+     return _total_workers;
+   }
++
+   bool terminate() const {
+     return _terminate;
+   }
+@@ -325,6 +326,10 @@ class FlexibleWorkGang: public WorkGang {
+     _active_workers(UseDynamicNumberOfGCThreads ? 1U : ParallelGCThreads) {}
+   // Accessors for fields
+   virtual uint active_workers() const { return _active_workers; }
++  uint update_active_workers(uint v) {
++      _active_workers = MIN2(v, _active_workers);
++      return _active_workers;
++  }
+   void set_active_workers(uint v) {
+     assert(v <= _total_workers,
+            "Trying to set more workers active than there are");
+@@ -339,7 +344,21 @@ class FlexibleWorkGang: public WorkGang {
+     return _started_workers < _active_workers;
+   }
+ };
+-
++class WithUpdatedActiveWorkers : public StackObj {
++private:
++    FlexibleWorkGang* const _gang;
++    const uint              _old_active_workers;
++public:
++    WithUpdatedActiveWorkers(FlexibleWorkGang* gang, uint requested_num_workers) :
++            _gang(gang),
++            _old_active_workers(gang->active_workers()) {
++        uint capped_num_workers = MIN2(requested_num_workers, gang->active_workers());
++        gang->update_active_workers(capped_num_workers);
++    }
++    ~WithUpdatedActiveWorkers() {
++        _gang->set_active_workers(_old_active_workers);
++    }
++};
+ // Work gangs in garbage collectors: 2009-06-10
+ //
+ // SharedHeap - work gang for stop-the-world parallel collection.
+diff --git a/jdk/src/share/classes/sun/tools/jmap/JMap.java b/jdk/src/share/classes/sun/tools/jmap/JMap.java
+index 5d349fc0..e891b6c5 100644
+--- a/jdk/src/share/classes/sun/tools/jmap/JMap.java
++++ b/jdk/src/share/classes/sun/tools/jmap/JMap.java
+@@ -47,7 +47,8 @@ public class JMap {
+     private static String HISTO_OPTION = "-histo";
+     private static String LIVE_HISTO_OPTION = "-histo:live";
+     private static String DUMP_OPTION_PREFIX = "-dump:";
+-
++    private static final String LIVE_OBJECTS_OPTION = "-live";
++    private static final String ALL_OBJECTS_OPTION = "-all";
+     // These options imply the use of a SA tool
+     private static String SA_TOOL_OPTIONS =
+       "-heap|-heap:format=b|-clstats|-finalizerinfo";
+@@ -134,10 +135,10 @@ public class JMap {
+             // Here we handle the built-in options
+             // As more options are added we should create an abstract tool class and
+             // have a table to map the options
+-            if (option.equals(HISTO_OPTION)) {
+-                histo(pid, false);
+-            } else if (option.equals(LIVE_HISTO_OPTION)) {
+-                histo(pid, true);
++            if (option.equals("-histo")) {
++                histo(pid, "");
++            } else if (option.startsWith("-histo:")) {
++                histo(pid, option.substring("-histo:".length()));
+             } else if (option.startsWith(DUMP_OPTION_PREFIX)) {
+                 dump(pid, option);
+             } else {
+@@ -216,12 +217,26 @@ public class JMap {
+         return null;
+     }
+ 
+-    private static final String LIVE_OBJECTS_OPTION = "-live";
+-    private static final String ALL_OBJECTS_OPTION = "-all";
+-    private static void histo(String pid, boolean live) throws IOException {
++
++    private static void histo(String pid, String options) throws IOException {
+         VirtualMachine vm = attach(pid);
+-        InputStream in = ((HotSpotVirtualMachine)vm).
+-            heapHisto(live ? LIVE_OBJECTS_OPTION : ALL_OBJECTS_OPTION);
++        String parallel = null;
++        String liveopt = "-all";
++        if (options.startsWith("live")) {
++            liveopt = "-live";
++        }
++        String[] subopts = options.split(",");
++        for (int i = 0; i < subopts.length; i++) {
++            String subopt = subopts[i];
++            if (subopt.startsWith("parallel=")) {
++                parallel = subopt.substring("parallel=".length());
++                if (parallel == null) {
++                    System.err.println("Fail: no number provided in option: '" + subopt + "'");
++                    System.exit(1);
++                }
++            }
++        }
++        InputStream in = ((HotSpotVirtualMachine)vm).heapHisto(liveopt,parallel);
+         drain(vm, in);
+     }
+ 
+@@ -360,6 +375,10 @@ public class JMap {
+             System.err.println("    -heap                to print java heap summary");
+             System.err.println("    -histo[:live]        to print histogram of java object heap; if the \"live\"");
+             System.err.println("                         suboption is specified, only count live objects");
++            System.err.println("    parallel=<number>  parallel threads number for heap iteration:");
++            System.err.println("                         parallel=0 default behavior, use predefined number of threads");
++            System.err.println("                         parallel=1 disable parallel heap iteration");
++            System.err.println("                         parallel=<N> use N threads for parallel heap iteration");
+             System.err.println("    -clstats             to print class loader statistics");
+             System.err.println("    -finalizerinfo       to print information on objects awaiting finalization");
+             System.err.println("    -dump:<dump-options> to dump java heap in hprof binary format");
+diff --git a/jdk/test/sun/tools/common/ApplicationSetup.sh b/jdk/test/sun/tools/common/ApplicationSetup.sh
+index 64da8b96..c0f6a636 100644
+--- a/jdk/test/sun/tools/common/ApplicationSetup.sh
++++ b/jdk/test/sun/tools/common/ApplicationSetup.sh
+@@ -42,8 +42,15 @@
+ startApplication()
+ {
+   appOutput="${TESTCLASSES}/Application.out"
+-
+-  ${JAVA} -XX:+UsePerfData -classpath "${TESTCLASSPATH:-${TESTCLASSES}}" "$@" > "$appOutput" 2>&1 &
++  if [ $# -gt 2 ]; then
++    if [ $3 = "defineGC" ]; then
++      ${JAVA} -XX:+UsePerfData -XX:+$4 -classpath "${TESTCLASSPATH:-${TESTCLASSES}}" "$@" > "$appOutput" 2>&1 &
++    else
++      ${JAVA} -XX:+UsePerfData -classpath "${TESTCLASSPATH:-${TESTCLASSES}}" "$@" > "$appOutput" 2>&1 &
++    fi
++  else
++    ${JAVA} -XX:+UsePerfData -classpath "${TESTCLASSPATH:-${TESTCLASSES}}" "$@" > "$appOutput" 2>&1 &
++  fi
+   appJavaPid="$!"
+   appOtherPid=
+   appPidList="$appJavaPid"
+@@ -120,7 +127,6 @@ startApplication()
+   echo "INFO: $1 output is in $appOutput"
+ }
+ 
+-
+ # Stops a simple application by invoking ShutdownSimpleApplication
+ # class with a specific port-file, usage:
+ #   stopApplication port-file
+diff --git a/jdk/test/sun/tools/jmap/ParallelInspection.sh b/jdk/test/sun/tools/jmap/ParallelInspection.sh
+new file mode 100644
+index 00000000..69e51a76
+--- /dev/null
++++ b/jdk/test/sun/tools/jmap/ParallelInspection.sh
+@@ -0,0 +1,79 @@
++#!/bin/sh
++
++#
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++#
++
++# @test
++# @summary Unit test for jmap parallel heap inspection feature
++# @library ../common
++# @build SimpleApplication ShutdownSimpleApplication
++# @run shell ParallelInspection.sh
++
++. ${TESTSRC}/../common/CommonSetup.sh
++. ${TESTSRC}/../common/ApplicationSetup.sh
++# parallel num in G1GC
++# Start application and use PORTFILE for coordination
++PORTFILE="${TESTCLASSES}"/shutdown.port
++startApplication SimpleApplication "${PORTFILE}" defineGC UseG1GC
++
++# all return statuses are checked in this test
++set +e
++
++failed=0
++
++${JMAP} -J-XX:+UsePerfData -histo:parallel=0 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:parallel=1 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:parallel=2 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:live,parallel=0 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:live,parallel=1 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:live,parallel=2 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++set -e
++
++stopApplication "${PORTFILE}"
++waitForApplication
++
++# parallel num in ParallelGC
++# Start application and use PORTFILE for coordination
++PORTFILE="${TESTCLASSES}"/shutdown.port
++startApplication SimpleApplication "${PORTFILE}" defineGC UseParallelGC
++
++# all return statuses are checked in this test
++set +e
++
++failed=0
++
++${JMAP} -J-XX:+UsePerfData -histo:parallel=0 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:parallel=1 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:parallel=2 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:live,parallel=0 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:live,parallel=1 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:live,parallel=2 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++set -e
++
++stopApplication "${PORTFILE}"
++waitForApplication
++
++exit $failed
+-- 
+2.19.0
+
