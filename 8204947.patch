@@ -774,14 +774,46 @@ diff --git a/hotspot/src/share/vm/utilities/taskqueue.hpp b/hotspot/src/share/vm
 index c8223b2eb..0f1376b49 100644
 --- a/hotspot/src/share/vm/utilities/taskqueue.hpp
 +++ b/hotspot/src/share/vm/utilities/taskqueue.hpp
-@@ -620,8 +632,8 @@ public:
+@@ -503,6 +503,8 @@ protected:
+ public:
+   // Returns "true" if some TaskQueue in the set contains a task.
+   virtual bool peek() = 0;
++  // Tasks in queue
++  virtual uint tasks() const = 0;
+   virtual size_t tasks() = 0;
+ };
+ 
+@@ -540,6 +542,7 @@ public:
+   bool steal(uint queue_num, int* seed, E& t);
+ 
+   bool peek();
++  uint tasks() const;
+   size_t tasks();
+ 
+   uint size() const { return _n; }
+@@ -609,6 +612,15 @@ size_t GenericTaskQueueSet<T, F>::tasks() {
+   return n;
+ }
+ 
++template<class T, MEMFLAGS F>
++uint GenericTaskQueueSet<T, F>::tasks() const {
++  uint n = 0;
++  for (uint j = 0; j < _n; j++) {
++    n += _queues[j]->size();
++  }
++  return n;
++}
++
+ // When to terminate from the termination protocol.
+ class TerminatorTerminator: public CHeapObj<mtInternal> {
+ public:
+@@ -620,7 +632,7 @@ public:
  
  #undef TRACESPINNING
  
 -class ParallelTaskTerminator: public StackObj {
--private:
 +class ParallelTaskTerminator: public CHeapObj<mtGC> {
-+protected:
+ protected:
    int _n_threads;
    TaskQueueSetSuper* _queue_set;
 @@ -656,7 +668,7 @@ public:

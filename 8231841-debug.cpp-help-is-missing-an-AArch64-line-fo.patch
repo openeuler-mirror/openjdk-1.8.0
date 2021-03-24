@@ -1,0 +1,29 @@
+From b271a27e0a3742705b1515976ad63ffa791a6a79 Mon Sep 17 00:00:00 2001
+Date: Fri, 18 Dec 2020 11:18:19 +0800
+Subject: 8231841: debug.cpp help() is missing an AArch64 line
+ for pns
+
+DTS/AR: AR.SR.IREQ02373832.002.001
+Summary: < hotspot>  : debug.cpp help() is missing an AArch64 line for pns
+LLT: NA
+Patch Type: backport
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8231841
+---
+ hotspot/src/share/vm/utilities/debug.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hotspot/src/share/vm/utilities/debug.cpp b/hotspot/src/share/vm/utilities/debug.cpp
+index 4f7cbddcd..7ba3a4c83 100644
+--- a/hotspot/src/share/vm/utilities/debug.cpp
++++ b/hotspot/src/share/vm/utilities/debug.cpp
+@@ -687,6 +687,7 @@ void help() {
+   tty->print_cr("  pns(void* sp, void* fp, void* pc)  - print native (i.e. mixed) stack trace. E.g.");
+   tty->print_cr("                   pns($sp, $rbp, $pc) on Linux/amd64 and Solaris/amd64 or");
+   tty->print_cr("                   pns($sp, $ebp, $pc) on Linux/x86 or");
++  tty->print_cr("                   pns($sp, $fp, $pc)  on Linux/AArch64 or");
+   tty->print_cr("                   pns($sp, 0, $pc)    on Linux/ppc64 or");
+   tty->print_cr("                   pns($sp + 0x7ff, 0, $pc) on Solaris/SPARC");
+   tty->print_cr("                 - in gdb do 'set overload-resolution off' before calling pns()");
+-- 
+2.19.0
+

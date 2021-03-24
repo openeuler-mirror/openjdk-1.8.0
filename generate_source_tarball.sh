@@ -19,6 +19,12 @@
 # level folder, name is created, based on parameter
 #
 
+if [ ! "x$PR3756" = "x" ] ; then
+  if [ ! -f "$PR3756" ] ; then
+    echo "You have specified PR3756 as $PR3756 but it does not exists. exiting"
+    exit 1
+  fi
+fi
 set -e
 
 OPENJDK_URL_DEFAULT=http://hg.openjdk.java.net
@@ -104,6 +110,32 @@ do
     echo "Cloning ${VERSION} ${subrepo} repository from ${REPO_ROOT}"
     hg clone ${REPO_ROOT}/${subrepo} -r ${VERSION}
 done
+
+#if [ -d jdk ]; then 
+#echo "Removing EC source code we don't build"
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2.h
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_163.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_193.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_233.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_aff.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ec2_mont.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ecp_192.c
+#rm -vf jdk/src/share/native/sun/security/ec/impl/ecp_224.c
+#
+#echo "Syncing EC list with NSS"
+#
+#if [ "x$PR3756" = "x" ] ; then
+## get pr3756.patch (from http://icedtea.classpath.org/hg/icedtea8) from most correct tag
+## Do not push it or publish it (see http://icedtea.classpath.org/bugzilla/show_bug.cgi?id=3756)
+#    wget http://icedtea.classpath.org/hg/icedtea8/raw-file/tip/patches/pr3756.patch
+#    patch -Np1 < pr3756.patch
+#    rm pr3756.patch
+#else
+#    echo "Applying ${PR3756}"
+#    patch -Np1 < $PR3756
+#fi;
+#fi
+#find . -name '*.orig' -exec rm -vf '{}' ';'
 
 popd
 echo "Compressing remaining forest"
