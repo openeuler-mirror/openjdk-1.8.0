@@ -587,6 +587,9 @@ exit 0
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnet.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnio.so
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnpt.so
+%ifarch %{aarch64}
+%{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libj2kae.so
+%endif
 %ifarch %{sa_arches}
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libsaproc.so
 %endif
@@ -628,6 +631,9 @@ exit 0
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/sunjce_provider.jar
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/sunpkcs11.jar
 %{_jvmdir}/%{jredir -- %{?1}}/lib/ext/zipfs.jar
+%ifarch %{aarch64}
+%{_jvmdir}/%{jredir -- %{?1}}/lib/ext/kae_openssl.jar
+%endif
 %ifarch %{jfr_arches}
 %{_jvmdir}/%{jredir -- %{?1}}/lib/jfr.jar
 %{_jvmdir}/%{jredir -- %{?1}}/lib/jfr/default.jfc
@@ -915,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 5
+Release: 8
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1070,6 +1076,19 @@ Patch146: 8168926.patch
 Patch147: 8215047.patch
 Patch148: 8237894.patch
 Patch149: Remove-the-parentheses-around-company-name.patch
+Patch150: 8240353.patch
+Patch151: kae-phase1.patch
+Patch152: 8231841-debug.cpp-help-is-missing-an-AArch64-line-fo.patch
+Patch153: initialized-value-should-be-0-in-perfInit.patch
+Patch154: 8254078-DataOutputStream-is-very-slow-post-disabling.patch
+Patch155: Use-atomic-operation-when-G1Uncommit.patch
+Patch156: 8168996-backport-of-C2-crash-at-postaloc.cpp-140-ass.patch
+Patch157: 8140597-Postpone-the-initial-mark-request-until-the-.patch
+Patch158: Use-Mutex-when-G1Uncommit.patch
+Patch159: C1-typos-repair.patch
+Patch160: 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
+Patch161: 8259886-Improve-SSL-session-cache-performance-and-sc.patch
+Patch162: 8214535-support-Jmap-parallel.patch
 
 #############################################
 #
@@ -1153,6 +1172,7 @@ BuildRequires: pkgconfig
 BuildRequires: xorg-x11-proto-devel
 BuildRequires: zip
 BuildRequires: unzip
+BuildRequires: openssl-devel
 
 BuildRequires: java-1.8.0-openjdk-devel
 
@@ -1493,6 +1513,19 @@ pushd %{top_level_dir_name}
 %patch147 -p1
 %patch148 -p1
 %patch149 -p1
+%patch150 -p1
+%patch151 -p1
+%patch152 -p1
+%patch153 -p1
+%patch154 -p1
+%patch155 -p1
+%patch156 -p1
+%patch157 -p1
+%patch158 -p1
+%patch159 -p1
+%patch160 -p1
+%patch161 -p1
+%patch162 -p1
 
 popd
 
@@ -2109,6 +2142,24 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Mar 19 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.282-b08.8
+- add 8214535-support-Jmap-parallel.patch
+
+* Fri Mar 19 2021 DataAndOperation <mashoubing1@huawei.com> - 1:1.8.0.282-b08.7
+- add 8231841-debug.cpp-help-is-missing-an-AArch64-line-fo.patch
+- add initialized-value-should-be-0-in-perfInit.patch
+- add 8254078-DataOutputStream-is-very-slow-post-disabling.patch
+- add Use-atomic-operation-when-G1Uncommit.patch
+- add 8168996-backport-of-C2-crash-at-postaloc.cpp-140-ass.patch
+- add 8140597-Postpone-the-initial-mark-request-until-the-.patch
+- add Use-Mutex-when-G1Uncommit.patch
+- add C1-typos-repair.patch
+- add 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
+- add 8259886-Improve-SSL-session-cache-performance-and-sc.patch
+
+* Wed Mar 17 2021 noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.6
+- add kae-phase1.patch
+
 * Fri Feb 5 2021 noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.5
 - delete some file header
 

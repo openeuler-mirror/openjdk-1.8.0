@@ -1,0 +1,32 @@
+From 9b140509c32b5878c1abdc16ec0edfd3e9f2f600 Mon Sep 17 00:00:00 2001
+Date: Fri, 29 Jan 2021 09:34:07 +0800
+Subject: 8168996: backport of C2 crash at postaloc.cpp:140 :
+ assert(false) failed: unexpected yanked node
+
+DTS/AR: DTS2021012903VX2SP0H00
+Summary: <C2>: Prevent MemBarAcquire from keeping a LoadNNode alive by adding it to the worklist if it is the only user of a DecodeNNode.
+LLT: NA
+Patch Type: backport
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8168996
+---
+ hotspot/src/share/vm/opto/node.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hotspot/src/share/vm/opto/node.cpp b/hotspot/src/share/vm/opto/node.cpp
+index 60b390c09..a0d9acca4 100644
+--- a/hotspot/src/share/vm/opto/node.cpp
++++ b/hotspot/src/share/vm/opto/node.cpp
+@@ -1168,8 +1168,8 @@ bool Node::has_special_unique_user() const {
+   if( this->is_Store() ) {
+     // Condition for back-to-back stores folding.
+     return n->Opcode() == op && n->in(MemNode::Memory) == this;
+-  } else if (this->is_Load()) {
+-    // Condition for removing an unused LoadNode from the MemBarAcquire precedence input
++  } else if (this->is_Load() || this->is_DecodeN()) {
++    // Condition for removing an unused LoadNode or DecodeNNode from the MemBarAcquire precedence input
+     return n->Opcode() == Op_MemBarAcquire;
+   } else if( op == Op_AddL ) {
+     // Condition for convL2I(addL(x,y)) ==> addI(convL2I(x),convL2I(y))
+-- 
+2.19.0
+
