@@ -2118,16 +2118,3 @@ index 00000000..7647daaa
 +{
 +  (*env)->RegisterNatives(env, cls, methods, ARRAY_LENGTH(methods));
 +}
-diff --git a/jdk/src/solaris/native/sun/management/LinuxOperatingSystem.c b/jdk/src/solaris/native/sun/management/LinuxOperatingSystem.c
-index a2ddcb93..93af600d 100644
---- a/jdk/src/solaris/native/sun/management/LinuxOperatingSystem.c
-+++ b/jdk/src/solaris/native/sun/management/LinuxOperatingSystem.c
-@@ -57,7 +57,7 @@ static struct perfbuf {
-     ticks *cpus;
- } counters;
- 
--#define DEC_64 "%lld"
-+#define DEC_64 "%lud"
- 
- static void next_line(FILE *f) {
-     while (fgetc(f) != '\n');
