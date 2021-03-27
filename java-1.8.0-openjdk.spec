@@ -921,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 8
+Release: 9
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1089,6 +1089,7 @@ Patch159: C1-typos-repair.patch
 Patch160: 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
 Patch161: 8259886-Improve-SSL-session-cache-performance-and-sc.patch
 Patch162: 8214535-support-Jmap-parallel.patch
+Patch163: fix_VerifyCerts.java_testcase_bug.patch
 
 #############################################
 #
@@ -1526,6 +1527,7 @@ pushd %{top_level_dir_name}
 %patch160 -p1
 %patch161 -p1
 %patch162 -p1
+%patch163 -p1
 
 popd
 
@@ -2142,6 +2144,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Sat Mar 27 2021 Noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.9
+- add fix_VerifyCerts.java_testcase_bug.patch
+
 * Fri Mar 19 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.282-b08.8
 - add 8214535-support-Jmap-parallel.patch
 
