@@ -921,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 9
+Release: 10
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2144,6 +2144,14 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Apr 2 2021 Benshuai5D <zhangyunbo7@huawei.com> - 1:1.8.0.282-b08.10
+- delete redundant set-vm.vendor-by-configure.patch
+- delete redundant make-disable-precompiled-headers-work.patch
+- delete redundant FromCardCache-default-card-index-can-cause.patch
+- delete redundant The-runok-method-retrying-another-port-does-not-take.patch
+- delete redundant fix-incorrect-offset-for-opp-field-with-weak-memory-.patch
+- delete redundant dismiss-company_name-info-of-java-version.patch
+
 * Sat Mar 27 2021 Noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.9
 - add fix_VerifyCerts.java_testcase_bug.patch
 
