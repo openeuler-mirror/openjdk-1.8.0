@@ -921,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 10
+Release: 11
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1090,6 +1090,7 @@ Patch160: 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
 Patch161: 8259886-Improve-SSL-session-cache-performance-and-sc.patch
 Patch162: 8214535-support-Jmap-parallel.patch
 Patch163: fix_VerifyCerts.java_testcase_bug.patch
+Patch164: src-openeuler-openjdk-1.8.0-resolve-code-inconsistencies.patch
 
 #############################################
 #
@@ -1528,6 +1529,7 @@ pushd %{top_level_dir_name}
 %patch161 -p1
 %patch162 -p1
 %patch163 -p1
+%patch164 -p1
 
 popd
 
@@ -1537,7 +1539,7 @@ popd
 # %patch203
 
 # RPM-only fixes
-%patch1000
+# %patch1000
 
 # Extract systemtap tapsets
 %if %{with_systemtap}
@@ -1603,7 +1605,7 @@ export ARCH_DATA_MODEL=64
 # We use ourcppflags because the OpenJDK build seems to
 # pass EXTRA_CFLAGS to the HotSpot C++ compiler...
 EXTRA_CFLAGS="%ourcppflags -Wno-error -fcommon"
-EXTRA_CPP_FLAGS="%ourcppflags"
+EXTRA_CPP_FLAGS="%ourcppflags -Wno-error"
 
 EXTRA_ASFLAGS="${EXTRA_CFLAGS} -Wa,--generate-missing-build-notes=yes"
 export EXTRA_CFLAGS EXTRA_ASFLAGS
@@ -2144,6 +2146,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Apr 13 2021  kuenking <wangkun49@huawei.com> - 1:1.8.0.282-b08.11
+- add src-openeuler-openjdk-1.8.0-resolve-code-inconsistencies.patch
+
 * Fri Apr 2 2021 Benshuai5D <zhangyunbo7@huawei.com> - 1:1.8.0.282-b08.10
 - delete redundant set-vm.vendor-by-configure.patch
 - delete redundant make-disable-precompiled-headers-work.patch
