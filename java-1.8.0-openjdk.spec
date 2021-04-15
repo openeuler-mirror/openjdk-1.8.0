@@ -921,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 11
+Release: 12
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1091,6 +1091,7 @@ Patch161: 8259886-Improve-SSL-session-cache-performance-and-sc.patch
 Patch162: 8214535-support-Jmap-parallel.patch
 Patch163: fix_VerifyCerts.java_testcase_bug.patch
 Patch164: src-openeuler-openjdk-1.8.0-resolve-code-inconsistencies.patch
+Patch165: 818172_overflow_when_strength_reducing_interger_multiply.patch
 
 #############################################
 #
@@ -1530,6 +1531,7 @@ pushd %{top_level_dir_name}
 %patch162 -p1
 %patch163 -p1
 %patch164 -p1
+%patch165 -p1
 
 popd
 
@@ -2146,6 +2148,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Apr 15 2021  kuenking <wangkun49@huawei.com> - 1:1.8.0.282-b08.12
+- add 818172_overflow_when_strength_reducing_interger_multiply.patch
+
 * Tue Apr 13 2021  kuenking <wangkun49@huawei.com> - 1:1.8.0.282-b08.11
 - add src-openeuler-openjdk-1.8.0-resolve-code-inconsistencies.patch
 
