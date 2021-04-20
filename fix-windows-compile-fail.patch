@@ -1,0 +1,79 @@
+From 6fdf4ac10d8fb12a91d07c90f49d0fc14d59c9f5 Mon Sep 17 00:00:00 2001
+Date: Fri, 16 Apr 2021 14:12:42 +0800
+Subject: [PATCH 3/3] fix windows compile fail
+
+---
+ hotspot/src/share/vm/memory/filemap.cpp    | 2 ++
+ hotspot/src/share/vm/runtime/arguments.cpp | 4 ++++
+ hotspot/src/share/vm/utilities/ostream.cpp | 5 +++--
+ 3 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/hotspot/src/share/vm/memory/filemap.cpp b/hotspot/src/share/vm/memory/filemap.cpp
+index d2095e63..c344779d 100644
+--- a/hotspot/src/share/vm/memory/filemap.cpp
++++ b/hotspot/src/share/vm/memory/filemap.cpp
+@@ -370,6 +370,7 @@ bool FileMapInfo::open_for_read() {
+ void FileMapInfo::open_for_write() {
+   if (UseAppCDS && AppCDSLockFile != NULL) {
+     char* pos = strrchr(const_cast<char*>(AppCDSLockFile), '/');
++#ifdef __linux__
+     if (pos != NULL && pos != AppCDSLockFile) { // No directory path specified
+       char buf[PATH_MAX + 1] = "\0";
+       char filePath[PATH_MAX] = "\0";
+@@ -391,6 +392,7 @@ void FileMapInfo::open_for_write() {
+       }
+       tty->print_cr("You are using file lock %s in concurrent mode", AppCDSLockFile);
+     }
++#endif
+   }
+   _full_path = make_log_name(Arguments::GetSharedArchivePath(), NULL);
+   if (PrintSharedSpaces) {
+diff --git a/hotspot/src/share/vm/runtime/arguments.cpp b/hotspot/src/share/vm/runtime/arguments.cpp
+index 9cfa0451..170f1fd9 100644
+--- a/hotspot/src/share/vm/runtime/arguments.cpp
++++ b/hotspot/src/share/vm/runtime/arguments.cpp
+@@ -3024,6 +3024,10 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args,
+   for (int index = 0; index < args->nOptions; index++) {
+     const JavaVMOption* option = args->options + index;
+     if (match_option(option, "-XX:+UseAppCDS", &tail)) {
++#ifndef __linux__
++        tty->print_cr("failed: must not use AppCDS on non-linux system.");
++        JVM_Exit(0);
++#endif
+       if (!process_argument("+UseAppCDS", args->ignoreUnrecognized, origin)) {
+         return JNI_EINVAL;
+       } else {
+diff --git a/hotspot/src/share/vm/utilities/ostream.cpp b/hotspot/src/share/vm/utilities/ostream.cpp
+index 587b839b..eefb7176 100644
+--- a/hotspot/src/share/vm/utilities/ostream.cpp
++++ b/hotspot/src/share/vm/utilities/ostream.cpp
+@@ -35,9 +35,8 @@
+ #include "utilities/top.hpp"
+ #include "utilities/xmlstream.hpp"
+ 
+-# include <sys/file.h>
+-
+ #ifdef TARGET_OS_FAMILY_linux
++# include <sys/file.h>
+ # include "os_linux.inline.hpp"
+ #endif
+ #ifdef TARGET_OS_FAMILY_solaris
+@@ -764,6 +763,7 @@ void fileStream::flush() {
+ }
+ 
+ jsaFileStream::jsaFileStream(const char* file_name) : fileStream(file_name, "a") {
++#ifdef __linux__
+   if (_file != NULL) {
+     if (flock(fileno(_file), LOCK_EX | LOCK_NB) != 0) {
+       if (errno == EWOULDBLOCK) {
+@@ -781,6 +781,7 @@ jsaFileStream::jsaFileStream(const char* file_name) : fileStream(file_name, "a")
+       ::rewind(_file);
+     }
+   }
++#endif
+ }
+ 
+ jsaFileStream::~jsaFileStream() {
+-- 
+2.23.0
+
