@@ -1,0 +1,42 @@
+From c971a0bc455a3d70ed0dfca17d3fd89a8a645bc2 Mon Sep 17 00:00:00 2001
+Date: Fri, 16 Apr 2021 14:10:07 +0800
+Subject: [PATCH 2/3] fix BoxTypeCachedMax build failure when jvm variants is
+ client
+
+---
+ hotspot/src/share/vm/runtime/arguments.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/hotspot/src/share/vm/runtime/arguments.cpp b/hotspot/src/share/vm/runtime/arguments.cpp
+index 5dad53a7..9cfa0451 100644
+--- a/hotspot/src/share/vm/runtime/arguments.cpp
++++ b/hotspot/src/share/vm/runtime/arguments.cpp
+@@ -2172,6 +2172,7 @@ void Arguments::set_bytecode_flags() {
+ 
+ // set Integer and Long box type cached MAX num flag : -XX:BoxTypeCachedMax=<size>
+ void Arguments::set_boxtype_cached_max_flags() {
++#ifdef COMPILER2
+   if (!AggressiveOpts) {
+     if (!FLAG_IS_DEFAULT(BoxTypeCachedMax)) {
+        int const size = 1024;
+@@ -2182,6 +2183,7 @@ void Arguments::set_boxtype_cached_max_flags() {
+        add_property(buffer);
+     }
+   }
++#endif
+ }
+ 
+ // Aggressive optimization flags  -XX:+AggressiveOpts
+@@ -2827,7 +2829,9 @@ bool Arguments::check_vm_args_consistency() {
+   // Check the minimum number of compiler threads
+   status &=verify_min_value(CICompilerCount, min_number_of_compiler_threads, "CICompilerCount");
+ 
++#ifdef COMPILER2
+   status &= verify_min_value(BoxTypeCachedMax, 1, "BoxTypeCachedMax");
++#endif
+ 
+   return status;
+ }
+-- 
+2.23.0
+
