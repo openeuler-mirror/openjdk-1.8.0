@@ -921,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 16
+Release: 17
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1055,7 +1055,6 @@ Patch122: optimize-jmap-F-dump-xxx.patch
 Patch123: recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
 Patch124: Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
 Patch125: Extend-CDS-to-support-app-class-metadata-sharing.patch
-Patch126: zlib-optimization.patch
 Patch127: add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
 
 # 8u272
@@ -1503,7 +1502,6 @@ pushd %{top_level_dir_name}
 %patch123 -p1
 %patch124 -p1
 %patch125 -p1
-%patch126 -p1
 %patch127 -p1
 %patch129 -p1
 %patch133 -p1
@@ -2156,6 +2154,10 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Apr 20 2021 aijm <aijiaming1@huawei.com> - 1:1.8.0.282-b08.17
+- delete zlib-optimization.patch
+- modify src-openeuler-openjdk-1.8.0-resolve-code-inconsistencies.patch
+
 * Tue Apr 20 2021 aijm <aijiaming1@huawei.com> - 1:1.8.0.282-b08.16
 - add Code-style-fix.patch
 

@@ -1066,7 +1066,7 @@ index 8dffeebd..7fec6342 100644
 @@ -288,6 +290,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBZIP, \
      OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
      LANG := C, \
-     OPTIMIZATION := HIGHEST, \
+     OPTIMIZATION := LOW, \
 +    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
      SRC := $(JDK_TOPDIR)/src/share/native/java/util/zip, \
      EXCLUDES := $(LIBZIP_EXCLUDES), \
