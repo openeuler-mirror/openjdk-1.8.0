@@ -1648,6 +1648,7 @@ bash ${top_srcdir_abs_path}/configure \
     --with-debug-level=$debugbuild \
     --enable-unlimited-crypto \
     --with-zlib=system \
+    --enable-kae=yes \
     --with-stdc++lib=dynamic \
     --with-extra-cflags="$EXTRA_CFLAGS" \
     --with-extra-cxxflags="$EXTRA_CPP_FLAGS" \
