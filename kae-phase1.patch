@@ -3372,7 +3372,7 @@ new file mode 100644
 index 00000000..ed645698
 --- /dev/null
 +++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_cipher_rsa.c
-@@ -0,0 +1,463 @@
+@@ -0,0 +1,462 @@
 +/*
 + * Copyright (c) 2021, Huawei Technologies Co., Ltd. All rights reserved.
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
@@ -3547,7 +3547,6 @@ index 00000000..ed645698
 +    jbyte* inBytes = NULL;
 +    // outLen type should be size_t
 +    // EVP_PKEY_encrypt takes the outLen address as a parameter, and the parameter type is size_t*
-+    // You can refer to the issue #2774 to see more content
 +    size_t outLen = 0;
 +
 +    EVP_PKEY* pkey = (EVP_PKEY*) keyAddress;
