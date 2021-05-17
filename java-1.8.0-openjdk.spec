@@ -921,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 17
+Release: 18
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1095,6 +1095,7 @@ Patch166: add-missing-test-case.patch
 Patch167: fix-BoxTypeCachedMax-build-failure-when-jvm-variants.patch
 Patch168: fix-windows-compile-fail.patch
 Patch169: Code-style-fix.patch
+Patch170: kae-phase2.patch
 
 #############################################
 #
@@ -1538,6 +1539,7 @@ pushd %{top_level_dir_name}
 %patch167 -p1
 %patch168 -p1
 %patch169 -p1
+%patch170 -p1
 
 popd
 
@@ -2155,6 +2157,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Mon May 17 2021 Noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.18
+- add kae-phase2.patch
+
 * Tue Apr 20 2021 aijm <aijiaming1@huawei.com> - 1:1.8.0.282-b08.17
 - delete zlib-optimization.patch
 - modify src-openeuler-openjdk-1.8.0-resolve-code-inconsistencies.patch
