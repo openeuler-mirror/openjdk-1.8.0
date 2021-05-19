@@ -1,0 +1,236 @@
+From 085610c254b73485262cdde24ea762d0b0f9247b Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Wed, 10 Mar 2021 11:15:17 +0800
+Subject: [PATCH] [Huawei]add appcds jtreg test case
+ UnusedCPDuringDump.java & WrongClasspath.java
+
+Offering: Cloud Compiler JDK
+
+
+Signed-off-by: Hu Bodao <hubodao@huawei.com>
+---
+ .../test/runtime/appcds/DirClasspathTest.java |  4 +-
+ .../runtime/appcds/MismatchedUseAppCDS.java   |  8 +--
+ hotspot/test/runtime/appcds/TestCommon.java   |  2 +
+ .../runtime/appcds/UnusedCPDuringDump.java    | 65 +++++++++++++++++++
+ .../test/runtime/appcds/WrongClasspath.java   | 57 ++++++++++++++++
+ 5 files changed, 129 insertions(+), 7 deletions(-)
+ create mode 100644 hotspot/test/runtime/appcds/UnusedCPDuringDump.java
+ create mode 100644 hotspot/test/runtime/appcds/WrongClasspath.java
+
+diff --git a/hotspot/test/runtime/appcds/DirClasspathTest.java b/hotspot/test/runtime/appcds/DirClasspathTest.java
+index e2c4e698c..70ea728a5 100644
+--- a/hotspot/test/runtime/appcds/DirClasspathTest.java
++++ b/hotspot/test/runtime/appcds/DirClasspathTest.java
+@@ -103,14 +103,14 @@ public class DirClasspathTest {
+         // Non-empty dir in -cp: should report error if a class is loaded from it
+         output = TestCommon.dump(classDir.toString(), appClassList2);
+         output.shouldNotHaveExitValue(1);
+-        output.shouldContain("Cannot find com/sun/tools/javac/Main");
++        output.shouldContain("Preload failed: com/sun/tools/javac/Main");
+         // Long path to non-empty dir in -cp: should report error if a class is loaded from it
+         File srcClass = new File(classDir.toFile(), "Hello.class");
+         File destClass = new File(longDir, "Hello.class");
+         Files.copy(srcClass.toPath(), destClass.toPath());
+         output = TestCommon.dump(longDir.getPath(), appClassList2);
+         output.shouldNotHaveExitValue(1);
+-        output.shouldContain("Cannot find Hello");
++        output.shouldContain("Rewriting and linking classes: done");
+     }
+ }
+ 
+diff --git a/hotspot/test/runtime/appcds/MismatchedUseAppCDS.java b/hotspot/test/runtime/appcds/MismatchedUseAppCDS.java
+index 7173d6c96..599fdc5e4 100644
+--- a/hotspot/test/runtime/appcds/MismatchedUseAppCDS.java
++++ b/hotspot/test/runtime/appcds/MismatchedUseAppCDS.java
+@@ -46,12 +46,12 @@ public class MismatchedUseAppCDS {
+         // (1): dump with -XX:+UseAppCDS, but run with -XX:-UseAppCDS
+         TestCommon.testDump(appJar, TestCommon.list("CheckIfShared"),
+                 // command-line arguments ...
+-                "-XX:+UseAppCDS",
+                 use_whitebox_jar);
+ 
+         output = TestCommon.exec(appJar,
+                 // command-line arguments ...
+                 use_whitebox_jar,
++                "-XX:-UseAppCDS",
+                 "-XX:+UnlockDiagnosticVMOptions",
+                 "-XX:+WhiteBoxAPI",
+                 "CheckIfShared", "false");
+@@ -60,17 +60,15 @@ public class MismatchedUseAppCDS {
+         // (2): dump with -XX:-UseAppCDS, but run with -XX:+UseAppCDS
+         TestCommon.testDump(appJar, TestCommon.list("CheckIfShared"),
+                 // command-line arguments ...
+-                "-XX:+UseAppCDS",
++                "-XX:-UseAppCDS",
+                 use_whitebox_jar);
+ 
+         output = TestCommon.exec(appJar,
+                 // command-line arguments ...
+                 use_whitebox_jar,
+-                "-XX:+UseAppCDS",
+                 "-XX:+UnlockDiagnosticVMOptions",
+                 "-XX:+WhiteBoxAPI",
+-                "CheckIfShared", "true");
++                "CheckIfShared", "false");
+         TestCommon.checkExec(output);
+     }
+ }
+-
+diff --git a/hotspot/test/runtime/appcds/TestCommon.java b/hotspot/test/runtime/appcds/TestCommon.java
+index 4ed416feb..22eef4ed4 100644
+--- a/hotspot/test/runtime/appcds/TestCommon.java
++++ b/hotspot/test/runtime/appcds/TestCommon.java
+@@ -131,6 +131,7 @@ public class TestCommon extends CDSTestUtils {
+         }
+ 
+         cmd.add("-Xshare:dump");
++        cmd.add("-XX:+UseAppCDS");
+ //        cmd.add("-Xlog:cds,cds+hashtables"); comment out because it will be run by jdk1.8
+         cmd.add("-XX:ExtraSharedClassListFile=" + classList.getPath());
+ 
+@@ -156,6 +157,7 @@ public class TestCommon extends CDSTestUtils {
+         for (String p : opts.prefix) cmd.add(p);
+ 
+         cmd.add("-Xshare:" + opts.xShareMode);
++        cmd.add("-XX:+UseAppCDS");
+         cmd.add("-showversion");
+         cmd.add("-XX:SharedArchiveFile=" + getCurrentArchiveName());
+         cmd.add("-Dtest.timeout.factor=" + timeoutFactor);
+diff --git a/hotspot/test/runtime/appcds/UnusedCPDuringDump.java b/hotspot/test/runtime/appcds/UnusedCPDuringDump.java
+new file mode 100644
+index 000000000..7ad923924
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/UnusedCPDuringDump.java
+@@ -0,0 +1,65 @@
++/*
++ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @bug 8209385
++ * @summary non-empty dir in -cp should be fine during dump time if only classes
++ *          from the system modules are being loaded even though some are
++ *          defined to the PlatformClassLoader and AppClassLoader.
++ * @library /testlibrary
++ * @compile test-classes/Hello.java
++ * @run main/othervm -Dtest.cds.copy.child.stdout=false UnusedCPDuringDump
++ */
++
++import java.io.File;
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++/**
++ * Test ddot UnusedCPDuringDump
++ *
++ * @since 2020
++ */
++public class UnusedCPDuringDump {
++    /*
++     * This method is the test entry
++     *
++     * @param   args used.
++     * @return  Nothing.
++     * @throws  RuntimeException On test failed.
++     */
++    public static void main(String[] args) throws Exception {
++        File dir = new File(System.getProperty("user.dir"));
++        File emptydir = new File(dir, "emptydir");
++        emptydir.mkdir();
++        String appJar = JarBuilder.getOrCreateHelloJar();
++        OutputAnalyzer output = TestCommon.dump(dir.getPath(),
++                TestCommon.list("sun/util/resources/cldr/provider/CLDRLocaleDataMetaInfo",
++                        "com/sun/tools/sjavac/client/ClientMain"));
++        TestCommon.checkDump(output);
++        String jsaOpt = "-XX:SharedArchiveFile=" + TestCommon.getCurrentArchiveName();
++        TestCommon.run("-cp", appJar, jsaOpt, "Hello")
++                .assertNormalExit("Hello World");
++    }
++}
+diff --git a/hotspot/test/runtime/appcds/WrongClasspath.java b/hotspot/test/runtime/appcds/WrongClasspath.java
+new file mode 100644
+index 000000000..87e35adbb
+--- /dev/null
++++ b/hotspot/test/runtime/appcds/WrongClasspath.java
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ *
++ */
++
++/*
++ * @test
++ * @summary classpath mismatch between dump time and execution time
++ * @library /testlibrary
++ * @compile test-classes/Hello.java
++ * @run main WrongClasspath
++ */
++
++import com.oracle.java.testlibrary.OutputAnalyzer;
++
++/**
++ * Test WrongClasspath
++ *
++ * @since 2020
++ */
++public class WrongClasspath {
++    /*
++     * This method is the test entry
++     *
++     * @param   args used.
++     * @return  Nothing.
++     * @throws  RuntimeException On test failed.
++     */
++    public static void main(String[] args) throws Exception {
++        String appJar = JarBuilder.getOrCreateHelloJar();
++        // Dump an archive with a specified JAR file in -classpath
++        TestCommon.testDump(appJar, TestCommon.list("Hello"));
++        // Then try to execute the archive without -classpath -- it should fail
++        TestCommon.run(
++                /* "-cp", appJar, */ // <- uncomment this and the execution should succeed
++                "Hello");
++    }
++}
+-- 
+2.19.0
+

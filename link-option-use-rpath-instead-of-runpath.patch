@@ -1,0 +1,43 @@
+From 0fa7d25d938ba1af326ca2564c9f4498604fb190 Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Thu, 4 Mar 2021 10:07:43 +0800
+Subject: [PATCH] [Huawei]link option use rpath instead of runpath
+
+Offering: Cloud Compiler JDK
+
+
+Signed-off-by: Sun Jianye  <sunjianye@huawei.com>
+---
+ common/autoconf/flags.m4               | 2 +-
+ common/autoconf/generated-configure.sh | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/common/autoconf/flags.m4 b/common/autoconf/flags.m4
+index a8a938072..c920ca2a2 100644
+--- a/common/autoconf/flags.m4
++++ b/common/autoconf/flags.m4
+@@ -170,7 +170,7 @@ AC_DEFUN_ONCE([FLAGS_SETUP_COMPILER_FLAGS_FOR_LIBS],
+     else
+       # Default works for linux, might work on other platforms as well.
+       SHARED_LIBRARY_FLAGS='-shared'
+-      SET_EXECUTABLE_ORIGIN='-Xlinker -rpath -Xlinker \$$$$ORIGIN[$]1'
++      SET_EXECUTABLE_ORIGIN='-Xlinker -rpath -Xlinker \$$$$ORIGIN[$]1 -Xlinker --disable-new-dtags'
+       SET_SHARED_LIBRARY_ORIGIN="-Xlinker -z -Xlinker origin $SET_EXECUTABLE_ORIGIN"
+       SET_SHARED_LIBRARY_NAME='-Xlinker -soname=[$]1'
+       SET_SHARED_LIBRARY_MAPFILE='-Xlinker -version-script=[$]1'
+diff --git a/common/autoconf/generated-configure.sh b/common/autoconf/generated-configure.sh
+index b8ae42603..3b2b51f6f 100644
+--- a/common/autoconf/generated-configure.sh
++++ b/common/autoconf/generated-configure.sh
+@@ -41288,7 +41288,7 @@ $as_echo "$ac_cv_c_bigendian" >&6; }
+     else
+       # Default works for linux, might work on other platforms as well.
+       SHARED_LIBRARY_FLAGS='-shared'
+-      SET_EXECUTABLE_ORIGIN='-Xlinker -rpath -Xlinker \$$$$ORIGIN$1'
++      SET_EXECUTABLE_ORIGIN='-Xlinker -rpath -Xlinker \$$$$ORIGIN$1 -Xlinker --disable-new-dtags'
+       SET_SHARED_LIBRARY_ORIGIN="-Xlinker -z -Xlinker origin $SET_EXECUTABLE_ORIGIN"
+       SET_SHARED_LIBRARY_NAME='-Xlinker -soname=$1'
+       SET_SHARED_LIBRARY_MAPFILE='-Xlinker -version-script=$1'
+-- 
+2.19.0
+

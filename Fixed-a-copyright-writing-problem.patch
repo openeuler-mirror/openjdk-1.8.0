@@ -1,0 +1,151 @@
+From 627f09f11f68a542d5a6113dc68289460d27a563 Mon Sep 17 00:00:00 2001
+From: zhangyipeng  <zhangyipeng7@huawei.com>
+Date: Sat, 17 Apr 2021 14:06:13 +0800
+Subject: [PATCH] [Huawei]Fixed a copyright writing problem.
+
+Offering: Cloud Compiler JDK
+Reference: NA
+Summary: <JDK>  : Fixed a copyright writing problem.
+LLT: NA
+Signed-off-by: wangkun <wangkun49@huawei.com>
+---
+ hotspot/test/compiler/c2/Test8202414.java                              | 2 +-
+ hotspot/test/compiler/c2/Test8217359.java                              | 2 +-
+ hotspot/test/compiler/c2/TestReplaceEquivPhis.java                     | 2 +-
+ .../test/compiler/criticalnatives/argumentcorruption/Test8167409.sh    | 2 +-
+ hotspot/test/compiler/loopopts/TestBeautifyLoops.java                  | 2 +-
+ hotspot/test/compiler/loopopts/TestBeautifyLoops_2.java                | 2 +-
+ hotspot/test/compiler/loopopts/TestRemoveEmptyLoop.java                | 2 +-
+ jdk/src/share/classes/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.java    | 2 +-
+ jdk/src/share/classes/com/huawei/management/AdaptiveHeapMXBean.java    | 2 +-
+ jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c        | 3 ++-
+ jdk/test/sun/tools/jconsole/WorkerDeadlockTest.sh                      | 2 +-
+ 11 files changed, 12 insertions(+), 11 deletions(-)
+
+diff --git a/hotspot/test/compiler/c2/Test8202414.java b/hotspot/test/compiler/c2/Test8202414.java
+index 1d8ef8d93..1f6ac4ed8 100644
+--- a/hotspot/test/compiler/c2/Test8202414.java
++++ b/hotspot/test/compiler/c2/Test8202414.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2019, Huawei Technologies Co. Ltd. All rights reserved.
++ * Copyright (c) 2019, Huawei Technologies Co., Ltd. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+diff --git a/hotspot/test/compiler/c2/Test8217359.java b/hotspot/test/compiler/c2/Test8217359.java
+index ca0d2cc75..533bdce4b 100644
+--- a/hotspot/test/compiler/c2/Test8217359.java
++++ b/hotspot/test/compiler/c2/Test8217359.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2019, Huawei Technologies Co. Ltd. All rights reserved.
++ * Copyright (c) 2019, Huawei Technologies Co., Ltd. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+diff --git a/hotspot/test/compiler/c2/TestReplaceEquivPhis.java b/hotspot/test/compiler/c2/TestReplaceEquivPhis.java
+index d4c93b390..229df93e5 100644
+--- a/hotspot/test/compiler/c2/TestReplaceEquivPhis.java
++++ b/hotspot/test/compiler/c2/TestReplaceEquivPhis.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2020, Huawei Technologies Co. Ltd. All rights reserved.
++ * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+diff --git a/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh b/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
+index 1108aaf93..62a47b6d5 100644
+--- a/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
++++ b/hotspot/test/compiler/criticalnatives/argumentcorruption/Test8167409.sh
+@@ -2,7 +2,7 @@
+ 
+ #
+ #  Copyright (c) 1998, 2019, Oracle and/or its affiliates. All rights reserved.
+-#  Copyright (c) 2019 Huawei Technologies Co. LTD.  All Rights Reserved.
++#  Copyright (c) 2019 Huawei Technologies Co., LTD.  All Rights Reserved.
+ #  DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ #
+ #  This code is free software; you can redistribute it and/or modify it
+diff --git a/hotspot/test/compiler/loopopts/TestBeautifyLoops.java b/hotspot/test/compiler/loopopts/TestBeautifyLoops.java
+index c831430ed..8fcafc59b 100644
+--- a/hotspot/test/compiler/loopopts/TestBeautifyLoops.java
++++ b/hotspot/test/compiler/loopopts/TestBeautifyLoops.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2020, Huawei Technologies Co. Ltd. All rights reserved.
++ * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+diff --git a/hotspot/test/compiler/loopopts/TestBeautifyLoops_2.java b/hotspot/test/compiler/loopopts/TestBeautifyLoops_2.java
+index c53f33ff2..90fb2242f 100644
+--- a/hotspot/test/compiler/loopopts/TestBeautifyLoops_2.java
++++ b/hotspot/test/compiler/loopopts/TestBeautifyLoops_2.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2020, Huawei Technologies Co. Ltd. All rights reserved.
++ * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+diff --git a/hotspot/test/compiler/loopopts/TestRemoveEmptyLoop.java b/hotspot/test/compiler/loopopts/TestRemoveEmptyLoop.java
+index d9828e56f..3cf657044 100644
+--- a/hotspot/test/compiler/loopopts/TestRemoveEmptyLoop.java
++++ b/hotspot/test/compiler/loopopts/TestRemoveEmptyLoop.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2019, Huawei Technologies Co. Ltd. All rights reserved.
++ * Copyright (c) 2019, Huawei Technologies Co., Ltd. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+diff --git a/jdk/src/share/classes/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.java b/jdk/src/share/classes/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.java
+index 1443fb043..223e66c50 100644
+--- a/jdk/src/share/classes/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.java
++++ b/jdk/src/share/classes/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2020, Huawei Technologies Co., LTD. All rights reserved.
++ * Copyright (c) 2019, Huawei Technologies Co., Ltd. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+diff --git a/jdk/src/share/classes/com/huawei/management/AdaptiveHeapMXBean.java b/jdk/src/share/classes/com/huawei/management/AdaptiveHeapMXBean.java
+index 70563b58d..69ee78d0a 100644
+--- a/jdk/src/share/classes/com/huawei/management/AdaptiveHeapMXBean.java
++++ b/jdk/src/share/classes/com/huawei/management/AdaptiveHeapMXBean.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2020, Huawei Technologies Co., LTD. All rights reserved.
++ * Copyright (c) 2019, Huawei Technologies Co., Ltd. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+diff --git a/jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c b/jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c
+index 1f75e7cb1..99bfff885 100644
+--- a/jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c
++++ b/jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c
+@@ -1,5 +1,6 @@
+ /*
+- * Copyright (c) 2020, Huawei Technologies Co., LTD. All rights reserved.
++ * Copyright (c) 2019 Alibaba Group Holding Limited. All Rights Reserved.
++ * Copyright (c) 2021, Huawei Technologies Co., Ltd. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+diff --git a/jdk/test/sun/tools/jconsole/WorkerDeadlockTest.sh b/jdk/test/sun/tools/jconsole/WorkerDeadlockTest.sh
+index de8d9b4f0..d928f8c3c 100644
+--- a/jdk/test/sun/tools/jconsole/WorkerDeadlockTest.sh
++++ b/jdk/test/sun/tools/jconsole/WorkerDeadlockTest.sh
+@@ -1,5 +1,5 @@
+ #
+-# Copyright (c) 2020, Huawei Technologies Co. Ltd. All rights reserved.
++# Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ #
+ # This code is free software; you can redistribute it and/or modify it
+-- 
+2.12.3
+

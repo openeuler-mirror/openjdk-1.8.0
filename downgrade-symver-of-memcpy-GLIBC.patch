@@ -1,0 +1,308 @@
+From b6287af7cfd2951fea495861c97f947cf1eb1e80 Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Thu, 4 Mar 2021 11:09:20 +0800
+Subject: [PATCH] [Huawei]downgrade symver of memcpy@GLIBC
+
+Offering: Cloud Compiler JDK
+
+
+Signed-off-by: Feng Shijie  <fengshijie2@huawei.com>
+---
+ hotspot/src/os_cpu/linux_x86/vm/memcpy.cpp | 21 +++++++++++++++++++++
+ jdk/make/CompileDemos.gmk                  |  1 +
+ jdk/make/CompileLaunchers.gmk              |  1 +
+ jdk/make/lib/Awt2dLibraries.gmk            |  7 +++++++
+ jdk/make/lib/CoreLibraries.gmk             |  6 ++++++
+ jdk/make/lib/NetworkingLibraries.gmk       |  1 +
+ jdk/make/lib/NioLibraries.gmk              |  1 +
+ jdk/make/lib/SecurityLibraries.gmk         |  2 ++
+ jdk/make/lib/ServiceabilityLibraries.gmk   |  5 +++++
+ jdk/make/lib/SoundLibraries.gmk            |  1 +
+ make/common/NativeCompilation.gmk          |  7 +++++++
+ 11 files changed, 53 insertions(+)
+ create mode 100644 hotspot/src/os_cpu/linux_x86/vm/memcpy.cpp
+
+diff --git a/hotspot/src/os_cpu/linux_x86/vm/memcpy.cpp b/hotspot/src/os_cpu/linux_x86/vm/memcpy.cpp
+new file mode 100644
+index 000000000..0c4edeaae
+--- /dev/null
++++ b/hotspot/src/os_cpu/linux_x86/vm/memcpy.cpp
+@@ -0,0 +1,21 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2018-2020. All rights reserved.
++ */
++
++#if defined( __GNUC__ ) && \
++(__GNUC__ >= 5  ||  (__GNUC__ == 4  &&  __GNUC_MINOR__ >= 7)) 
++#include <string.h>
++
++#if (defined AMD64) || (defined amd64)
++/* some systems do not have newest memcpy@@GLIBC_2.14 - stay with old good one */
++asm (".symver memcpy, memcpy@GLIBC_2.2.5");
++
++extern "C"{
++  void *__wrap_memcpy(void *dest, const void *src, size_t n)
++  {
++    return memcpy(dest, src, n);
++  }
++}
++#endif
++#endif
++
+diff --git a/jdk/make/CompileDemos.gmk b/jdk/make/CompileDemos.gmk
+index 6c5eb4327..763c968e0 100644
+--- a/jdk/make/CompileDemos.gmk
++++ b/jdk/make/CompileDemos.gmk
+@@ -250,6 +250,7 @@ define SetupJVMTIDemo
+       SRC := $(JDK_TOPDIR)/src/share/demo/jvmti/$1 $$(BUILD_DEMO_JVMTI_$1_EXTRA_SRC), \
+       LANG := $$(BUILD_DEMO_JVMTI_$1_LANG), \
+       OPTIMIZATION := LOW, \
++      EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+       CXXFLAGS := $$($1_CXXFLAGS), \
+       LDFLAGS := $(filter-out -incremental:no -opt:ref, $$(LDFLAGS_JDKLIB)), \
+       LDFLAGS_macosx := $$(call SET_EXECUTABLE_ORIGIN), \
+diff --git a/jdk/make/CompileLaunchers.gmk b/jdk/make/CompileLaunchers.gmk
+index baaea8a99..3e5ae94ef 100644
+--- a/jdk/make/CompileLaunchers.gmk
++++ b/jdk/make/CompileLaunchers.gmk
+@@ -512,6 +512,7 @@ $(eval $(call SetupNativeCompilation,BUILD_UNPACKEXE, \
+     EXCLUDE_FILES := jni.cpp, \
+     LANG := $(UNPACKEXE_LANG), \
+     OPTIMIZATION := LOW, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(UNPACKEXE_CFLAGS) $(CXXFLAGS_JDKEXE) \
+         -DFULL, \
+     CFLAGS_release := -DPRODUCT, \
+diff --git a/jdk/make/lib/Awt2dLibraries.gmk b/jdk/make/lib/Awt2dLibraries.gmk
+index 9368a9d50..71d87c378 100644
+--- a/jdk/make/lib/Awt2dLibraries.gmk
++++ b/jdk/make/lib/Awt2dLibraries.gmk
+@@ -52,6 +52,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBMLIB_IMAGE, \
+     EXCLUDE_FILES := awt_ImagingLib.c mlib_c_ImageBlendTable.c, \
+     LANG := C, \
+     OPTIMIZATION := HIGHEST, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) \
+         $(BUILD_LIBMLIB_CFLAGS), \
+     MAPFILE := $(BUILD_LIBMLIB_IMAGE_MAPFILE), \
+@@ -470,6 +471,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBAWT, \
+     INCLUDE_FILES := $(LIBAWT_FILES), \
+     LANG := $(LIBAWT_LANG), \
+     OPTIMIZATION := LOW, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) $(LIBAWT_CFLAGS), \
+     ASFLAGS := $(LIBAWT_ASFLAGS), \
+     MAPFILE := $(LIBAWT_MAPFILE), \
+@@ -631,6 +633,7 @@ ifeq ($(findstring $(OPENJDK_TARGET_OS),windows macosx),)
+         INCLUDE_FILES := $(LIBAWT_XAWT_FILES), \
+         LANG := C, \
+         OPTIMIZATION := LOW, \
++        EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+         CFLAGS := $(CFLAGS_JDKLIB) $(LIBAWT_XAWT_CFLAGS) \
+             $(X_CFLAGS), \
+         MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libawt_xawt/mapfile-vers, \
+@@ -672,6 +675,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBLCMS, \
+     SRC := $(JDK_TOPDIR)/src/share/native/sun/java2d/cmm/lcms, \
+     LANG := C, \
+     OPTIMIZATION := HIGHEST, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(filter-out -xc99=%none, $(CFLAGS_JDKLIB)) \
+         -DCMS_DONT_USE_FAST_FLOOR \
+         $(SHARED_LIBRARY_FLAGS) \
+@@ -739,6 +743,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJPEG, \
+         $(JDK_TOPDIR)/src/share/native/sun/awt/image/jpeg, \
+     LANG := C, \
+     OPTIMIZATION := HIGHEST, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) \
+         $(BUILD_LIBJPEG_CLOSED_INCLUDES) \
+         -I$(JDK_TOPDIR)/src/share/native/sun/awt/image/jpeg, \
+@@ -914,6 +919,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBFONTMANAGER, \
+     EXCLUDE_FILES := $(LIBFONTMANAGER_EXCLUDE_FILES) \
+         AccelGlyphCache.c, \
+     LANG := C++, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) $(BUILD_LIBFONTMANAGER_CFLAGS_COMMON), \
+     CXXFLAGS := $(CXXFLAGS_JDKLIB) $(BUILD_LIBFONTMANAGER_CFLAGS_COMMON), \
+     OPTIMIZATION := $(LIBFONTMANAGER_OPTIMIZATION), \
+@@ -1205,6 +1211,7 @@ ifndef BUILD_HEADLESS_ONLY
+       EXCLUDE_FILES := imageioJPEG.c jpegdecoder.c pngtest.c, \
+       LANG := C, \
+       OPTIMIZATION := LOW, \
++      EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+       CFLAGS := $(LIBSPLASHSCREEN_CFLAGS) $(CFLAGS_JDKLIB) $(GIFLIB_CFLAGS), \
+       MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libsplashscreen/mapfile-vers, \
+       LDFLAGS := $(LDFLAGS_JDKLIB) \
+diff --git a/jdk/make/lib/CoreLibraries.gmk b/jdk/make/lib/CoreLibraries.gmk
+index afcebcb35..0b400b345 100644
+--- a/jdk/make/lib/CoreLibraries.gmk
++++ b/jdk/make/lib/CoreLibraries.gmk
+@@ -113,6 +113,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBVERIFY, \
+     INCLUDE_FILES := $(BUILD_LIBVERIFY_SRC), \
+     LANG := C, \
+     OPTIMIZATION := $(LIBVERIFY_OPTIMIZATION), \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB), \
+     MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libverify/mapfile-vers, \
+     LDFLAGS := $(LDFLAGS_JDKLIB) \
+@@ -223,6 +224,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAVA, \
+     EXCLUDE_FILES := $(LIBJAVA_EXCLUDE_FILES), \
+     LANG := C, \
+     OPTIMIZATION := HIGH, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) \
+         $(LIBJAVA_CFLAGS), \
+     MAPFILE := $(LIBJAVA_MAPFILE), \
+@@ -284,6 +286,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBZIP, \
+     OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
+     LANG := C, \
+     OPTIMIZATION := LOW, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     SRC := $(JDK_TOPDIR)/src/share/native/java/util/zip, \
+     EXCLUDES := $(LIBZIP_EXCLUDES), \
+     CFLAGS := $(CFLAGS_JDKLIB) \
+@@ -325,6 +328,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBUNPACK, \
+     EXCLUDE_FILES := main.cpp, \
+     LANG := C++, \
+     OPTIMIZATION := LOW, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CXXFLAGS_JDKLIB) \
+         -DNO_ZLIB -DUNPACK_JNI -DFULL, \
+     CFLAGS_release := -DPRODUCT, \
+@@ -436,6 +440,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJLI, \
+     INCLUDE_FILES := $(BUILD_LIBJLI_FILES), \
+     LANG := C, \
+     OPTIMIZATION := HIGH, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(LIBJLI_CFLAGS), \
+     MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libjli/mapfile-vers, \
+     LDFLAGS := $(LDFLAGS_JDKLIB) \
+@@ -537,6 +542,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBNPT, \
+     SRC := $(JDK_TOPDIR)/src/share/npt $(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/npt, \
+     LANG := C, \
+     OPTIMIZATION := LOW, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) \
+         -I$(JDK_TOPDIR)/src/share/npt \
+         -I$(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/npt, \
+diff --git a/jdk/make/lib/NetworkingLibraries.gmk b/jdk/make/lib/NetworkingLibraries.gmk
+index 347c32376..f826c66d0 100644
+--- a/jdk/make/lib/NetworkingLibraries.gmk
++++ b/jdk/make/lib/NetworkingLibraries.gmk
+@@ -65,6 +65,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBNET, \
+     EXCLUDE_FILES := $(LIBNET_EXCLUDE_FILES), \
+     LANG := C, \
+     OPTIMIZATION := LOW, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) \
+         $(LIBNET_CFLAGS), \
+     MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libnet/mapfile-vers, \
+diff --git a/jdk/make/lib/NioLibraries.gmk b/jdk/make/lib/NioLibraries.gmk
+index 6c9c46a3f..54c9c29e0 100644
+--- a/jdk/make/lib/NioLibraries.gmk
++++ b/jdk/make/lib/NioLibraries.gmk
+@@ -181,6 +181,7 @@ ifeq ($(OPENJDK_TARGET_OS_API), posix)
+         SRC := $(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/sun/nio/ch/sctp, \
+         LANG := C, \
+         OPTIMIZATION := LOW, \
++        EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+         CFLAGS := $(CFLAGS_JDKLIB) \
+             -I$(JDK_TOPDIR)/src/share/native/sun/nio/ch \
+             -I$(JDK_TOPDIR)/src/share/native/sun/nio/ch/sctp \
+diff --git a/jdk/make/lib/SecurityLibraries.gmk b/jdk/make/lib/SecurityLibraries.gmk
+index a8eeceb3c..6096a00a0 100644
+--- a/jdk/make/lib/SecurityLibraries.gmk
++++ b/jdk/make/lib/SecurityLibraries.gmk
+@@ -194,6 +194,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJ2PKCS11, \
+         $(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/sun/security/pkcs11/wrapper, \
+     LANG := C, \
+     OPTIMIZATION := LOW, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) \
+         -I$(JDK_TOPDIR)/src/share/native/sun/security/pkcs11 \
+         -I$(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/native/sun/security/pkcs11 \
+@@ -239,6 +240,7 @@ ifeq ($(ENABLE_INTREE_EC), yes)
+           $(JDK_TOPDIR)/src/share/native/sun/security/ec/impl, \
+       LANG := C++, \
+       OPTIMIZATION := LOW, \
++      EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+       CFLAGS := $(filter-out $(ECC_JNI_SOLSPARC_FILTER), $(CFLAGS_JDKLIB)) \
+           $(BUILD_LIBSUNEC_FLAGS) \
+           -DMP_API_COMPATIBLE -DNSS_ECC_MORE_THAN_SUITE_B, \
+diff --git a/jdk/make/lib/ServiceabilityLibraries.gmk b/jdk/make/lib/ServiceabilityLibraries.gmk
+index 09434f14d..02fded0dc 100644
+--- a/jdk/make/lib/ServiceabilityLibraries.gmk
++++ b/jdk/make/lib/ServiceabilityLibraries.gmk
+@@ -83,6 +83,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBDT_SOCKET, \
+         $(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/transport/socket, \
+     LANG := C, \
+     OPTIMIZATION := LOW, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) -DUSE_MMAP \
+         -I$(INCLUDEDIR) -I$(JDK_OUTPUTDIR)/include/$(OPENJDK_TARGET_OS) \
+         -I$(JDK_TOPDIR)/src/share/transport/socket \
+@@ -148,6 +149,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJDWP, \
+     SRC := $(JDK_TOPDIR)/src/share/back $(JDK_TOPDIR)/src/$(OPENJDK_TARGET_OS_API_DIR)/back, \
+     LANG := C, \
+     OPTIMIZATION := LOW, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) -DJDWP_LOGGING \
+         -I$(JDK_TOPDIR)/src/share/transport/export \
+         -I$(JDK_TOPDIR)/src/share/back/export \
+@@ -252,6 +254,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBINSTRUMENT, \
+     INCLUDE_FILES := $(LIBINSTRUMENT_FILES), \
+     LANG := C, \
+     OPTIMIZATION := LOW, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(LIBINSTRUMENT_CFLAGS), \
+     CFLAGS_debug := -DJPLIS_LOGGING, \
+     CFLAGS_release := -DNO_JPLIS_LOGGING, \
+@@ -375,6 +378,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBHPROF, \
+     SRC := $(BUILD_LIBHPROF_SRC), \
+     LANG := C, \
+     OPTIMIZATION := $(LIBHPROF_OPTIMIZATION), \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) \
+         $(BUILD_LIBHPROF_CFLAGS), \
+     CFLAGS_debug := -DHPROF_LOGGING, \
+@@ -403,6 +407,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAVA_CRW_DEMO, \
+     SRC := $(JDK_TOPDIR)/src/share/demo/jvmti/java_crw_demo, \
+     LANG := C, \
+     OPTIMIZATION := LOW, \
++    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+     CFLAGS := $(CFLAGS_JDKLIB) \
+         -I$(JDK_TOPDIR)/src/share/demo/jvmti/java_crw_demo, \
+     MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libjava_crw_demo/mapfile-vers, \
+diff --git a/jdk/make/lib/SoundLibraries.gmk b/jdk/make/lib/SoundLibraries.gmk
+index b59a9462e..0ea9ba843 100644
+--- a/jdk/make/lib/SoundLibraries.gmk
++++ b/jdk/make/lib/SoundLibraries.gmk
+@@ -201,6 +201,7 @@ ifneq ($(filter jsoundalsa, $(EXTRA_SOUND_JNI_LIBS)), )
+           PLATFORM_API_LinuxOS_ALSA_Ports.c, \
+       LANG := C, \
+       OPTIMIZATION := LOW, \
++      EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
+       CFLAGS := $(CFLAGS_JDKLIB) $(ALSA_CFLAGS) \
+           $(LIBJSOUND_CFLAGS) \
+           -DUSE_DAUDIO=TRUE \
+diff --git a/make/common/NativeCompilation.gmk b/make/common/NativeCompilation.gmk
+index 4fa9f14cf..c1747608d 100644
+--- a/make/common/NativeCompilation.gmk
++++ b/make/common/NativeCompilation.gmk
+@@ -281,6 +281,13 @@ define SetupNativeCompilation
+   ifneq (,$$(strip $$($1_INCLUDE_FILES)))
+     $1_SRCS := $$(filter $$($1_INCLUDE_FILES),$$($1_SRCS))
+   endif
++  ifeq ($(OPENJDK_TARGET_OS), linux) # only on linux
++    ifneq ($(OPENJDK_TARGET_CPU_ARCH), aarch64) # not need on the arm arch
++      ifneq (,$$(strip $$($1_EXTRA_FILES)))
++        $1_SRCS += $$($1_EXTRA_FILES)
++      endif
++    endif
++  endif
+   ifeq (,$$($1_SRCS))
+     $$(error No sources found for $1 when looking inside the dirs $$($1_SRC))
+   endif
+-- 
+2.19.0
+

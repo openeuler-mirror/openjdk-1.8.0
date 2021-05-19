@@ -1,0 +1,31 @@
+From 3c4faec7c6ace3004f9ee9fd5ea8fa56f22f1028 Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Tue, 9 Mar 2021 17:27:50 +0800
+Subject: [PATCH] [Backport]8031818: Experimental VM flag for enforcing
+ safe object construction
+
+Offering: Cloud Compiler JDK
+Reference: https://bugs.openjdk.java.net/browse/JDK-8031818
+
+
+Signed-off-by: Sun Jianye <sunjianye@huawei.com>
+---
+ hotspot/src/share/vm/opto/parse1.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hotspot/src/share/vm/opto/parse1.cpp b/hotspot/src/share/vm/opto/parse1.cpp
+index 2d6daa159..513747de0 100644
+--- a/hotspot/src/share/vm/opto/parse1.cpp
++++ b/hotspot/src/share/vm/opto/parse1.cpp
+@@ -958,7 +958,7 @@ void Parse::do_exits() {
+   // stores. We want to quarantee the same behaviour as on platforms
+   // with total store order, although this is not required by the Java
+   // memory model. So as with finals, we add a barrier here.
+-  if (wrote_final() PPC64_ONLY(|| (wrote_volatile() && method()->is_initializer()))) {
++  if (method()->is_initializer() && (wrote_final() PPC64_ONLY(|| wrote_volatile()))) {
+     // This method (which must be a constructor by the rules of Java)
+     // wrote a final.  The effects of all initializations must be
+     // committed to memory before any code after the constructor
+-- 
+2.19.0
+
