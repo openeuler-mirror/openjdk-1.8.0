@@ -921,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 18
+Release: 19
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1096,6 +1096,7 @@ Patch167: fix-BoxTypeCachedMax-build-failure-when-jvm-variants.patch
 Patch168: fix-windows-compile-fail.patch
 Patch169: Code-style-fix.patch
 Patch170: kae-phase2.patch
+Patch171: add-kaeEngine-to-rsa.patch
 
 #############################################
 #
@@ -1540,6 +1541,7 @@ pushd %{top_level_dir_name}
 %patch168 -p1
 %patch169 -p1
 %patch170 -p1
+%patch171 -p1
 
 popd
 
@@ -2157,6 +2159,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Wed May 19 2021 Noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.19
+- add add-kaeEngine-to-rsa.patch
+
 * Mon May 17 2021 Noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.18
 - add kae-phase2.patch
 
