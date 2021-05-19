@@ -1,0 +1,69 @@
+From 39774b66e6b962a89a02504f08c20b309f9eef1f Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Thu, 4 Mar 2021 10:10:30 +0800
+Subject: [PATCH] [Huawei]remove gnu debuglink when using enable debug
+ symbols
+
+Offering: Cloud Compiler JDK
+
+
+Signed-off-by: Sun Jianye  <sunjianye@huawei.com>
+---
+ hotspot/make/linux/makefiles/jsig.make   | 1 -
+ hotspot/make/linux/makefiles/saproc.make | 1 -
+ hotspot/make/linux/makefiles/vm.make     | 1 -
+ make/common/NativeCompilation.gmk        | 2 +-
+ 4 files changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/hotspot/make/linux/makefiles/jsig.make b/hotspot/make/linux/makefiles/jsig.make
+index 6290db5af..9838a50aa 100644
+--- a/hotspot/make/linux/makefiles/jsig.make
++++ b/hotspot/make/linux/makefiles/jsig.make
+@@ -63,7 +63,6 @@ $(LIBJSIG): $(JSIGSRCDIR)/jsig.c $(LIBJSIG_MAPFILE)
+ ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
+   ifneq ($(STRIP_POLICY),no_strip)
+ 	$(QUIETLY) $(OBJCOPY) --only-keep-debug $@ $(LIBJSIG_DEBUGINFO)
+-	$(QUIETLY) $(OBJCOPY) --add-gnu-debuglink=$(LIBJSIG_DEBUGINFO) $@
+   endif
+   ifeq ($(STRIP_POLICY),all_strip)
+ 	$(QUIETLY) $(STRIP) $@
+diff --git a/hotspot/make/linux/makefiles/saproc.make b/hotspot/make/linux/makefiles/saproc.make
+index ffc0ec5ce..dfeb254da 100644
+--- a/hotspot/make/linux/makefiles/saproc.make
++++ b/hotspot/make/linux/makefiles/saproc.make
+@@ -107,7 +107,6 @@ $(LIBSAPROC): $(SASRCFILES) $(SAMAPFILE)
+ ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
+   ifneq ($(STRIP_POLICY),no_strip)
+ 	$(QUIETLY) $(OBJCOPY) --only-keep-debug $@ $(LIBSAPROC_DEBUGINFO)
+-	$(QUIETLY) $(OBJCOPY) --add-gnu-debuglink=$(LIBSAPROC_DEBUGINFO) $@
+   endif
+   ifeq ($(STRIP_POLICY),all_strip)
+ 	$(QUIETLY) $(STRIP) $@
+diff --git a/hotspot/make/linux/makefiles/vm.make b/hotspot/make/linux/makefiles/vm.make
+index 1985db071..408b0cc9d 100644
+--- a/hotspot/make/linux/makefiles/vm.make
++++ b/hotspot/make/linux/makefiles/vm.make
+@@ -359,7 +359,6 @@ $(LIBJVM): $(LIBJVM.o) $(LIBJVM_MAPFILE) $(LD_SCRIPT)
+ ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
+   ifneq ($(STRIP_POLICY),no_strip)
+ 	$(QUIETLY) $(OBJCOPY) --only-keep-debug $@ $(LIBJVM_DEBUGINFO)
+-	$(QUIETLY) $(OBJCOPY) --add-gnu-debuglink=$(LIBJVM_DEBUGINFO) $@
+   endif
+   ifeq ($(STRIP_POLICY),all_strip)
+ 	$(QUIETLY) $(STRIP) $@
+diff --git a/make/common/NativeCompilation.gmk b/make/common/NativeCompilation.gmk
+index 9980e8ab9..4fa9f14cf 100644
+--- a/make/common/NativeCompilation.gmk
++++ b/make/common/NativeCompilation.gmk
+@@ -487,7 +487,7 @@ define SetupNativeCompilation
+               $$($1_DEBUGINFO_FILES): $$($1_TARGET)
+ 			$(RM) $$@
+ 			$(OBJCOPY) --only-keep-debug $$< $$@
+-			$(CD) $$(@D) && $(OBJCOPY) --add-gnu-debuglink=$$(@F) $$<
++			$(CD) $$(@D)
+ 			$(TOUCH) $$@
+             endif
+           endif # No MacOS X support
+-- 
+2.19.0
+

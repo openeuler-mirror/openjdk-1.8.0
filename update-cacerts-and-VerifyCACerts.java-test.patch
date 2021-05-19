@@ -1,0 +1,371 @@
+From 1125b6be8c484b41b46954a38b6e01861157b6d7 Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Tue, 20 Apr 2021 10:40:35 +0800
+Subject: [PATCH] [Huawei]update cacerts and VerifyCACerts.java test
+
+Offering: Cloud Compiler JDK
+
+Signed-off-by: Wang Kun <wangkun49@huawei.com>
+---
+ jdk/make/data/cacerts/addtrustexternalca           | 32 -----------------
+ jdk/make/data/cacerts/addtrustqualifiedca          | 32 -----------------
+ jdk/make/data/cacerts/luxtrustglobalrootca         | 28 ---------------
+ jdk/make/data/cacerts/quovadisrootca               | 41 ----------------------
+ jdk/make/data/cacerts/thawtepremiumserverca        | 27 --------------
+ jdk/make/data/cacerts/utnuserfirstobjectca         | 33 -----------------
+ jdk/make/data/cacerts/verisigntsaca                | 24 -------------
+ .../sun/security/lib/cacerts/VerifyCACerts.java    | 40 ++-------------------
+ 8 files changed, 3 insertions(+), 254 deletions(-)
+ delete mode 100644 jdk/make/data/cacerts/addtrustexternalca
+ delete mode 100644 jdk/make/data/cacerts/addtrustqualifiedca
+ delete mode 100644 jdk/make/data/cacerts/luxtrustglobalrootca
+ delete mode 100644 jdk/make/data/cacerts/quovadisrootca
+ delete mode 100644 jdk/make/data/cacerts/thawtepremiumserverca
+ delete mode 100644 jdk/make/data/cacerts/utnuserfirstobjectca
+ delete mode 100644 jdk/make/data/cacerts/verisigntsaca
+
+diff --git a/jdk/make/data/cacerts/addtrustexternalca b/jdk/make/data/cacerts/addtrustexternalca
+deleted file mode 100644
+index ad84cad..0000000
+--- a/jdk/make/data/cacerts/addtrustexternalca
++++ /dev/null
+@@ -1,32 +0,0 @@
+-Owner: CN=AddTrust External CA Root, OU=AddTrust External TTP Network, O=AddTrust AB, C=SE
+-Issuer: CN=AddTrust External CA Root, OU=AddTrust External TTP Network, O=AddTrust AB, C=SE
+-Serial number: 1
+-Valid from: Tue May 30 10:48:38 GMT 2000 until: Sat May 30 10:48:38 GMT 2020
+-Signature algorithm name: SHA1withRSA
+-Subject Public Key Algorithm: 2048-bit RSA key
+-Version: 3
+------BEGIN CERTIFICATE-----
+-MIIENjCCAx6gAwIBAgIBATANBgkqhkiG9w0BAQUFADBvMQswCQYDVQQGEwJTRTEU
+-MBIGA1UEChMLQWRkVHJ1c3QgQUIxJjAkBgNVBAsTHUFkZFRydXN0IEV4dGVybmFs
+-IFRUUCBOZXR3b3JrMSIwIAYDVQQDExlBZGRUcnVzdCBFeHRlcm5hbCBDQSBSb290
+-MB4XDTAwMDUzMDEwNDgzOFoXDTIwMDUzMDEwNDgzOFowbzELMAkGA1UEBhMCU0Ux
+-FDASBgNVBAoTC0FkZFRydXN0IEFCMSYwJAYDVQQLEx1BZGRUcnVzdCBFeHRlcm5h
+-bCBUVFAgTmV0d29yazEiMCAGA1UEAxMZQWRkVHJ1c3QgRXh0ZXJuYWwgQ0EgUm9v
+-dDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALf3GjPm8gAELTngTlvt
+-H7xsD821+iO2zt6bETOXpClMfZOfvUq8k+0DGuOPz+VtUFrWlymUWoCwSXrbLpX9
+-uMq/NzgtHj6RQa1wVsfwTz/oMp50ysiQVOnGXw94nZpAPA6sYapeFI+eh6FqUNzX
+-mk6vBbOmcZSccbNQYArHE504B4YCqOmoaSYYkKtMsE8jqzpPhNjfzp/haW+710LX
+-a0Tkx63ubUFfclpxCDezeWWkWaCUN/cALw3CknLa0Dhy2xSoRcRdKn23tNbE7qzN
+-E0S3ySvdQwAl+mG5aWpYIxG3pzOPVnVZ9c0p10a3CitlttNCbxWyuHv77+ldU9U0
+-WicCAwEAAaOB3DCB2TAdBgNVHQ4EFgQUrb2YejS0Jvf6xCZU7wO94CTLVBowCwYD
+-VR0PBAQDAgEGMA8GA1UdEwEB/wQFMAMBAf8wgZkGA1UdIwSBkTCBjoAUrb2YejS0
+-Jvf6xCZU7wO94CTLVBqhc6RxMG8xCzAJBgNVBAYTAlNFMRQwEgYDVQQKEwtBZGRU
+-cnVzdCBBQjEmMCQGA1UECxMdQWRkVHJ1c3QgRXh0ZXJuYWwgVFRQIE5ldHdvcmsx
+-IjAgBgNVBAMTGUFkZFRydXN0IEV4dGVybmFsIENBIFJvb3SCAQEwDQYJKoZIhvcN
+-AQEFBQADggEBALCb4IUlwtYj4g+WBpKdQZic2YR5gdkeWxQHIzZlj7DYd7usQWxH
+-YINRsPkyPef89iYTx4AWpb9a/IfPeHmJIZriTAcKhjW88t5RxNKWt9x+Tu5w/Rw5
+-6wwCURQtjr0W4MHfRnXnJK3s9EK0hZNwEGe6nQY1ShjTK3rMUUKhemPR5ruhxSvC
+-Nr4TDea9Y355e6cJDUCrat2PisP29owaQgVR1EX1n6diIWgVIEM8med8vSTYqZEX
+-c4g/VhsxOBi0cQ+azcgOno4uG+GMmIPLHzHxREzGBHNJdmAPx/i9F4BrLunMTA5a
+-mnkPIAou1Z5jJh5VkpTYghdae9C8x49OhgQ=
+------END CERTIFICATE-----
+diff --git a/jdk/make/data/cacerts/addtrustqualifiedca b/jdk/make/data/cacerts/addtrustqualifiedca
+deleted file mode 100644
+index 0c62d44..0000000
+--- a/jdk/make/data/cacerts/addtrustqualifiedca
++++ /dev/null
+@@ -1,32 +0,0 @@
+-Owner: CN=AddTrust Qualified CA Root, OU=AddTrust TTP Network, O=AddTrust AB, C=SE
+-Issuer: CN=AddTrust Qualified CA Root, OU=AddTrust TTP Network, O=AddTrust AB, C=SE
+-Serial number: 1
+-Valid from: Tue May 30 10:44:50 GMT 2000 until: Sat May 30 10:44:50 GMT 2020
+-Signature algorithm name: SHA1withRSA
+-Subject Public Key Algorithm: 2048-bit RSA key
+-Version: 3
+------BEGIN CERTIFICATE-----
+-MIIEHjCCAwagAwIBAgIBATANBgkqhkiG9w0BAQUFADBnMQswCQYDVQQGEwJTRTEU
+-MBIGA1UEChMLQWRkVHJ1c3QgQUIxHTAbBgNVBAsTFEFkZFRydXN0IFRUUCBOZXR3
+-b3JrMSMwIQYDVQQDExpBZGRUcnVzdCBRdWFsaWZpZWQgQ0EgUm9vdDAeFw0wMDA1
+-MzAxMDQ0NTBaFw0yMDA1MzAxMDQ0NTBaMGcxCzAJBgNVBAYTAlNFMRQwEgYDVQQK
+-EwtBZGRUcnVzdCBBQjEdMBsGA1UECxMUQWRkVHJ1c3QgVFRQIE5ldHdvcmsxIzAh
+-BgNVBAMTGkFkZFRydXN0IFF1YWxpZmllZCBDQSBSb290MIIBIjANBgkqhkiG9w0B
+-AQEFAAOCAQ8AMIIBCgKCAQEA5B6a/twJWoekn0e+EV+vhDTbYjx5eLfpMLXsDBwq
+-xBb/4Oxx64r1EW7tTw2R0hIYLUkVAcKkIhPHEWT/IhKauY5cLwjPcWqzZwFZ8V1G
+-87B4pfYOQnrjfxvM0PC3KP0q6p6zsLkEqv32x7SxuCqg+1jxGaBvcCV+PmlKfw8i
+-2O+tCBGaKZnhqkRFmhJePp1tUvznoD1oL/BLcHwTOK28FSXx1s6rosAx1i+f4P8U
+-WfyEk9mHfExUE+uf0S0R+Bg6Ot4l2ffTQO2kBhLEO+GRwVY18BTcZTYJbqukB8c1
+-0cIDMzZbdSZtQvESa0NvS3GU+jQd7RNuyoB/mC9suWXY6QIDAQABo4HUMIHRMB0G
+-A1UdDgQWBBQ5lYtii1zJ1IC6WA+XPxUIQ8yYpzALBgNVHQ8EBAMCAQYwDwYDVR0T
+-AQH/BAUwAwEB/zCBkQYDVR0jBIGJMIGGgBQ5lYtii1zJ1IC6WA+XPxUIQ8yYp6Fr
+-pGkwZzELMAkGA1UEBhMCU0UxFDASBgNVBAoTC0FkZFRydXN0IEFCMR0wGwYDVQQL
+-ExRBZGRUcnVzdCBUVFAgTmV0d29yazEjMCEGA1UEAxMaQWRkVHJ1c3QgUXVhbGlm
+-aWVkIENBIFJvb3SCAQEwDQYJKoZIhvcNAQEFBQADggEBABmrder4i2VhlRO6aQTv
+-hsoToMeqT2QbPxj2qC0sVY8FtzDqQmodwCVRLae/DLPt7wh/bDxGGuoYQ992zPlm
+-hpwsaPXpF/gxsxjE1kh9I0xowX67ARRvxdlu3rsEQmr49lx95dr6h+sNNVJn0J6X
+-dgWTP5XHAeZpVTh/EGGZyeNfpso+gmNIquIISD6q8rKFYqa0p9m9N5xotS1WfbC3
+-P6CxB9bpT9zeRXEwMn8bLgn5v1Kh7sKAPgZcLlVAwRv1cEWw3F369nJad9Jjzc9Y
+-iQBCYz95OdBEsIJuQRno3eDBiFrRHnGTHyQwdOUeqN48Jzd/g66ed8/wMLH/S5no
+-xqE=
+------END CERTIFICATE-----
+diff --git a/jdk/make/data/cacerts/luxtrustglobalrootca b/jdk/make/data/cacerts/luxtrustglobalrootca
+deleted file mode 100644
+index 7fb3d81..0000000
+--- a/jdk/make/data/cacerts/luxtrustglobalrootca
++++ /dev/null
+@@ -1,28 +0,0 @@
+-Owner: CN=LuxTrust Global Root, O=LuxTrust s.a., C=LU
+-Issuer: CN=LuxTrust Global Root, O=LuxTrust s.a., C=LU
+-Serial number: bb8
+-Valid from: Thu Mar 17 09:51:37 GMT 2011 until: Wed Mar 17 09:51:37 GMT 2021
+-Signature algorithm name: SHA256withRSA
+-Subject Public Key Algorithm: 2048-bit RSA key
+-Version: 3
+------BEGIN CERTIFICATE-----
+-MIIDZDCCAkygAwIBAgICC7gwDQYJKoZIhvcNAQELBQAwRDELMAkGA1UEBhMCTFUx
+-FjAUBgNVBAoTDUx1eFRydXN0IHMuYS4xHTAbBgNVBAMTFEx1eFRydXN0IEdsb2Jh
+-bCBSb290MB4XDTExMDMxNzA5NTEzN1oXDTIxMDMxNzA5NTEzN1owRDELMAkGA1UE
+-BhMCTFUxFjAUBgNVBAoTDUx1eFRydXN0IHMuYS4xHTAbBgNVBAMTFEx1eFRydXN0
+-IEdsb2JhbCBSb290MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsn+n
+-QPAiygz267Hxyw6VV0B1r6A/Ps7sqjJX5hmxZ0OYWmt8s7j6eJyqpoSyYBuAQc5j
+-zR8XCJmk9e8+EsdMsFeaXHhAePxFjdqRZ9w6Ubltc+a3OY52OrQfBfVpVfmTz3iI
+-Sr6qm9d7R1tGBEyCFqY19vx039a0r9jitScRdFmiwmYsaArhmIiIPIoFdRTjuK7z
+-CISbasE/MRivJ6VLm6T9eTHemD0OYcqHmMH4ijCc+j4z1aXEAwfh95Z0GAAnOCfR
+-K6qq4UFFi2/xJcLcopeVx0IUM115hCNq52XAV6DYXaljAeew5Ivo+MVjuOVsdJA9
+-x3f8K7p56aTGEnin/wIDAQABo2AwXjAMBgNVHRMEBTADAQH/MA4GA1UdDwEB/wQE
+-AwIBBjAfBgNVHSMEGDAWgBQXFYWJCS8kh28/HRvk8pZ5g0gTzjAdBgNVHQ4EFgQU
+-FxWFiQkvJIdvPx0b5PKWeYNIE84wDQYJKoZIhvcNAQELBQADggEBAFrwHNDUUM9B
+-fua4nX3DcNBeNv9ujnov3kgR1TQuPLdFwlQlp+HBHjeDtpSutkVIA+qVvuucarQ3
+-XB8u02uCgUNbCj8RVWOs+nwIAjegPDkEM/6XMshS5dklTbDG7mgfcKpzzlcD3H0K
+-DTPy0lrfCmw7zBFRlxqkIaKFNQLXgCLShLL4wKpov9XrqsMLq6F8K/f1O4fhVFfs
+-BSTveUJO84ton+Ruy4KZycwq3FPCH3CDqyEPVrRI/98HIrOM+R2mBN8tAza53W/+
+-MYhm/2xtRDSvCHc+JtJy9LtHVpM8mGPhM7uZI5K1g3noHZ9nrWLWidb2/CfeMifL
+-hNp3hSGhEiE=
+------END CERTIFICATE-----
+diff --git a/jdk/make/data/cacerts/quovadisrootca b/jdk/make/data/cacerts/quovadisrootca
+deleted file mode 100644
+index 0c195ff..0000000
+--- a/jdk/make/data/cacerts/quovadisrootca
++++ /dev/null
+@@ -1,41 +0,0 @@
+-Owner: CN=QuoVadis Root Certification Authority, OU=Root Certification Authority, O=QuoVadis Limited, C=BM
+-Issuer: CN=QuoVadis Root Certification Authority, OU=Root Certification Authority, O=QuoVadis Limited, C=BM
+-Serial number: 3ab6508b
+-Valid from: Mon Mar 19 18:33:33 GMT 2001 until: Wed Mar 17 18:33:33 GMT 2021
+-Signature algorithm name: SHA1withRSA
+-Subject Public Key Algorithm: 2048-bit RSA key
+-Version: 3
+------BEGIN CERTIFICATE-----
+-MIIF0DCCBLigAwIBAgIEOrZQizANBgkqhkiG9w0BAQUFADB/MQswCQYDVQQGEwJC
+-TTEZMBcGA1UEChMQUXVvVmFkaXMgTGltaXRlZDElMCMGA1UECxMcUm9vdCBDZXJ0
+-aWZpY2F0aW9uIEF1dGhvcml0eTEuMCwGA1UEAxMlUXVvVmFkaXMgUm9vdCBDZXJ0
+-aWZpY2F0aW9uIEF1dGhvcml0eTAeFw0wMTAzMTkxODMzMzNaFw0yMTAzMTcxODMz
+-MzNaMH8xCzAJBgNVBAYTAkJNMRkwFwYDVQQKExBRdW9WYWRpcyBMaW1pdGVkMSUw
+-IwYDVQQLExxSb290IENlcnRpZmljYXRpb24gQXV0aG9yaXR5MS4wLAYDVQQDEyVR
+-dW9WYWRpcyBSb290IENlcnRpZmljYXRpb24gQXV0aG9yaXR5MIIBIjANBgkqhkiG
+-9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv2G1lVO6V/z68mcLOhrfEYBklbTRvM16z/Yp
+-li4kVEAkOPcahdxYTMukJ0KX0J+DisPkBgNbAKVRHnAEdOLB1Dqr1607BxgFjv2D
+-rOpm2RgbaIr1VxqYuvXtdj182d6UajtLF8HVj71lODqV0D1VNk7feVcxKh7YWWVJ
+-WCCYfqtffp/p1k3sg3Spx2zY7ilKhSoGFPlU5tPaZQeLYzcS19Dsw3sgQUSj7cug
+-F+FxZc4dZjH3dgEZyH0DWLaVSR2mEiboxgx24ONmy+pdpibu5cxfvWenAScOospU
+-xbF6lR1xHkopigPcakXBpBlebzbNw6Kwt/5cOOJSvPhEQ+aQuwIDAQABo4ICUjCC
+-Ak4wPQYIKwYBBQUHAQEEMTAvMC0GCCsGAQUFBzABhiFodHRwczovL29jc3AucXVv
+-dmFkaXNvZmZzaG9yZS5jb20wDwYDVR0TAQH/BAUwAwEB/zCCARoGA1UdIASCAREw
+-ggENMIIBCQYJKwYBBAG+WAABMIH7MIHUBggrBgEFBQcCAjCBxxqBxFJlbGlhbmNl
+-IG9uIHRoZSBRdW9WYWRpcyBSb290IENlcnRpZmljYXRlIGJ5IGFueSBwYXJ0eSBh
+-c3N1bWVzIGFjY2VwdGFuY2Ugb2YgdGhlIHRoZW4gYXBwbGljYWJsZSBzdGFuZGFy
+-ZCB0ZXJtcyBhbmQgY29uZGl0aW9ucyBvZiB1c2UsIGNlcnRpZmljYXRpb24gcHJh
+-Y3RpY2VzLCBhbmQgdGhlIFF1b1ZhZGlzIENlcnRpZmljYXRlIFBvbGljeS4wIgYI
+-KwYBBQUHAgEWFmh0dHA6Ly93d3cucXVvdmFkaXMuYm0wHQYDVR0OBBYEFItLbe3T
+-KbkGGew5Oanwl4Rqy+/fMIGuBgNVHSMEgaYwgaOAFItLbe3TKbkGGew5Oanwl4Rq
+-y+/foYGEpIGBMH8xCzAJBgNVBAYTAkJNMRkwFwYDVQQKExBRdW9WYWRpcyBMaW1p
+-dGVkMSUwIwYDVQQLExxSb290IENlcnRpZmljYXRpb24gQXV0aG9yaXR5MS4wLAYD
+-VQQDEyVRdW9WYWRpcyBSb290IENlcnRpZmljYXRpb24gQXV0aG9yaXR5ggQ6tlCL
+-MA4GA1UdDwEB/wQEAwIBBjANBgkqhkiG9w0BAQUFAAOCAQEAitQUtf70mpKnGdSk
+-fnIYj9lofFIk3WdvOXrEql494liwTXCYhGHoG+NpGA7O+0dQoE7/8CQfvbLO9Sf8
+-7C9TqnN7Az10buYWnuulLsS/VidQK2K6vkscPFVcQR0kvoIgR13VRH56FmjffU1R
+-cHhXHTMe/QKZnAzNCgVPx7uOpHX6Sm2xgI4JVrmcGmD+XcHXetwReNDWXcG31a0y
+-mQM6isxUJTkxgXsTIlG6Rmyhu576BGxJJnSP0nPrzDCi5upZIof4l/UO/erMkqQW
+-xFIY6iHOsfHmhIHluqmGKPJDWl0Snawe2ajlCmqnf6CHKc/yiU3U7MXi5nrQNiOK
+-SnQ2+Q==
+------END CERTIFICATE-----
+diff --git a/jdk/make/data/cacerts/thawtepremiumserverca b/jdk/make/data/cacerts/thawtepremiumserverca
+deleted file mode 100644
+index 2df456a..0000000
+--- a/jdk/make/data/cacerts/thawtepremiumserverca
++++ /dev/null
+@@ -1,27 +0,0 @@
+-Owner: EMAILADDRESS=premium-server@thawte.com, CN=Thawte Premium Server CA, OU=Certification Services Division, O=Thawte Consulting cc, L=Cape Town, ST=Western Cape, C=ZA
+-Issuer: EMAILADDRESS=premium-server@thawte.com, CN=Thawte Premium Server CA, OU=Certification Services Division, O=Thawte Consulting cc, L=Cape Town, ST=Western Cape, C=ZA
+-Serial number: 36122296c5e338a520a1d25f4cd70954
+-Valid from: Thu Aug 01 00:00:00 GMT 1996 until: Fri Jan 01 23:59:59 GMT 2021
+-Signature algorithm name: SHA1withRSA
+-Subject Public Key Algorithm: 1024-bit RSA key
+-Version: 3
+------BEGIN CERTIFICATE-----
+-MIIDNjCCAp+gAwIBAgIQNhIilsXjOKUgodJfTNcJVDANBgkqhkiG9w0BAQUFADCB
+-zjELMAkGA1UEBhMCWkExFTATBgNVBAgTDFdlc3Rlcm4gQ2FwZTESMBAGA1UEBxMJ
+-Q2FwZSBUb3duMR0wGwYDVQQKExRUaGF3dGUgQ29uc3VsdGluZyBjYzEoMCYGA1UE
+-CxMfQ2VydGlmaWNhdGlvbiBTZXJ2aWNlcyBEaXZpc2lvbjEhMB8GA1UEAxMYVGhh
+-d3RlIFByZW1pdW0gU2VydmVyIENBMSgwJgYJKoZIhvcNAQkBFhlwcmVtaXVtLXNl
+-cnZlckB0aGF3dGUuY29tMB4XDTk2MDgwMTAwMDAwMFoXDTIxMDEwMTIzNTk1OVow
+-gc4xCzAJBgNVBAYTAlpBMRUwEwYDVQQIEwxXZXN0ZXJuIENhcGUxEjAQBgNVBAcT
+-CUNhcGUgVG93bjEdMBsGA1UEChMUVGhhd3RlIENvbnN1bHRpbmcgY2MxKDAmBgNV
+-BAsTH0NlcnRpZmljYXRpb24gU2VydmljZXMgRGl2aXNpb24xITAfBgNVBAMTGFRo
+-YXd0ZSBQcmVtaXVtIFNlcnZlciBDQTEoMCYGCSqGSIb3DQEJARYZcHJlbWl1bS1z
+-ZXJ2ZXJAdGhhd3RlLmNvbTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA0jY2
+-aovXwlue2oFBYo847kkEVdbQ7xwblRZH7xhINTpS9CtqBo87L+pW46+GjZ4X9560
+-ZXUCTe/LCaIhUdib0GfQug2SBhRz1JPLlyoAnFxODLz6FVL88kRu2hFKbgifLy3j
+-+ao6hnO2RlNYyIkFvYMRuHM/qgeN9EJN50CdHDcCAwEAAaMTMBEwDwYDVR0TAQH/
+-BAUwAwEB/zANBgkqhkiG9w0BAQUFAAOBgQBlkKyID1bZ5jA01CbH0FDxkt5r1DmI
+-CSLGpmODA/eZd9iy5Ri4XWPz1HP7bJyZePFLeH0ZJMMrAoT4vCLZiiLXoPxx7JGH
+-IPG47LHlVYCsPVLIOQ7C8MAFT9aCdYy9X9LcdpoFEsmvcsPcJX6kTY4XpeCHf+Ga
+-WuFg3GQjPEIuTQ==
+------END CERTIFICATE-----
+diff --git a/jdk/make/data/cacerts/utnuserfirstobjectca b/jdk/make/data/cacerts/utnuserfirstobjectca
+deleted file mode 100644
+index 80a0b5c..0000000
+--- a/jdk/make/data/cacerts/utnuserfirstobjectca
++++ /dev/null
+@@ -1,33 +0,0 @@
+-Owner: CN=UTN-USERFirst-Object, OU=http://www.usertrust.com, O=The USERTRUST Network, L=Salt Lake City, ST=UT, C=US
+-Issuer: CN=UTN-USERFirst-Object, OU=http://www.usertrust.com, O=The USERTRUST Network, L=Salt Lake City, ST=UT, C=US
+-Serial number: 44be0c8b500024b411d3362de0b35f1b
+-Valid from: Fri Jul 09 18:31:20 GMT 1999 until: Tue Jul 09 18:40:36 GMT 2019
+-Signature algorithm name: SHA1withRSA
+-Subject Public Key Algorithm: 2048-bit RSA key
+-Version: 3
+------BEGIN CERTIFICATE-----
+-MIIEZjCCA06gAwIBAgIQRL4Mi1AAJLQR0zYt4LNfGzANBgkqhkiG9w0BAQUFADCB
+-lTELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAlVUMRcwFQYDVQQHEw5TYWx0IExha2Ug
+-Q2l0eTEeMBwGA1UEChMVVGhlIFVTRVJUUlVTVCBOZXR3b3JrMSEwHwYDVQQLExho
+-dHRwOi8vd3d3LnVzZXJ0cnVzdC5jb20xHTAbBgNVBAMTFFVUTi1VU0VSRmlyc3Qt
+-T2JqZWN0MB4XDTk5MDcwOTE4MzEyMFoXDTE5MDcwOTE4NDAzNlowgZUxCzAJBgNV
+-BAYTAlVTMQswCQYDVQQIEwJVVDEXMBUGA1UEBxMOU2FsdCBMYWtlIENpdHkxHjAc
+-BgNVBAoTFVRoZSBVU0VSVFJVU1QgTmV0d29yazEhMB8GA1UECxMYaHR0cDovL3d3
+-dy51c2VydHJ1c3QuY29tMR0wGwYDVQQDExRVVE4tVVNFUkZpcnN0LU9iamVjdDCC
+-ASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAM6qgT+jo2F4qjEAVZURnicP
+-HxzfOpuCaDDASmEd8S8O+r5596Uj71VRloTN2+O5bj4x2AogZ8f02b+U60cEPgLO
+-KqJdhwQJ9jCdGIqXsqoc/EHSoTbL+z2RuufZcDX65OeQw5ujm9M89RKZd7G3CeBo
+-5hy485RjiGpq/gt2yb70IuRnuasaXnfBhQfdDWy/7gbHd2pBnqcP1/vulBe3/IW+
+-pKvEHDHd17bR5PDv3xaPslKT16HUiaEHLr/hARJCHhrh2JU022R5KP+6LhHC5ehb
+-kkj7RwvCbNqtMoNB86XlQXD9ZZBt+vpRxPm9lisZBCzTbafc8H9vg2XiaquHhnUC
+-AwEAAaOBrzCBrDALBgNVHQ8EBAMCAcYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4E
+-FgQU2u1kdBScFDyr3ZmpvVsoTYs8ydgwQgYDVR0fBDswOTA3oDWgM4YxaHR0cDov
+-L2NybC51c2VydHJ1c3QuY29tL1VUTi1VU0VSRmlyc3QtT2JqZWN0LmNybDApBgNV
+-HSUEIjAgBggrBgEFBQcDAwYIKwYBBQUHAwgGCisGAQQBgjcKAwQwDQYJKoZIhvcN
+-AQEFBQADggEBAAgfUrE3RHjb/c652pWWmKpVZIC1WkDdIaXFwfNfLEzIR1pp6ujw
+-NTX00CXzyKakh0q9G7FzCL3Uw8q2NbtZhncxzaeAFK4T7/yxSPlrJSUtUbYsbUXB
+-mMiKVl0+7kNOPmsnjtA6S4ULX9Ptaqd1y9Fahy85dRNacrACgZ++8A+EVCBibGnU
+-4U3GDZlDAQ0Slox4nb9QorFEqmrPF3rPbw/U+CRVX/A0FklmPlBGyWNxODFiuGK5
+-81OtbLUrohKqGU8J2l7nk8aOFAj+8DCAGKCGhU3IfdeLA/5u1fedFqySLKAj5ZyR
+-Uh+U3xeUc8OzwcFxBSAAeL0TUh2oPs0AH8g=
+------END CERTIFICATE-----
+diff --git a/jdk/make/data/cacerts/verisigntsaca b/jdk/make/data/cacerts/verisigntsaca
+deleted file mode 100644
+index 9813dda..0000000
+--- a/jdk/make/data/cacerts/verisigntsaca
++++ /dev/null
+@@ -1,24 +0,0 @@
+-Owner: CN=Thawte Timestamping CA, OU=Thawte Certification, O=Thawte, L=Durbanville, ST=Western Cape, C=ZA
+-Issuer: CN=Thawte Timestamping CA, OU=Thawte Certification, O=Thawte, L=Durbanville, ST=Western Cape, C=ZA
+-Serial number: 67c8e1e8e3be1cbdfc913b8ea6238749
+-Valid from: Wed Jan 01 00:00:00 GMT 1997 until: Fri Jan 01 23:59:59 GMT 2021
+-Signature algorithm name: SHA1withRSA
+-Subject Public Key Algorithm: 1024-bit RSA key
+-Version: 3
+------BEGIN CERTIFICATE-----
+-MIICsDCCAhmgAwIBAgIQZ8jh6OO+HL38kTuOpiOHSTANBgkqhkiG9w0BAQUFADCB
+-izELMAkGA1UEBhMCWkExFTATBgNVBAgTDFdlc3Rlcm4gQ2FwZTEUMBIGA1UEBxML
+-RHVyYmFudmlsbGUxDzANBgNVBAoTBlRoYXd0ZTEdMBsGA1UECxMUVGhhd3RlIENl
+-cnRpZmljYXRpb24xHzAdBgNVBAMTFlRoYXd0ZSBUaW1lc3RhbXBpbmcgQ0EwHhcN
+-OTcwMTAxMDAwMDAwWhcNMjEwMTAxMjM1OTU5WjCBizELMAkGA1UEBhMCWkExFTAT
+-BgNVBAgTDFdlc3Rlcm4gQ2FwZTEUMBIGA1UEBxMLRHVyYmFudmlsbGUxDzANBgNV
+-BAoTBlRoYXd0ZTEdMBsGA1UECxMUVGhhd3RlIENlcnRpZmljYXRpb24xHzAdBgNV
+-BAMTFlRoYXd0ZSBUaW1lc3RhbXBpbmcgQ0EwgZ8wDQYJKoZIhvcNAQEBBQADgY0A
+-MIGJAoGBANYrWHhhRYZT6jR7UZztsOYuGA7+4F+oJ9O0yeB8WU4WDnNUYMF/9p8u
+-6TqFJBU820cEY8OexJQaWt9MevPZQx08EHp5JduQ/vBR5zDWQQD9nyjfeb6Uu522
+-FOMjhdepQeBMpHmwKxqL8vg7ij5FrHGSALSQQZj7X+36ty6K+Ig3AgMBAAGjEzAR
+-MA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQEFBQADgYEAS+mqF4EF+3kKMZ/F
+-QfRWVKvpwuWXjhj+kckMPiZkyaFMJ2SnvQGTVXFuF0853BvcSTUQOSP/ypvIz2Y/
+-3Ewa1IEGQlIf4SaxFhe65nByMUToTo1b5NP50OOPJWQx5yr4GIg2GlLFDUE1G2m3
+-JvUXzMEZXkt8XOKDgJH6L/uatxY=
+------END CERTIFICATE-----
+diff --git a/jdk/test/sun/security/lib/cacerts/VerifyCACerts.java b/jdk/test/sun/security/lib/cacerts/VerifyCACerts.java
+index dd107fc..791ddb6 100644
+--- a/jdk/test/sun/security/lib/cacerts/VerifyCACerts.java
++++ b/jdk/test/sun/security/lib/cacerts/VerifyCACerts.java
+@@ -53,12 +53,12 @@ public class VerifyCACerts {
+             + File.separator + "security" + File.separator + "cacerts";
+ 
+     // The numbers of certs now.
+-    private static final int COUNT = 97;
++    private static final int COUNT = 90;
+ 
+     // SHA-256 of cacerts, can be generated with
+     // shasum -a 256 cacerts | sed -e 's/../&:/g' | tr '[:lower:]' '[:upper:]' | cut -c1-95
+     private static final String CHECKSUM
+-            = "9F:6B:41:1D:05:AF:E3:C5:4F:E8:39:89:50:79:60:B1:F6:A4:02:40:0C:28:8D:73:78:08:E5:61:7C:17:EA:59";
++            = "DC:22:7E:D7:F3:46:1F:8B:A8:4E:EE:C2:A8:4B:8E:26:89:4F:95:5C:71:A3:1B:5A:6E:A6:48:FD:CB:C9:F2:95";
+ 
+     // map of cert alias to SHA-256 fingerprint
+     @SuppressWarnings("serial")
+@@ -93,12 +93,6 @@ public class VerifyCACerts {
+                     "E7:93:C9:B0:2F:D8:AA:13:E2:1C:31:22:8A:CC:B0:81:19:64:3B:74:9C:89:89:64:B1:74:6D:46:C3:D4:CB:D2");
+             put("usertrusteccca [jdk]",
+                     "4F:F4:60:D5:4B:9C:86:DA:BF:BC:FC:57:12:E0:40:0D:2B:ED:3F:BC:4D:4F:BD:AA:86:E0:6A:DC:D2:A9:AD:7A");
+-            put("utnuserfirstobjectca [jdk]",
+-                    "6F:FF:78:E4:00:A7:0C:11:01:1C:D8:59:77:C4:59:FB:5A:F9:6A:3D:F0:54:08:20:D0:F4:B8:60:78:75:E5:8F");
+-            put("addtrustexternalca [jdk]",
+-                    "68:7F:A4:51:38:22:78:FF:F0:C8:B1:1F:8D:43:D5:76:67:1C:6E:B2:BC:EA:B4:13:FB:83:D9:65:D0:6D:2F:F2");
+-            put("addtrustqualifiedca [jdk]",
+-                    "80:95:21:08:05:DB:4B:BC:35:5E:44:28:D8:FD:6E:C2:CD:E3:AB:5F:B9:7A:99:42:98:8E:B8:F4:DC:D0:60:16");
+             put("baltimorecybertrustca [jdk]",
+                     "16:AF:57:A9:F6:76:B0:AB:12:60:95:AA:5E:BA:DE:F2:2A:B3:11:19:D6:44:AC:95:CD:4B:93:DB:F3:F2:6A:EB");
+             put("digicertglobalrootca [jdk]",
+@@ -133,16 +127,6 @@ public class VerifyCACerts {
+                     "A4:31:0D:50:AF:18:A6:44:71:90:37:2A:86:AF:AF:8B:95:1F:FB:43:1D:83:7F:1E:56:88:B4:59:71:ED:15:57");
+             put("thawteprimaryrootcag3 [jdk]",
+                     "4B:03:F4:58:07:AD:70:F2:1B:FC:2C:AE:71:C9:FD:E4:60:4C:06:4C:F5:FF:B6:86:BA:E5:DB:AA:D7:FD:D3:4C");
+-            put("thawtepremiumserverca [jdk]",
+-                    "3F:9F:27:D5:83:20:4B:9E:09:C8:A3:D2:06:6C:4B:57:D3:A2:47:9C:36:93:65:08:80:50:56:98:10:5D:BC:E9");
+-            put("verisigntsaca [jdk]",
+-                    "CB:6B:05:D9:E8:E5:7C:D8:82:B1:0B:4D:B7:0D:E4:BB:1D:E4:2B:A4:8A:7B:D0:31:8B:63:5B:F6:E7:78:1A:9D");
+-            put("verisignclass2g2ca [jdk]",
+-                    "3A:43:E2:20:FE:7F:3E:A9:65:3D:1E:21:74:2E:AC:2B:75:C2:0F:D8:98:03:05:BC:50:2C:AF:8C:2D:9B:41:A1");
+-            put("verisignclass3ca [jdk]",
+-                    "A4:B6:B3:99:6F:C2:F3:06:B3:FD:86:81:BD:63:41:3D:8C:50:09:CC:4F:A3:29:C2:CC:F0:E2:FA:1B:14:03:05");
+-            put("verisignclass3g2ca [jdk]",
+-                    "83:CE:3C:12:29:68:8A:59:3D:48:5F:81:97:3C:0F:91:95:43:1E:DA:37:CC:5E:36:43:0E:79:C7:A8:88:63:8B");
+             put("verisignuniversalrootca [jdk]",
+                     "23:99:56:11:27:A5:71:25:DE:8C:EF:EA:61:0D:DF:2F:A0:78:B5:C8:06:7F:4E:82:82:90:BF:B8:60:E8:4B:3C");
+             put("verisignclass3g3ca [jdk]",
+@@ -163,10 +147,6 @@ public class VerifyCACerts {
+                     "5D:56:49:9B:E4:D2:E0:8B:CF:CA:D0:8A:3E:38:72:3D:50:50:3B:DE:70:69:48:E4:2F:55:60:30:19:E5:28:AE");
+             put("letsencryptisrgx1 [jdk]",
+                     "96:BC:EC:06:26:49:76:F3:74:60:77:9A:CF:28:C5:A7:CF:E8:A3:C0:AA:E1:1A:8F:FC:EE:05:C0:BD:DF:08:C6");
+-            put("luxtrustglobalrootca [jdk]",
+-                    "A1:B2:DB:EB:64:E7:06:C6:16:9E:3C:41:18:B2:3B:AA:09:01:8A:84:27:66:6D:8B:F0:E2:88:91:EC:05:19:50");
+-            put("quovadisrootca [jdk]",
+-                    "A4:5E:DE:3B:BB:F0:9C:8A:E1:5C:72:EF:C0:72:68:D6:93:A2:1C:99:6F:D5:1E:67:CA:07:94:60:FD:6D:88:73");
+             put("quovadisrootca1g3 [jdk]",
+                     "8A:86:6F:D1:B2:76:B5:7E:57:8E:92:1C:65:82:8A:2B:ED:58:E9:F2:F2:88:05:41:34:B7:F1:F4:BF:C9:CC:74");
+             put("quovadisrootca2 [jdk]",
+@@ -267,21 +247,7 @@ public class VerifyCACerts {
+     @SuppressWarnings("serial")
+     private static final HashSet<String> EXPIRY_EXC_ENTRIES = new HashSet<String>() {
+         {
+-            // Valid until: Tue Jul 09 14:40:36 EDT 2019
+-            add("utnuserfirstobjectca [jdk]");
+-            // Valid until: Sat May 30 10:38:31 GMT 2020
+-            add("addtrustexternalca [jdk]");
+-            // Valid until: Sat May 30 10:44:50 GMT 2020
+-            add("addtrustqualifiedca [jdk]");
+-            // Valid until: Fri Jan 01 15:59:59 PST 2021
+-            add("verisigntsaca [jdk]");
+-            // Valid until: Fri Jan 01 15:59:59 PST 2021
+-            add("thawtepremiumserverca [jdk]");
+-            // Valid until: Wed Mar 17 02:51:37 PDT 2021
+-            add("luxtrustglobalrootca [jdk]");
+-            // Valid until: Wed Mar 17 11:33:33 PDT 2021
+-            add("quovadisrootca [jdk]");
+-            // Valid until: Tue Apr 06 00:29:40 PDT 2021
++            // Valid until: Tue Apr 06 15:29:40 HKT 2021
+             add("soneraclass2ca [jdk]");
+         }
+     };
+-- 
+1.8.3.1
+

@@ -1,28 +1,33 @@
-From bc0b4ef15436f98b4e7fc87342320b5b4f10ef3c Mon Sep 17 00:00:00 2001
-Date: Fri, 22 Jan 2021 14:30:40 +0800
-Subject: Backport of JDK-8182036
+From ad7ec63def37ef080e98394f7ea76acb28e4574c Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Tue, 9 Mar 2021 17:24:33 +0800
+Subject: [PATCH] [Backport]8182036: 2-Load from initializing arraycopy
+ uses wrong memory state
 
-summary: Load from initializing arraycopy uses wrong memory state
-LLT:
-Bug url: https://bugs.openjdk.java.net/browse/JDK-8182036
+Offering: Cloud Compiler JDK
+Reference: https://bugs.openjdk.java.net/browse/JDK-8182036, https://bugs.openjdk.java.net/browse/JDK-8233023
+
+
+Signed-off-by: He Xuejin <hexuejin2@huawei.com>
 ---
- hotspot/src/share/vm/opto/library_call.cpp | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ hotspot/src/share/vm/opto/memnode.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/hotspot/src/share/vm/opto/library_call.cpp b/hotspot/src/share/vm/opto/library_call.cpp
-index cd1b1e5c0..89ebabe6f 100644
---- a/hotspot/src/share/vm/opto/library_call.cpp
-+++ b/hotspot/src/share/vm/opto/library_call.cpp
-@@ -5703,7 +5703,8 @@ LibraryCallKit::generate_block_arraycopy(const TypePtr* adr_type,
-         ((src_off ^ dest_off) & (BytesPerLong-1)) == 0) {
-       Node* sptr = basic_plus_adr(src,  src_off);
-       Node* dptr = basic_plus_adr(dest, dest_off);
--      Node* sval = make_load(control(), sptr, TypeInt::INT, T_INT, adr_type, MemNode::unordered);
-+      const TypePtr* s_adr_type = _gvn.type(sptr)->is_ptr();
-+      Node* sval = make_load(control(), sptr, TypeInt::INT, T_INT, s_adr_type, MemNode::unordered);
-       store_to_memory(control(), dptr, sval, T_INT, adr_type, MemNode::unordered);
-       src_off += BytesPerInt;
-       dest_off += BytesPerInt;
+diff --git a/hotspot/src/share/vm/opto/memnode.cpp b/hotspot/src/share/vm/opto/memnode.cpp
+index 317c21d2d..4a8fb1074 100644
+--- a/hotspot/src/share/vm/opto/memnode.cpp
++++ b/hotspot/src/share/vm/opto/memnode.cpp
+@@ -2329,7 +2329,9 @@ Node *StoreNode::Ideal(PhaseGVN *phase, bool can_reshape) {
+              st->Opcode() == Op_StoreVector ||
+              Opcode() == Op_StoreVector ||
+              phase->C->get_alias_index(adr_type()) == Compile::AliasIdxRaw ||
+-             (Opcode() == Op_StoreL && st->Opcode() == Op_StoreI), // expanded ClearArrayNode
++             (Opcode() == Op_StoreL && st->Opcode() == Op_StoreI) || // expanded ClearArrayNode
++             (Opcode() == Op_StoreI && st->Opcode() == Op_StoreL) || // initialization by arraycopy
++             (is_mismatched_access() || mem->as_Store()->is_mismatched_access()),
+              err_msg_res("no mismatched stores, except on raw memory: %s %s", NodeClassNames[Opcode()], NodeClassNames[st->Opcode()]));
+ 
+       if (st->in(MemNode::Address)->eqv_uncast(address) &&
 -- 
 2.19.0
 

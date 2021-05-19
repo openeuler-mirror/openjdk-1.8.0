@@ -1,0 +1,62 @@
+From 8ede718dfa4b52c8565eead7e360822a2759bd34 Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Tue, 16 Mar 2021 09:11:27 +0800
+Subject: [PATCH] [Huawei]revert windows bugfix
+
+Offering: Cloud Compiler JDK
+
+
+Signed-off-by: Lin Haibing <linhaibing@huawei.com>
+---
+ hotspot/make/windows/create_obj_files.sh                      | 4 ++--
+ .../share/vm/gc_implementation/shared/owstTaskTerminator.cpp  | 3 +--
+ jdk/make/lib/ServiceabilityLibraries.gmk                      | 2 +-
+ 3 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/hotspot/make/windows/create_obj_files.sh b/hotspot/make/windows/create_obj_files.sh
+index 5449d866a..ad734bebd 100644
+--- a/hotspot/make/windows/create_obj_files.sh
++++ b/hotspot/make/windows/create_obj_files.sh
+@@ -113,8 +113,8 @@ case "${TYPE}" in
+     "shark")     Src_Dirs="${BASE_PATHS}" ;;
+ esac
+ 
+-COMPILER2_SPECIFIC_FILES="opto libadt bcEscapeAnalyzer.cpp c2_* runtime_*"
+-COMPILER1_SPECIFIC_FILES="c1_*"
++COMPILER2_SPECIFIC_FILES="opto libadt bcEscapeAnalyzer.cpp c2_* runtime_* shenandoahBarrierSetC2.cpp shenandoahSupport.cpp"
++COMPILER1_SPECIFIC_FILES="c1_* shenandoahBarrierSetC1.cpp"
+ SHARK_SPECIFIC_FILES="shark"
+ ZERO_SPECIFIC_FILES="zero"
+ 
+diff --git a/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.cpp b/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.cpp
+index 90f490272..181628567 100644
+--- a/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.cpp
++++ b/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.cpp
+@@ -21,10 +21,9 @@
+  *
+  */
+  
++#include "precompiled.hpp"
+ #include "owstTaskTerminator.hpp"
+ 
+-#include "precompiled/precompiled.hpp"
+-
+ bool OWSTTaskTerminator::exit_termination(size_t tasks, TerminatorTerminator* terminator) {
+   return tasks > 0 || (terminator != NULL && terminator->should_exit_termination());
+ }
+diff --git a/jdk/make/lib/ServiceabilityLibraries.gmk b/jdk/make/lib/ServiceabilityLibraries.gmk
+index 5a58b3a35..02fded0dc 100644
+--- a/jdk/make/lib/ServiceabilityLibraries.gmk
++++ b/jdk/make/lib/ServiceabilityLibraries.gmk
+@@ -299,7 +299,7 @@ endif
+ 
+ BUILD_LIBMANAGEMENT_EXCLUDES :=
+ 
+-BUILD_LIBMANAGEMENT_CFLAGS += -I$(JDK_TOPDIR)/src/share/native/sun/management
++BUILD_LIBMANAGEMENT_CFLAGS += -I$(JDK_TOPDIR)/src/share/native/sun/management -DPSAPI_VERSION=1
+ 
+ ifneq ($(OPENJDK_TARGET_OS), solaris)
+   BUILD_LIBMANAGEMENT_EXCLUDES += SolarisOperatingSystem.c
+-- 
+2.19.0
+

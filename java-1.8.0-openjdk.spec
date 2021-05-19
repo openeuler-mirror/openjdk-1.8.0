@@ -148,7 +148,7 @@
 # Define old aarch64/jdk8u tree variables for compatibility
 %global project		aarch64-port
 %global repo		jdk8u-shenandoah
-%global revision    	aarch64-shenandoah-jdk8u282-b08
+%global revision    	aarch64-shenandoah-jdk8u292-b10
 %global full_revision	%{project}-%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
@@ -976,9 +976,7 @@ Source14: TestECDSA.java
 Source20: repackReproduciblePolycies.sh
 
 Patch8:	 replace-vector-to-improve-performance-of-xml.validat.patch
-Patch9:	 AARCH64-fix-itable-stub-code-size-limit.patch
 Patch10: 8221658.patch
-Patch12: add-debuginfo-for-libsaproc-on-aarch64.patch
 Patch18: fix-vendor-info.patch
 Patch21: 8202952.patch
 Patch24: 8134883.patch
@@ -995,10 +993,7 @@ Patch35: 8186042.patch
 Patch36: 8060463.patch
 Patch37: 8131600.patch
 Patch38: 8138971.patch
-Patch40: 8129626.patch
 Patch41: 8203699.patch
-Patch45: 8191129.patch
-Patch46: 8182036.patch
 Patch47: 8166197.patch
 Patch50: 8158946.patch
 Patch51: add-with-company-name-option.patch
@@ -1012,11 +1007,9 @@ Patch70: 8164948.patch
 Patch72: inline-optimize-for-aarch64.patch
 
 # 8u242
-Patch74: 8191915.patch
 Patch75: Add-ability-to-configure-third-port-for-remote-JMX.patch
 Patch76: 8203196.patch
 Patch77: 8190332.patch
-Patch78: 8171410.patch
 Patch83: 8204947.patch
 Patch85: 8139041.patch
 
@@ -1041,7 +1034,6 @@ Patch103: Ddot-intrinsic-implement.patch
 Patch104: 8234003.patch
 Patch105: 8220159.patch
 Patch106: fast-serializer-jdk8.patch
-Patch107: 6896810.patch
 Patch108: 8231631.patch
 Patch109: Test8167409.sh-fails-to-run-with-32bit-jdk-on-64bit-.patch
 Patch112: 8048210-8056152.patch
@@ -1058,7 +1050,6 @@ Patch125: Extend-CDS-to-support-app-class-metadata-sharing.patch
 Patch127: add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
 
 # 8u272
-Patch129: 8248336.patch
 Patch133: 8160369.patch
 Patch134: PS-GC-adding-acquire_size-method-for-PSParallelCompa.patch
 Patch138: add-appcds-file-lock.patch
@@ -1066,30 +1057,26 @@ Patch139: G1-memory-uncommit.patch
 Patch140: 8015927.patch
 Patch141: 8040327.patch
 Patch142: 8207160.patch
-Patch143: delete-untrustworthy-cacert-files.patch
 Patch144: add-appcds-test-case.patch
 
 # 8u282
-Patch145: 8080911.patch
 Patch146: 8168926.patch
 Patch147: 8215047.patch
 Patch148: 8237894.patch
 Patch149: Remove-the-parentheses-around-company-name.patch
-Patch150: 8240353.patch
 Patch151: kae-phase1.patch
 Patch152: 8231841-debug.cpp-help-is-missing-an-AArch64-line-fo.patch
 Patch153: initialized-value-should-be-0-in-perfInit.patch
 Patch154: 8254078-DataOutputStream-is-very-slow-post-disabling.patch
 Patch155: Use-atomic-operation-when-G1Uncommit.patch
-Patch156: 8168996-backport-of-C2-crash-at-postaloc.cpp-140-ass.patch
 Patch157: 8140597-Postpone-the-initial-mark-request-until-the-.patch
 Patch158: Use-Mutex-when-G1Uncommit.patch
 Patch159: C1-typos-repair.patch
 Patch160: 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
 Patch161: 8259886-Improve-SSL-session-cache-performance-and-sc.patch
 Patch162: 8214535-support-Jmap-parallel.patch
-Patch163: fix_VerifyCerts.java_testcase_bug.patch
-Patch164: src-openeuler-openjdk-1.8.0-resolve-code-inconsistencies.patch
+Patch163: Fixed-a-copyright-writing-problem.patch
+Patch164: fix-arguments.cpp-error-C2131-on-windows.patch
 Patch165: 818172_overflow_when_strength_reducing_interger_multiply.patch
 Patch166: add-missing-test-case.patch
 Patch167: fix-BoxTypeCachedMax-build-failure-when-jvm-variants.patch
@@ -1097,6 +1084,24 @@ Patch168: fix-windows-compile-fail.patch
 Patch169: Code-style-fix.patch
 Patch170: kae-phase2.patch
 Patch171: add-kaeEngine-to-rsa.patch
+
+# 8u292
+Patch172: 8031818.patch
+Patch173: 8193518.patch
+Patch174: Disable-ddot-intrinsic-on-CPUs-that-not-suppo.patch
+Patch175: add-appcds-jtreg-test-case-UnusedCPDuringDump.patch
+Patch176: add-safe-compilation-flags.patch
+Patch177: downgrade-symver-of-memcpy-GLIBC.patch
+Patch178: fix-log-bug-enhance-aes-hmac-performance.patch
+Patch179: keep-the-binary-equal.patch
+Patch180: link-option-use-rpath-instead-of-runpath.patch
+Patch181: remove-gnu-debuglink-when-using-enable-debug-.patch
+Patch183: revert-windows-bugfix.patch
+Patch184: set-vm.vendor-by-configure.patch
+Patch185: update-cacerts-and-VerifyCACerts.java-test.patch
+Patch186: update-to-keep-same-with-master.patch
+Patch187: 8182036.patch
+ 
 
 #############################################
 #
@@ -1433,9 +1438,7 @@ pushd %{top_level_dir_name}
 # OpenJDK patches
 
 %patch8  -p1
-%patch9  -p1
 %patch10 -p1
-%patch12 -p1
 %patch18 -p1
 %patch21 -p1
 %patch24 -p1
@@ -1452,10 +1455,7 @@ pushd %{top_level_dir_name}
 %patch36 -p1
 %patch37 -p1
 %patch38 -p1
-%patch40 -p1
 %patch41 -p1
-%patch45 -p1
-%patch46 -p1
 %patch47 -p1
 %patch50 -p1
 %patch51 -p1
@@ -1467,11 +1467,9 @@ pushd %{top_level_dir_name}
 %patch68 -p1
 %patch70 -p1
 %patch72 -p1
-%patch74 -p1
 %patch75 -p1
 %patch76 -p1
 %patch77 -p1
-%patch78 -p1
 %patch83 -p1
 %patch85 -p1
 %patch86 -p1
@@ -1490,7 +1488,6 @@ pushd %{top_level_dir_name}
 %patch104 -p1
 %patch105 -p1
 %patch106 -p1
-%patch107 -p1
 %patch108 -p1
 %patch109 -p1
 %patch112 -p1
@@ -1505,7 +1502,6 @@ pushd %{top_level_dir_name}
 %patch124 -p1
 %patch125 -p1
 %patch127 -p1
-%patch129 -p1
 %patch133 -p1
 %patch134 -p1
 %patch138 -p1
@@ -1513,20 +1509,16 @@ pushd %{top_level_dir_name}
 %patch140 -p1
 %patch141 -p1
 %patch142 -p1
-%patch143 -p1
 %patch144 -p1
-%patch145 -p1
 %patch146 -p1
 %patch147 -p1
 %patch148 -p1
 %patch149 -p1
-%patch150 -p1
 %patch151 -p1
 %patch152 -p1
 %patch153 -p1
 %patch154 -p1
 %patch155 -p1
-%patch156 -p1
 %patch157 -p1
 %patch158 -p1
 %patch159 -p1
@@ -1542,6 +1534,21 @@ pushd %{top_level_dir_name}
 %patch169 -p1
 %patch170 -p1
 %patch171 -p1
+%patch172 -p1
+%patch173 -p1
+%patch174 -p1
+%patch175 -p1
+%patch176 -p1
+%patch177 -p1
+%patch178 -p1
+%patch179 -p1
+%patch180 -p1
+%patch181 -p1
+%patch183 -p1
+%patch184 -p1
+%patch185 -p1
+%patch186 -p1
+%patch187 -p1
 
 popd
 
@@ -2159,6 +2166,10 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Apr 20 2021 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.292-b10.0
+- update to jdk8u292-b10
+- split sync-patch to multi patches
+
 * Wed May 19 2021 Noah <hedongbo@huawei.com> - 1:1.8.0.282-b08.19
 - add add-kaeEngine-to-rsa.patch
 
