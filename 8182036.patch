@@ -4,7 +4,6 @@ Date: Tue, 9 Mar 2021 17:24:33 +0800
 Subject: [PATCH] [Backport]8182036: 2-Load from initializing arraycopy
  uses wrong memory state
 
-Offering: Cloud Compiler JDK
 Reference: https://bugs.openjdk.java.net/browse/JDK-8182036, https://bugs.openjdk.java.net/browse/JDK-8233023
 
 

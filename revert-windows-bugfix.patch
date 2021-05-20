@@ -3,7 +3,6 @@ From: zhangyipeng <zhangyipeng7@huawei.com>
 Date: Tue, 16 Mar 2021 09:11:27 +0800
 Subject: [PATCH] [Huawei]revert windows bugfix
 
-Offering: Cloud Compiler JDK
 
 
 Signed-off-by: Lin Haibing <linhaibing@huawei.com>

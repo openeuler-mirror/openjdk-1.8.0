@@ -3,7 +3,6 @@ From: zhangyipeng <zhangyipeng7@huawei.com>
 Date: Tue, 16 Mar 2021 10:11:31 +0800
 Subject: [PATCH] [Huawei]fix log bug && enhance aes/hmac performance
 
-Offering: Cloud Compiler JDK
 
 
 Signed-off-by: He Dongbo <hedongbo@huawei.com>

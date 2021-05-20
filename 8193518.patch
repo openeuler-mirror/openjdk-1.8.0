@@ -4,7 +4,6 @@ Date: Tue, 9 Mar 2021 16:58:48 +0800
 Subject: [PATCH] [Backport]8193518: C2:Vector registers sometimes
  corrupted at safepoint
 
-Offering: Cloud Compiler JDK
 Reference: https://bugs.openjdk.java.net/browse/JDK-8193518
 
 

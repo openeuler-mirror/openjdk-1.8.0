@@ -3,7 +3,6 @@ From: zhangyipeng <zhangyipeng7@huawei.com>
 Date: Wed, 17 Mar 2021 14:31:38 +0800
 Subject: [PATCH] [Huawei]fix arguments.cpp error C2131 on windows
 
-Offering: Cloud Compiler JDK
 
 
 Signed-off-by: Lin Haibing <linhaibing@huawei.com>

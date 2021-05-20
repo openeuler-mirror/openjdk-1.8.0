@@ -4,7 +4,6 @@ Date: Wed, 10 Mar 2021 11:15:17 +0800
 Subject: [PATCH] [Huawei]add appcds jtreg test case
  UnusedCPDuringDump.java & WrongClasspath.java
 
-Offering: Cloud Compiler JDK
 
 
 Signed-off-by: Hu Bodao <hubodao@huawei.com>

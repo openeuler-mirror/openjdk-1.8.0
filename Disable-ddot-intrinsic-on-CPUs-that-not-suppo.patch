@@ -4,7 +4,6 @@ Date: Tue, 9 Mar 2021 16:51:56 +0800
 Subject: [PATCH] [Huawei]Disable ddot intrinsic on CPUs that not
  support
 
-Offering: Cloud Compiler JDK
 
 
 Signed-off-by: Mou Zhuojun <mouzhuojun@huawei.com>

@@ -4,7 +4,6 @@ Date: Thu, 4 Mar 2021 10:10:30 +0800
 Subject: [PATCH] [Huawei]remove gnu debuglink when using enable debug
  symbols
 
-Offering: Cloud Compiler JDK
 
 
 Signed-off-by: Sun Jianye  <sunjianye@huawei.com>
