@@ -3,7 +3,6 @@ From: zhangyipeng <zhangyipeng7@huawei.com>
 Date: Thu, 4 Mar 2021 10:07:43 +0800
 Subject: [PATCH] [Huawei]link option use rpath instead of runpath
 
-Offering: Cloud Compiler JDK
 
 
 Signed-off-by: Sun Jianye  <sunjianye@huawei.com>

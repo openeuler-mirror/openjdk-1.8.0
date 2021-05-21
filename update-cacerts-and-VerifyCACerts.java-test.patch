@@ -3,7 +3,6 @@ From: zhangyipeng <zhangyipeng7@huawei.com>
 Date: Tue, 20 Apr 2021 10:40:35 +0800
 Subject: [PATCH] [Huawei]update cacerts and VerifyCACerts.java test
 
-Offering: Cloud Compiler JDK
 
 Signed-off-by: Wang Kun <wangkun49@huawei.com>
 ---

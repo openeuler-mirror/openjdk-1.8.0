@@ -3,7 +3,6 @@ From: zhangyipeng <zhangyipeng7@huawei.com>
 Date: Thu, 4 Mar 2021 11:09:20 +0800
 Subject: [PATCH] [Huawei]downgrade symver of memcpy@GLIBC
 
-Offering: Cloud Compiler JDK
 
 
 Signed-off-by: Feng Shijie  <fengshijie2@huawei.com>

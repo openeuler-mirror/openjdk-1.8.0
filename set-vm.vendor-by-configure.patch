@@ -3,7 +3,6 @@ From: zhangyipeng <zhangyipeng7@huawei.com>
 Date: Thu, 4 Mar 2021 11:26:22 +0800
 Subject: [PATCH] [Huawei]set vm.vendor by configure
 
-Offering: Cloud Compiler JDK
 
 
 Signed-off-by: Guo Ge  <ge.guo@huawei.com>

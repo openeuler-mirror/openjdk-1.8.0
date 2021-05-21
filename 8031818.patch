@@ -4,7 +4,6 @@ Date: Tue, 9 Mar 2021 17:27:50 +0800
 Subject: [PATCH] [Backport]8031818: Experimental VM flag for enforcing
  safe object construction
 
-Offering: Cloud Compiler JDK
 Reference: https://bugs.openjdk.java.net/browse/JDK-8031818
 
 
