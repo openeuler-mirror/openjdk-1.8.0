@@ -2166,7 +2166,7 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
-* Tue Apr 20 2021 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.292-b10.0
+* Tue May 18 2021 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.292-b10.0
 - update to jdk8u292-b10
 - split sync-patch to multi patches
 
