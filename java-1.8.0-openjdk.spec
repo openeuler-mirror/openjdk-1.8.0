@@ -921,7 +921,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 3
+Release: 4
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1103,6 +1103,7 @@ Patch186: update-to-keep-same-with-master.patch
 Patch187: 8182036.patch
 Patch188: 8247691_incorrect_handling_of_VM_exceptions_in_C1_deopt_stub.patch
 Patch189: 8266187_Memory_leak_in_appendBootClassPath.patch
+Patch190: 8266929_huawei_add_oid_mapping_common_sig_types.patch
 
 #############################################
 #
@@ -1552,6 +1553,7 @@ pushd %{top_level_dir_name}
 %patch187 -p1
 %patch188 -p1
 %patch189 -p1
+%patch190 -p1
 
 popd
 
@@ -2169,6 +2171,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri May 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.3
+- add 8266929_huawei_add_oid_mapping_common_sig_types.patch
+
 * Fri May 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.2
 - add 8266187_Memory_leak_in_appendBootClassPath.patch
 
