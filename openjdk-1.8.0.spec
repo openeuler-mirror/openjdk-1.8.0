@@ -153,12 +153,8 @@
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
 
-# eg # jdk8u60-b27 -> jdk8u60 or # aarch64-jdk8u60-b27 -> aarch64-jdk8u60  (dont forget spec escape % by %%)
-%global whole_update    %(VERSION=%{revision}; echo ${VERSION%%-*})
-# eg  jdk8u60 -> 60 or aarch64-jdk8u60 -> 60
-%global updatever       %(VERSION=%{whole_update}; echo ${VERSION##*u})
-# eg jdk8u60-b27 -> b27
-%global buildver        %(VERSION=%{revision}; echo ${VERSION##*-})
+%global updatever       292
+%global buildver        b10
 # priority must be 7 digits in total. The expression is workarounding tip
 %global priority        1800%{updatever}
 
@@ -2173,6 +2169,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Sat 4 2021 hedongbo <hedongbo@huawei.com> - 1:1.8.0.292-b10.5
+- change the way to get the version in openjdk-1.8.0.spec
+
 * Thu May 27 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.4
 - add 8264640.patch
 
