@@ -1506,7 +1506,7 @@ index 54c5cbdf..ce6b608e 100644
  import java.util.concurrent.ConcurrentSkipListSet;
  
 -public abstract class KAEMac extends MacSpi implements Cloneable {
-+public abstract class KAEHMac extends MacSpi implements Cloneable {
++public abstract class KAEHMac extends MacSpi {
  
      private final String algorithm;
  
@@ -3748,7 +3748,7 @@ index 00000000..897e2c6b
 +        } catch (ArrayIndexOutOfBoundsException | BadPaddingException e) {
 +            if (e instanceof AEADBadTagException) {
 +                throw e; // AEADBadTagException is expected for some tests
-+            } else if (e instanceof BadPaddingException) {
++            } else if (e instanceof BadPaddingException || e.getMessage().contains("wrong final block length")) {
 +                if (padding == Padding.NOPADDING) {
 +                    throw new IllegalBlockSizeException("Input length not multiple of " + blockSize + " bytes");
 +                } else {

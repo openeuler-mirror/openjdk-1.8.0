@@ -585,6 +585,7 @@ exit 0
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libnpt.so
 %ifarch %{aarch64}
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libj2kae.so
+%{_jvmdir}/%{jredir -- %{?1}}/lib/ext/kaeprovider.conf
 %endif
 %ifarch %{sa_arches}
 %{_jvmdir}/%{jredir -- %{?1}}/lib/%{archinstall}/libsaproc.so
@@ -917,7 +918,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 5
+Release: 6
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1101,6 +1102,7 @@ Patch188: 8247691_incorrect_handling_of_VM_exceptions_in_C1_deopt_stub.patch
 Patch189: 8266187_Memory_leak_in_appendBootClassPath.patch
 Patch190: 8266929_huawei_add_oid_mapping_common_sig_types.patch
 Patch191: 8264640.patch
+Patch192: add_kae_implementation_add_default_conf_file.patch
 
 #############################################
 #
@@ -1552,6 +1554,7 @@ pushd %{top_level_dir_name}
 %patch189 -p1
 %patch190 -p1
 %patch191 -p1
+%patch192 -p1
 
 popd
 
@@ -2169,7 +2172,10 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
-* Fri Sat 4 2021 hedongbo <hedongbo@huawei.com> - 1:1.8.0.292-b10.5
+* Mon Jun 27 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.6
+- add add_kae_implementation_add_default_conf_file.patch
+
+* Fri Jun 4 2021 hedongbo <hedongbo@huawei.com> - 1:1.8.0.292-b10.5
 - change the way to get the version in openjdk-1.8.0.spec
 
 * Thu May 27 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.4
