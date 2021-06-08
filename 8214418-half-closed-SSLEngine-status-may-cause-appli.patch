@@ -3,7 +3,6 @@ Date: Mon, 8 Mar 2021 09:28:45 +0800
 Subject: 8214418: half-closed SSLEngine status may cause
  application dead loop
 
-DTS/AR: DTS20210308033J8XP0F00
 Summary: <javax>: half-closed SSLEngine status may cause application dead loop
 LLT: NA
 Patch Type: backport
