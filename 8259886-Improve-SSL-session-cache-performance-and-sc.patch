@@ -3,7 +3,6 @@ Date: Thu, 11 Mar 2021 14:34:12 +0800
 Subject: 8259886: Improve SSL session cache performance and
  scalability
 
-DTS/AR: DTS202103110E0APCP0H00
 Summary: <javax.net.ssl>: Improve SSL session cache performance and scalability
 LLT: NA
 Patch Type: backport
