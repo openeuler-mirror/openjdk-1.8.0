@@ -3,7 +3,6 @@ Date: Mon, 25 Jan 2021 15:48:35 +0800
 Subject: 8254078: DataOutputStream is very slow post-disabling
  of Biased Locking
 
-DTS/AR: DTS202101180520BWP1D00
 Summary: <JDK> : DataOutputStream is very slow post-disabling of Biased Locking
 LLT: jtreg
 Patch Type: backport
