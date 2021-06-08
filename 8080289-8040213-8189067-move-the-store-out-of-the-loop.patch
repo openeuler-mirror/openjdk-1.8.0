@@ -9,10 +9,10 @@ Bug url: https://bugs.openjdk.java.net/browse/JDK-8080289 https://bugs.openjdk.j
  hotspot/src/share/vm/opto/loopnode.cpp        |   2 +-
  hotspot/src/share/vm/opto/loopnode.hpp        |   4 +-
  hotspot/src/share/vm/opto/loopopts.cpp        | 191 +++++++++++
- hotspot/src/share/vm/opto/memnode.cpp         |  58 ++--
+ hotspot/src/share/vm/opto/memnode.cpp         |  60 ++--
  hotspot/src/share/vm/opto/phaseX.hpp          |   9 +-
  .../loopopts/TestMoveStoresOutOfLoops.java    | 310 ++++++++++++++++++
- 6 files changed, 545 insertions(+), 29 deletions(-)
+ 6 files changed, 547 insertions(+), 29 deletions(-)
  create mode 100644 hotspot/test/compiler/loopopts/TestMoveStoresOutOfLoops.java
 
 diff --git a/hotspot/src/share/vm/opto/loopnode.cpp b/hotspot/src/share/vm/opto/loopnode.cpp
@@ -270,7 +270,7 @@ diff --git a/hotspot/src/share/vm/opto/memnode.cpp b/hotspot/src/share/vm/opto/m
 index 3ecbe1ce0..1bab75927 100644
 --- a/hotspot/src/share/vm/opto/memnode.cpp
 +++ b/hotspot/src/share/vm/opto/memnode.cpp
-@@ -2313,33 +2313,39 @@ Node *StoreNode::Ideal(PhaseGVN *phase, bool can_reshape) {
+@@ -2313,33 +2313,41 @@ Node *StoreNode::Ideal(PhaseGVN *phase, bool can_reshape) {
    // unsafe if I have intervening uses...  Also disallowed for StoreCM
    // since they must follow each StoreP operation.  Redundant StoreCMs
    // are eliminated just before matching in final_graph_reshape.
@@ -315,7 +315,9 @@ index 3ecbe1ce0..1bab75927 100644
 +             st->Opcode() == Op_StoreVector ||
 +             Opcode() == Op_StoreVector ||
 +             phase->C->get_alias_index(adr_type()) == Compile::AliasIdxRaw ||
-+             (Opcode() == Op_StoreL && st->Opcode() == Op_StoreI), // expanded ClearArrayNode
++             (Opcode() == Op_StoreL && st->Opcode() == Op_StoreI) || // expanded ClearArrayNode
++             (Opcode() == Op_StoreI && st->Opcode() == Op_StoreL) || // initialization by arraycopy
++             (is_mismatched_access() || mem->as_Store()->is_mismatched_access()),
 +             err_msg_res("no mismatched stores, except on raw memory: %s %s", NodeClassNames[Opcode()], NodeClassNames[st->Opcode()]));
 +
 +      if (st->in(MemNode::Address)->eqv_uncast(address) &&
