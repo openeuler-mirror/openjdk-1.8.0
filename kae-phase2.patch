@@ -1852,7 +1852,7 @@ new file mode 100644
 index 00000000..cfe19d7b
 --- /dev/null
 +++ b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAERSAPSSSignature.java
-@@ -0,0 +1,708 @@
+@@ -0,0 +1,712 @@
 +/*
 + * Copyright (c) 2018, 2020, Oracle and/or its affiliates. All rights reserved.
 + * Copyright (c) 2021, Huawei Technologies Co., Ltd. All rights reserved.
@@ -2318,6 +2318,10 @@ index 00000000..cfe19d7b
 +        } catch (SignatureException e) {
 +            throw e;
 +        } catch (BadPaddingException e) {
++            // occurs if the app has used the wrong RSA public key
++            // or if sigBytes is invalid or sourceBytes is invalid
++            // return false rather than propagating the exception for
++            // compatibility/ease of use
 +            return false;
 +        } finally {
 +            resetDigest();
@@ -2582,7 +2586,7 @@ new file mode 100644
 index 00000000..c524f277
 --- /dev/null
 +++ b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAERSASignature.java
-@@ -0,0 +1,356 @@
+@@ -0,0 +1,360 @@
 +/*
 + * Copyright (c) 2003, 2020, Oracle and/or its affiliates. All rights reserved.
 + * Copyright (c) 2021, Huawei Technologies Co., Ltd. All rights reserved.
@@ -2848,6 +2852,10 @@ index 00000000..c524f277
 +        } catch (SignatureException e) {
 +            throw e;
 +        } catch (BadPaddingException e) {
++            // occurs if the app has used the wrong RSA public key
++            // or if sigBytes is invalid or sourceBytes is invalid
++            // return false rather than propagating the exception for
++            // compatibility/ease of use
 +            return false;
 +        } finally {
 +            // free keyAddress
@@ -4413,11 +4421,12 @@ diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_exception
 index b1a29334..a10fa646 100644
 --- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_exception.c
 +++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_exception.c
-@@ -56,6 +56,7 @@ void KAE_ThrowEvpException(JNIEnv* env, int reason, const char* msg, void (* def
+@@ -56,6 +56,8 @@ void KAE_ThrowEvpException(JNIEnv* env, int reason, const char* msg, void (* def
              KAE_ThrowByName(env, "java/security/InvalidKeyException", msg);
              break;
          case EVP_R_BAD_DECRYPT:
 +        case EVP_R_DATA_NOT_MULTIPLE_OF_BLOCK_LENGTH:
++        case EVP_F_EVP_PKEY_DECRYPT:
              KAE_ThrowByName(env, "javax/crypto/BadPaddingException", msg);
              break;
          default:
