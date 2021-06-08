@@ -94,11 +94,11 @@ index d754f1d6..ea43a7a0 100644
    --enable-unlimited-crypto
                            Enable unlimited crypto policy [disabled]
    --disable-jfr           Disable Java Flight Recorder support [enabled]
-+  --disable-kae           Disable KAE support on aarch64 [enabled]
++  --enable-kae            Enable KAE support on aarch64 [disabled]
    --disable-debug-symbols disable generation of debug symbols [enabled]
    --disable-zip-debug-info
                            disable zipping of debug-info files [enabled]
-@@ -19843,6 +19846,31 @@ fi
+@@ -19843,6 +19846,27 @@ fi
  $as_echo "$ENABLE_JFR" >&6; }
  
  
@@ -112,12 +112,8 @@ index d754f1d6..ea43a7a0 100644
 +if test "${enable_kae+set}" = set; then :
 +  enableval=$enable_kae; enable_kae="${enableval}"
 +else
-+  #default enable on aarch64
-+  if test "x$OPENJDK_TARGET_CPU" = xaarch64; then
-+    enable_kae="yes"
-+  else
-+    enable_kae="no"
-+  fi
++  #default disable kae
++  enable_kae="no"
 +fi
 +
 +  if test "x$enable_kae" = "xyes"; then
@@ -143,8 +139,8 @@ index e4eb2352..23db9275 100644
 +  #
 +  # Enable or disable kae
 +  #
-+  AC_ARG_ENABLE(kae, [AS_HELP_STRING([--disable-kae],
-+      [disable KAE @<:@disabled@:>@])],,
++  AC_ARG_ENABLE(kae, [AS_HELP_STRING([--enable-kae],
++      [enable KAE @<:@enabled@:>@])],,
 +      [enable_kae=no])
 +  if test "x$enable_kae" = "xyes"; then
 +    ENABLE_KAE=true
@@ -3376,7 +3372,7 @@ new file mode 100644
 index 00000000..ed645698
 --- /dev/null
 +++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_cipher_rsa.c
-@@ -0,0 +1,463 @@
+@@ -0,0 +1,462 @@
 +/*
 + * Copyright (c) 2021, Huawei Technologies Co., Ltd. All rights reserved.
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
@@ -3551,7 +3547,6 @@ index 00000000..ed645698
 +    jbyte* inBytes = NULL;
 +    // outLen type should be size_t
 +    // EVP_PKEY_encrypt takes the outLen address as a parameter, and the parameter type is size_t*
-+    // You can refer to the issue #2774 to see more content
 +    size_t outLen = 0;
 +
 +    EVP_PKEY* pkey = (EVP_PKEY*) keyAddress;

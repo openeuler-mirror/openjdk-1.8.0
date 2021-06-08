@@ -1,10 +1,11 @@
-From cdc9dd2e9c2454259394d4b7f46c9bb720db6643 Mon Sep 17 00:00:00 2001
-Date: Fri, 22 Jan 2021 16:25:03 +0800
-Subject: set vm.vendor by configure
+From 7eaf2a172d905fb80466daea7a02265eaa58b0c8 Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Thu, 4 Mar 2021 11:26:22 +0800
+Subject: [PATCH] [Huawei]set vm.vendor by configure
 
-Summary: <vendor>: <backout the vendor patch>
-LLT: java -XshowSettings:properties
-Bug url: NA
+
+
+Signed-off-by: Guo Ge  <ge.guo@huawei.com>
 ---
  hotspot/src/share/vm/runtime/vm_version.cpp | 7 ++++++-
  jdk/src/share/native/java/lang/System.c     | 6 +++---
