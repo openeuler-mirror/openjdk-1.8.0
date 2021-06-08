@@ -3,11 +3,9 @@ Date: Mon, 8 Feb 2021 09:47:28 +0800
 Subject: 8140597: Postpone the initial mark request until the
  current mixed GC phase has finished.
 
-DTS/AR: DTS202102030LAZOBP1G00
 Summary: <g1>: <Postpone the initial mark request until the current mixed GC phase has finished.>
 LLT: jtreg
 Patch Type: backport
-Bug url: https://dts-szv.clouddragon.huawei.com/DTSPortal/ticket/DTS202102030LAZOBP1G00
 ---
  .../gc_implementation/g1/g1CollectedHeap.cpp  |  1 -
  .../g1/g1CollectorPolicy.cpp                  | 37 +++++++------------
