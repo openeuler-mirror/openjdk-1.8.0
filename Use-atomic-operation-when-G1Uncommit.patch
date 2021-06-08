@@ -2,11 +2,9 @@ From bdff9eab4eb0bc16ebdbe908cc6237e0a70d53e6 Mon Sep 17 00:00:00 2001
 Date: Sat, 26 Dec 2020 11:22:37 +0800
 Subject: Use atomic operation when G1Uncommit
 
-DTS/AR: DTS2021012207P2X7P0E00
 Summary: <g1>: <Use atomic operation when G1Uncommit>
 LLT: jtreg
 Patch Type: huawei
-Bug url: https://dts-szv.clouddragon.huawei.com/DTSPortal/ticket/DTS2021012207P2X7P0E00
 ---
  .../vm/gc_implementation/g1/g1BiasedArray.hpp |  5 ++++
  .../g1/g1RegionToSpaceMapper.cpp              | 11 ++++-----
