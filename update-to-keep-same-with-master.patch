@@ -1,0 +1,83 @@
+From 0b24d78d6e226413d9e95eb13646a313dd2396ef Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Thu, 11 Mar 2021 16:31:50 +0800
+Subject: [PATCH] [Huawei]update to keep same with master
+
+
+
+Signed-off-by: Lin Haibing <linhaibing@huawei.com>
+---
+ .../share/vm/classfile/systemDictionary.cpp   | 51 +++++++++----------
+ 4 files changed, 28 insertions(+), 28 deletions(-)
+
+diff --git a/hotspot/src/share/vm/classfile/systemDictionary.cpp b/hotspot/src/share/vm/classfile/systemDictionary.cpp
+index c3dec0a30..201dd9594 100644
+--- a/hotspot/src/share/vm/classfile/systemDictionary.cpp
++++ b/hotspot/src/share/vm/classfile/systemDictionary.cpp
+@@ -1097,7 +1097,7 @@ static char* convert_into_package_name(char* name) {
+   char* index = strrchr(name, '/');
+   if (index == NULL) {
+     return NULL;
+-  } else {
++  } else {  
+     *index = '\0'; // chop to just the package name
+     while ((index = strchr(name, '/')) != NULL) {
+       *index = '.'; // replace '/' with '.' in package name
+@@ -1170,29 +1170,31 @@ Klass* SystemDictionary::resolve_from_stream(Symbol* class_name,
+       !class_loader.is_null() &&
+       parsed_name != NULL &&
+       parsed_name->utf8_length() >= (int)pkglen) {
+-    ResourceMark rm(THREAD);
+-    bool prohibited;
+-    const jbyte* base = parsed_name->base();
+-    if ((base[0] | base[1] | base[2] | base[3] | base[4]) & 0x80) {
+-      prohibited = is_prohibited_package_slow(parsed_name);
+-    } else {
+-      char* name = parsed_name->as_C_string();
+-      prohibited = (strncmp(name, pkg, pkglen) == 0);
+-    }
+-    if (prohibited) {
+-      // It is illegal to define classes in the "java." package from
+-      // JVM_DefineClass or jni_DefineClass unless you're the bootclassloader
+-      char* name = parsed_name->as_C_string();
+-      name = convert_into_package_name(name);
+-      assert(name != NULL, "must be");
+-
+-      const char* fmt = "Prohibited package name: %s";
+-      size_t len = strlen(fmt) + strlen(name);
+-      char* message = NEW_RESOURCE_ARRAY(char, len);
+-      jio_snprintf(message, len, fmt, name);
+-      Exceptions::_throw_msg(THREAD_AND_LOCATION,
+-        vmSymbols::java_lang_SecurityException(), message);
+-    }
++      bool prohibited;
++      const jbyte* base = parsed_name->base();
++      if ((base[0] | base[1] | base[2] | base[3] | base[4]) & 0x80) {
++        prohibited = is_prohibited_package_slow(parsed_name);
++      } else {
++        char* name = parsed_name->as_C_string();
++        prohibited = (strncmp(name, pkg, pkglen) == 0);
++      }
++      if (prohibited) {
++        // It is illegal to define classes in the "java." package from
++        // JVM_DefineClass or jni_DefineClass unless you're the bootclassloader
++        char* name = parsed_name->as_C_string();
++        char* index = strrchr(name, '/');
++        assert(index != NULL, "must be");
++        *index = '\0'; // chop to just the package name
++        while ((index = strchr(name, '/')) != NULL) {
++          *index = '.'; // replace '/' with '.' in package name
++        }
++        const char* fmt = "Prohibited package name: %s";
++        size_t len = strlen(fmt) + strlen(name);
++        char* message = NEW_RESOURCE_ARRAY(char, len);
++        jio_snprintf(message, len, fmt, name);
++        Exceptions::_throw_msg(THREAD_AND_LOCATION,
++          vmSymbols::java_lang_SecurityException(), message);
++      }
+   }
+ 
+   if (!HAS_PENDING_EXCEPTION) {
+-- 
+2.19.0
+

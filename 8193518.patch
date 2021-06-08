@@ -1,0 +1,57 @@
+From ffcc6a489a09be7b10e06e9bece5fe2aa06d336d Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Tue, 9 Mar 2021 16:58:48 +0800
+Subject: [PATCH] [Backport]8193518: C2:Vector registers sometimes
+ corrupted at safepoint
+
+Reference: https://bugs.openjdk.java.net/browse/JDK-8193518
+
+
+Signed-off-by: He Xuejin <hexuejin2@huawei.com>
+---
+ hotspot/src/share/vm/opto/compile.hpp   | 6 +++---
+ hotspot/src/share/vm/opto/superword.cpp | 4 +++-
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/hotspot/src/share/vm/opto/compile.hpp b/hotspot/src/share/vm/opto/compile.hpp
+index fd750b10e..93fa11737 100644
+--- a/hotspot/src/share/vm/opto/compile.hpp
++++ b/hotspot/src/share/vm/opto/compile.hpp
+@@ -316,7 +316,7 @@ class Compile : public Phase {
+   bool                  _has_unsafe_access;     // True if the method _may_ produce faults in unsafe loads or stores.
+   bool                  _has_stringbuilder;     // True StringBuffers or StringBuilders are allocated
+   bool                  _has_boxed_value;       // True if a boxed object is allocated
+-  int                   _max_vector_size;       // Maximum size of generated vectors
++  uint                  _max_vector_size;       // Maximum size of generated vectors
+   uint                  _trap_hist[trapHistLength];  // Cumulative traps
+   bool                  _trap_can_recompile;    // Have we emitted a recompiling trap?
+   uint                  _decompile_count;       // Cumulative decompilation counts.
+@@ -581,8 +581,8 @@ class Compile : public Phase {
+   void          set_has_stringbuilder(bool z)   { _has_stringbuilder = z; }
+   bool              has_boxed_value() const     { return _has_boxed_value; }
+   void          set_has_boxed_value(bool z)     { _has_boxed_value = z; }
+-  int               max_vector_size() const     { return _max_vector_size; }
+-  void          set_max_vector_size(int s)      { _max_vector_size = s; }
++  uint              max_vector_size() const     { return _max_vector_size; }
++  void          set_max_vector_size(uint s)     { _max_vector_size = s; }
+   void          set_trap_count(uint r, uint c)  { assert(r < trapHistLength, "oob");        _trap_hist[r] = c; }
+   uint              trap_count(uint r) const    { assert(r < trapHistLength, "oob"); return _trap_hist[r]; }
+   bool              trap_can_recompile() const  { return _trap_can_recompile; }
+diff --git a/hotspot/src/share/vm/opto/superword.cpp b/hotspot/src/share/vm/opto/superword.cpp
+index a14210ee2..2b7e7af21 100644
+--- a/hotspot/src/share/vm/opto/superword.cpp
++++ b/hotspot/src/share/vm/opto/superword.cpp
+@@ -1480,7 +1480,9 @@ void SuperWord::output() {
+ #endif
+     }
+   }
+-  C->set_max_vector_size(max_vlen_in_bytes);
++  if (max_vlen_in_bytes > C->max_vector_size()) {
++    C->set_max_vector_size(max_vlen_in_bytes);
++  }
+ }
+ 
+ //------------------------------vector_opd---------------------------
+-- 
+2.19.0
+

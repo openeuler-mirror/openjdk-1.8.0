@@ -82,7 +82,7 @@ diff --git a/hotspot/src/share/vm/opto/macro.cpp b/hotspot/src/share/vm/opto/mac
 index 3c13f973f..628ee6656 100644
 --- a/hotspot/src/share/vm/opto/macro.cpp
 +++ b/hotspot/src/share/vm/opto/macro.cpp
-@@ -1402,11 +1402,20 @@ void PhaseMacroExpand::expand_allocate_common(
+@@ -1402,14 +1402,23 @@ void PhaseMacroExpand::expand_allocate_common(
  
      // If initialization is performed by an array copy, any required
      // MemBarStoreStore was already added. If the object does not
@@ -102,11 +102,14 @@ index 3c13f973f..628ee6656 100644
 +    // implementation: CMS and G1 will not scan newly created object,
 +    // so it's safe to skip storestore barrier when allocation does
 +    // not escape.
-     if ( AARCH64_ONLY ( !alloc->does_not_escape_thread() &&
-+			!alloc->is_allocation_MemBar_redundant() &&
- 	                (init == NULL ||
- 			 !init->is_complete_with_arraycopy()) )
-          NOT_AARCH64  ( init == NULL ||
+ #ifndef AARCH64
+     if (init == NULL || (!init->is_complete_with_arraycopy() && !init->does_not_escape())) {
+ #else
+     if (!alloc->does_not_escape_thread() &&
++        !alloc->is_allocation_MemBar_redundant() &&
+         (init == NULL || !init->is_complete_with_arraycopy())) {
+ #endif
+       if (init == NULL || init->req() < InitializeNode::RawStores) {
 diff --git a/hotspot/src/share/vm/opto/parse1.cpp b/hotspot/src/share/vm/opto/parse1.cpp
 index 2d6daa159..da0c6dd68 100644
 --- a/hotspot/src/share/vm/opto/parse1.cpp
