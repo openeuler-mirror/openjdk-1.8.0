@@ -1,0 +1,64 @@
+diff --git a/jdk/make/CopyFiles.gmk b/jdk/make/CopyFiles.gmk
+index 1f68aaf4c..43e278f7a 100644
+--- a/jdk/make/CopyFiles.gmk
++++ b/jdk/make/CopyFiles.gmk
+@@ -631,4 +631,16 @@ endif
+ 
+ ##########################################################################################
+ 
++ifeq ($(OPENJDK_TARGET_CPU_ARCH), aarch64)
++  
++  KAE_CONF_PATH= $(JDK_OUTPUTDIR)/lib/ext
++  $(KAE_CONF_PATH)/kaeprovider.conf: $(JDK_TOPDIR)/src/share/lib/security/kaeprovider.conf
++	$(call install-file)
++
++  COPY_FILES += $(KAE_CONF_PATH)/kaeprovider.conf
++
++endif
++
++##########################################################################################
++
+ -include $(CUSTOM_MAKE_DIR)/CopyFiles.gmk
+diff --git a/jdk/src/share/lib/security/kaeprovider.conf b/jdk/src/share/lib/security/kaeprovider.conf
+new file mode 100644
+index 000000000..a48969669
+--- /dev/null
++++ b/jdk/src/share/lib/security/kaeprovider.conf
+@@ -0,0 +1,19 @@
++#
++# This is the config file for KAEProvider
++#
++# Algorithms are enabled by default if KAEProvider is used. 
++# Delete # if you want to disable certain algorithm.
++
++# kae.md5=false
++# kae.sha256=false
++# kae.sha384=false
++# kae.sm3=false
++# kae.aes=false
++# kae.sm4=false
++# kae.hmac=false
++# kae.rsa=false
++# kae.dh=false
++# kae.ec=false
++
++# enable KAEProvider log setting
++# kae.log=true
+diff --git a/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java
+index 419a8744b..83ed8649c 100644
+--- a/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java
++++ b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java
+@@ -100,11 +100,11 @@ public class KAEProvider extends Provider {
+ 
+     public KAEProvider() {
+         super("KAEProvider", 1.8d, "KAE provider");
+-        if (needLog) {
++        Properties props = getProp();
++        if (needLog && "true".equalsIgnoreCase(props.getProperty("kae.log"))) {
+             logStart(excp);
+             needLog = false; // Log only once
+         }
+-        Properties props = getProp();
+         if (!"false".equalsIgnoreCase(props.getProperty("kae.md5"))) {
+             putMD5();
+         }
