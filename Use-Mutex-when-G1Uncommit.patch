@@ -2,11 +2,9 @@ From 120ea606bc94b68e8a8d7d8c2cfc41bf472b5742 Mon Sep 17 00:00:00 2001
 Date: Mon, 8 Feb 2021 10:32:10 +0800
 Subject: Use Mutex when G1Uncommit
 
-DTS/AR: DTS2021021804F2O5P0H00
 Summary: <g1>: <Use Mutex when G1Uncommit>
 LLT: jtreg
 Patch Type: huawei
-Bug url: https://dts-szv.clouddragon.huawei.com/DTSPortal/ticket/DTS2021021804F2O5P0H00
 ---
  .../g1/g1PageBasedVirtualSpace.cpp            |  8 +++----
  .../g1/g1RegionToSpaceMapper.cpp              | 22 +++++++++++++------
