@@ -1,0 +1,21 @@
+From f50206e9a2e0eb975720bb425d3cd94f85cc4fc6 Mon Sep 17 00:00:00 2001
+Date: Mon, 19 Apr 2021 15:40:09 +0800
+Subject: [PATCH 1/2] Code style fix
+
+---
+ hotspot/src/share/vm/runtime/arguments.cpp                 | 2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/hotspot/src/share/vm/runtime/arguments.cpp b/hotspot/src/share/vm/runtime/arguments.cpp
+index 170f1fd9f..7ecb7a271 100644
+--- a/hotspot/src/share/vm/runtime/arguments.cpp
++++ b/hotspot/src/share/vm/runtime/arguments.cpp
+@@ -2175,7 +2175,7 @@ void Arguments::set_boxtype_cached_max_flags() {
+ #ifdef COMPILER2
+   if (!AggressiveOpts) {
+     if (!FLAG_IS_DEFAULT(BoxTypeCachedMax)) {
+-       int const size = 1024;
++       const int size = 1024;
+        char buffer[size];
+        jio_snprintf(buffer, size, "java.lang.Long.LongCache.high=" INTX_FORMAT, BoxTypeCachedMax);
+        add_property(buffer);

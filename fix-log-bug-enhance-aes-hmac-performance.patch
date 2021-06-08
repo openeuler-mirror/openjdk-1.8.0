@@ -1,0 +1,283 @@
+From f08447dcb86c2637fc306de73572c5d8de14520f Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Tue, 16 Mar 2021 10:11:31 +0800
+Subject: [PATCH] [Huawei]fix log bug && enhance aes/hmac performance
+
+
+
+Signed-off-by: He Dongbo <hedongbo@huawei.com>
+---
+ common/autoconf/generated-configure.sh        | 44 ++++++-----
+ common/autoconf/toolchain_windows.m4          | 20 +++--
+ hotspot/make/windows/makefiles/compile.make   | 24 ++++++
+ hotspot/make/windows/makefiles/vm.make        |  2 +-
+ hotspot/src/share/vm/runtime/os.cpp           |  3 +
+ hotspot/src/share/vm/runtime/vm_version.cpp   |  4 +
+ 6 files changed, 74 insertions(+), 23 deletions(-)
+ create mode 100644 jdk/test/micro/org/openeuler/bench/security/openssl/HMacBenchmark.java
+
+diff --git a/common/autoconf/generated-configure.sh b/common/autoconf/generated-configure.sh
+index 60298422f..bdfdd207b 100644
+--- a/common/autoconf/generated-configure.sh
++++ b/common/autoconf/generated-configure.sh
+@@ -4288,7 +4288,7 @@ TOOLCHAIN_DESCRIPTION_xlc="IBM XL C/C++"
+ 
+ ################################################################################
+ # The order of these defines the priority by which we try to find them.
+-VALID_VS_VERSIONS="2010 2012 2013 2015 2017"
++VALID_VS_VERSIONS="2010 2012 2013 2015 2017 2019"
+ 
+ VS_DESCRIPTION_2010="Microsoft Visual Studio 2010"
+ VS_VERSION_INTERNAL_2010=100
+@@ -4346,6 +4346,18 @@ VS_SDK_INSTALLDIR_2017=
+ VS_VS_PLATFORM_NAME_2017="v141"
+ VS_SDK_PLATFORM_NAME_2017=
+ 
++VS_DESCRIPTION_2019="Microsoft Visual Studio 2019 - CURRENTLY NOT WORKING"
++VS_VERSION_INTERNAL_2019=141
++VS_MSVCR_2019=vcruntime140.dll
++VS_MSVCP_2019=msvcp140.dll
++VS_ENVVAR_2019="VS150COMNTOOLS"
++VS_USE_UCRT_2019="true"
++VS_VS_INSTALLDIR_2019="Microsoft Visual Studio/2019"
++VS_EDITIONS_2019="Community Professional Enterprise"
++VS_SDK_INSTALLDIR_2019=
++VS_VS_PLATFORM_NAME_2019="v141"
++VS_SDK_PLATFORM_NAME_2019=
++
+ ################################################################################
+ 
+ 
+@@ -25694,10 +25706,10 @@ $as_echo "$as_me: Valid Visual Studio versions: $VALID_VS_VERSIONS." >&6;}
+       { $as_echo "$as_me:${as_lineno-$LINENO}: Found Visual Studio installation at $VS_BASE using $METHOD" >&5
+ $as_echo "$as_me: Found Visual Studio installation at $VS_BASE using $METHOD" >&6;}
+       if test "x$OPENJDK_TARGET_CPU_BITS" = x32; then
+-        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat"
++        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat Auxiliary/Build/vcvars32.bat"
+       else
+         VCVARSFILES="vc/bin/amd64/vcvars64.bat vc/bin/x86_amd64/vcvarsx86_amd64.bat \
+-            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat"
++            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat Auxiliary/Build/vcvars64.bat"
+       fi
+ 
+       for VCVARSFILE in $VCVARSFILES; do
+@@ -25751,10 +25763,10 @@ $as_echo "$as_me: Warning: None of $VCVARSFILES were found, Visual Studio instal
+       { $as_echo "$as_me:${as_lineno-$LINENO}: Found Visual Studio installation at $VS_BASE using $METHOD" >&5
+ $as_echo "$as_me: Found Visual Studio installation at $VS_BASE using $METHOD" >&6;}
+       if test "x$OPENJDK_TARGET_CPU_BITS" = x32; then
+-        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat"
++        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat Auxiliary/Build/vcvars32.bat"
+       else
+         VCVARSFILES="vc/bin/amd64/vcvars64.bat vc/bin/x86_amd64/vcvarsx86_amd64.bat \
+-            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat"
++            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat Auxiliary/Build/vcvars64.bat"
+       fi
+ 
+       for VCVARSFILE in $VCVARSFILES; do
+@@ -25790,8 +25802,6 @@ $as_echo "$as_me: directory within the Visual Studio installation" >&6;}
+     fi
+   fi
+ 
+-  VS_ENV_CMD=""
+-
+   if test "x$VS_COMNTOOLS" != x; then
+ 
+   if test "x$VS_ENV_CMD" = x; then
+@@ -25824,10 +25834,10 @@ $as_echo "$as_me: directory within the Visual Studio installation" >&6;}
+       { $as_echo "$as_me:${as_lineno-$LINENO}: Found Visual Studio installation at $VS_BASE using $METHOD" >&5
+ $as_echo "$as_me: Found Visual Studio installation at $VS_BASE using $METHOD" >&6;}
+       if test "x$OPENJDK_TARGET_CPU_BITS" = x32; then
+-        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat"
++        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat Auxiliary/Build/vcvars32.bat"
+       else
+         VCVARSFILES="vc/bin/amd64/vcvars64.bat vc/bin/x86_amd64/vcvarsx86_amd64.bat \
+-            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat"
++            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat Auxiliary/Build/vcvars64.bat"
+       fi
+ 
+       for VCVARSFILE in $VCVARSFILES; do
+@@ -25883,10 +25893,10 @@ $as_echo "$as_me: Warning: None of $VCVARSFILES were found, Visual Studio instal
+       { $as_echo "$as_me:${as_lineno-$LINENO}: Found Visual Studio installation at $VS_BASE using $METHOD" >&5
+ $as_echo "$as_me: Found Visual Studio installation at $VS_BASE using $METHOD" >&6;}
+       if test "x$OPENJDK_TARGET_CPU_BITS" = x32; then
+-        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat"
++        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat Auxiliary/Build/vcvars32.bat"
+       else
+         VCVARSFILES="vc/bin/amd64/vcvars64.bat vc/bin/x86_amd64/vcvarsx86_amd64.bat \
+-            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat"
++            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat Auxiliary/Build/vcvars64.bat"
+       fi
+ 
+       for VCVARSFILE in $VCVARSFILES; do
+@@ -25944,10 +25954,10 @@ $as_echo "$as_me: Warning: None of $VCVARSFILES were found, Visual Studio instal
+       { $as_echo "$as_me:${as_lineno-$LINENO}: Found Visual Studio installation at $VS_BASE using $METHOD" >&5
+ $as_echo "$as_me: Found Visual Studio installation at $VS_BASE using $METHOD" >&6;}
+       if test "x$OPENJDK_TARGET_CPU_BITS" = x32; then
+-        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat"
++        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat Auxiliary/Build/vcvars32.bat"
+       else
+         VCVARSFILES="vc/bin/amd64/vcvars64.bat vc/bin/x86_amd64/vcvarsx86_amd64.bat \
+-            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat"
++            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat Auxiliary/Build/vcvars64.bat"
+       fi
+ 
+       for VCVARSFILE in $VCVARSFILES; do
+@@ -26002,10 +26012,10 @@ $as_echo "$as_me: Warning: None of $VCVARSFILES were found, Visual Studio instal
+       { $as_echo "$as_me:${as_lineno-$LINENO}: Found Visual Studio installation at $VS_BASE using $METHOD" >&5
+ $as_echo "$as_me: Found Visual Studio installation at $VS_BASE using $METHOD" >&6;}
+       if test "x$OPENJDK_TARGET_CPU_BITS" = x32; then
+-        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat"
++        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat Auxiliary/Build/vcvars32.bat"
+       else
+         VCVARSFILES="vc/bin/amd64/vcvars64.bat vc/bin/x86_amd64/vcvarsx86_amd64.bat \
+-            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat"
++            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat Auxiliary/Build/vcvars64.bat"
+       fi
+ 
+       for VCVARSFILE in $VCVARSFILES; do
+@@ -26059,10 +26069,10 @@ $as_echo "$as_me: Warning: None of $VCVARSFILES were found, Visual Studio instal
+       { $as_echo "$as_me:${as_lineno-$LINENO}: Found Visual Studio installation at $VS_BASE using $METHOD" >&5
+ $as_echo "$as_me: Found Visual Studio installation at $VS_BASE using $METHOD" >&6;}
+       if test "x$OPENJDK_TARGET_CPU_BITS" = x32; then
+-        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat"
++        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat Auxiliary/Build/vcvars32.bat"
+       else
+         VCVARSFILES="vc/bin/amd64/vcvars64.bat vc/bin/x86_amd64/vcvarsx86_amd64.bat \
+-            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat"
++            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat Auxiliary/Build/vcvars64.bat"
+       fi
+ 
+       for VCVARSFILE in $VCVARSFILES; do
+diff --git a/common/autoconf/toolchain_windows.m4 b/common/autoconf/toolchain_windows.m4
+index a78f9ac66..0b5efdad2 100644
+--- a/common/autoconf/toolchain_windows.m4
++++ b/common/autoconf/toolchain_windows.m4
+@@ -25,7 +25,7 @@
+ 
+ ################################################################################
+ # The order of these defines the priority by which we try to find them.
+-VALID_VS_VERSIONS="2010 2012 2013 2015 2017"
++VALID_VS_VERSIONS="2010 2012 2013 2015 2017 2019"
+ 
+ VS_DESCRIPTION_2010="Microsoft Visual Studio 2010"
+ VS_VERSION_INTERNAL_2010=100
+@@ -83,6 +83,18 @@ VS_SDK_INSTALLDIR_2017=
+ VS_VS_PLATFORM_NAME_2017="v141"
+ VS_SDK_PLATFORM_NAME_2017=
+ 
++VS_DESCRIPTION_2019="Microsoft Visual Studio 2019 - CURRENTLY NOT WORKING"
++VS_VERSION_INTERNAL_2019=141
++VS_MSVCR_2019=vcruntime140.dll
++VS_MSVCP_2019=msvcp140.dll
++VS_ENVVAR_2019="VS150COMNTOOLS"
++VS_USE_UCRT_2019="true"
++VS_VS_INSTALLDIR_2019="Microsoft Visual Studio/2019"
++VS_EDITIONS_2019="Community Professional Enterprise"
++VS_SDK_INSTALLDIR_2019=
++VS_VS_PLATFORM_NAME_2019="v141"
++VS_SDK_PLATFORM_NAME_2019=
++
+ ################################################################################
+ 
+ AC_DEFUN([TOOLCHAIN_CHECK_POSSIBLE_VISUAL_STUDIO_ROOT],
+@@ -107,10 +119,10 @@ AC_DEFUN([TOOLCHAIN_CHECK_POSSIBLE_VISUAL_STUDIO_ROOT],
+     if test -d "$VS_BASE"; then
+       AC_MSG_NOTICE([Found Visual Studio installation at $VS_BASE using $METHOD])
+       if test "x$OPENJDK_TARGET_CPU_BITS" = x32; then
+-        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat"
++        VCVARSFILES="vc/bin/vcvars32.bat vc/auxiliary/build/vcvars32.bat Auxiliary/Build/vcvars32.bat"
+       else
+         VCVARSFILES="vc/bin/amd64/vcvars64.bat vc/bin/x86_amd64/vcvarsx86_amd64.bat \
+-            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat"
++            vc/auxiliary/build/vcvarsx86_amd64.bat vc/auxiliary/build/vcvars64.bat Auxiliary/Build/vcvars64.bat"
+       fi
+ 
+       for VCVARSFILE in $VCVARSFILES; do
+@@ -198,8 +210,6 @@ AC_DEFUN([TOOLCHAIN_FIND_VISUAL_STUDIO_BAT_FILE],
+     fi
+   fi
+ 
+-  VS_ENV_CMD=""
+-
+   if test "x$VS_COMNTOOLS" != x; then
+     TOOLCHAIN_CHECK_POSSIBLE_VISUAL_STUDIO_ROOT([${VS_VERSION}],
+         [$VS_COMNTOOLS/../..], [$VS_COMNTOOLS_VAR variable])
+diff --git a/hotspot/make/windows/makefiles/compile.make b/hotspot/make/windows/makefiles/compile.make
+index a405eb336..e5aed4418 100644
+--- a/hotspot/make/windows/makefiles/compile.make
++++ b/hotspot/make/windows/makefiles/compile.make
+@@ -54,6 +54,9 @@ CXX=cl.exe
+ 
+ # These are always used in all compiles
+ CXX_FLAGS=$(EXTRA_CFLAGS) /nologo /W3 /WX /GS
++!if "$(MSC_VER)" > "1910"
++CXX_FLAGS=$(EXTRA_CFLAGS) /nologo /W3 /GS /arch:IA32
++!endif
+ 
+ # Let's add debug information when Full Debug Symbols is enabled
+ !if "$(ENABLE_FULL_DEBUG_SYMBOLS)" == "1"
+@@ -308,6 +317,21 @@ MT=mt.exe
+ SAFESEH_FLAG = /SAFESEH
+ !endif
+ 
++!if "$(COMPILER_NAME)" == "VS2019"
++PRODUCT_OPT_OPTION   = /O2 /Oy-
++FASTDEBUG_OPT_OPTION = /O2 /Oy-
++DEBUG_OPT_OPTION     = /Od
++GX_OPTION = /EHsc
++LD_FLAGS = /manifest $(LD_FLAGS)
++MP_FLAG = /MP
++# Manifest Tool - used in VS2005 and later to adjust manifests stored
++# as resources inside build artifacts.
++!if "x$(MT)" == "x"
++MT=mt.exe
++!endif
++SAFESEH_FLAG = /SAFESEH
++!endif
++
+ !if "$(BUILDARCH)" == "i486"
+ LD_FLAGS = $(SAFESEH_FLAG) $(LD_FLAGS)
+ !endif
+diff --git a/hotspot/make/windows/makefiles/vm.make b/hotspot/make/windows/makefiles/vm.make
+index 082232719..b46354a5e 100644
+--- a/hotspot/make/windows/makefiles/vm.make
++++ b/hotspot/make/windows/makefiles/vm.make
+@@ -129,7 +129,7 @@ CXX_DONT_USE_PCH=/D DONT_USE_PRECOMPILED_HEADER
+ 
+ !if "$(USE_PRECOMPILED_HEADER)" != "0"
+ CXX_USE_PCH=/Fp"vm.pch" /Yu"precompiled.hpp"
+-!if "$(COMPILER_NAME)" == "VS2012" || "$(COMPILER_NAME)" == "VS2013" || "$(COMPILER_NAME)" == "VS2015" || "$(COMPILER_NAME)" == "VS2017"
++!if "$(COMPILER_NAME)" == "VS2012" || "$(COMPILER_NAME)" == "VS2013" || "$(COMPILER_NAME)" == "VS2015" || "$(COMPILER_NAME)" == "VS2017" || "$(COMPILER_NAME)" == "VS2019"
+ # VS2012 and later require this object file to be listed:
+ LD_FLAGS=$(LD_FLAGS) _build_pch_file.obj
+ !endif
+diff --git a/hotspot/src/share/vm/runtime/os.cpp b/hotspot/src/share/vm/runtime/os.cpp
+index f5182ea75..3242c6666 100644
+--- a/hotspot/src/share/vm/runtime/os.cpp
++++ b/hotspot/src/share/vm/runtime/os.cpp
+@@ -67,6 +67,9 @@
+ #ifdef TARGET_OS_FAMILY_bsd
+ # include "os_bsd.inline.hpp"
+ #endif
++#ifndef _MSC_VER
++#define _MSC_VER 1916
++#endif
+ 
+ # include <signal.h>
+ 
+diff --git a/hotspot/src/share/vm/runtime/vm_version.cpp b/hotspot/src/share/vm/runtime/vm_version.cpp
+index fd37b8345..480459921 100644
+--- a/hotspot/src/share/vm/runtime/vm_version.cpp
++++ b/hotspot/src/share/vm/runtime/vm_version.cpp
+@@ -231,6 +231,8 @@ const char* Abstract_VM_Version::internal_vm_info_string() {
+         #define HOTSPOT_BUILD_COMPILER "MS VC++ 12.0 (VS2013)"
+       #elif _MSC_VER == 1900
+         #define HOTSPOT_BUILD_COMPILER "MS VC++ 14.0 (VS2015)"
++      #elif _MSC_VER == 1910
++        #define HOTSPOT_BUILD_COMPILER "MS VC++ 15.0 (VS2017)"
+       #elif _MSC_VER == 1911
+         #define HOTSPOT_BUILD_COMPILER "MS VC++ 15.3 (VS2017)"
+       #elif _MSC_VER == 1912
+--
+2.19.0
+
