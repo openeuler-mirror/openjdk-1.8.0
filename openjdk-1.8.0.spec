@@ -918,7 +918,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 7
+Release: 8
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2174,6 +2174,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Jun 8 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.8
+- delete redundant info in patch
+
 * Tue Jun 8 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.7
 - add improve_algorithmConstraints_checkAlgorithm_performance.patch
 
