@@ -1,0 +1,12 @@
+diff --git a/jdk/src/share/instrument/InvocationAdapter.c b/jdk/src/share/instrument/InvocationAdapter.c
+index 5aa189b0..b06cf5cb 100644
+--- a/jdk/src/share/instrument/InvocationAdapter.c
++++ b/jdk/src/share/instrument/InvocationAdapter.c
+@@ -829,6 +829,7 @@ appendBootClassPath( JPLISAgent* agent,
+ 
+             resolved = resolve(parent, path);
+             jvmtierr = (*jvmtienv)->AddToBootstrapClassLoaderSearch(jvmtienv, resolved);
++	    free(resolved);
+         }
+ 
+         /* print warning if boot class path not updated */

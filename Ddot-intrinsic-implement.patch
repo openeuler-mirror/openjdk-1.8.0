@@ -3,7 +3,7 @@ index 1e9b1cb91..c0fd37d05 100644
 --- a/hotspot/src/cpu/aarch64/vm/assembler_aarch64.hpp
 +++ b/hotspot/src/cpu/aarch64/vm/assembler_aarch64.hpp
 @@ -2061,6 +2061,14 @@ public:
-     ld_st(Vt, T, a, op1, op2);						\
+     ld_st(Vt, T, a, op1, op2);                                          \
    }
  
 +  void ld1_d(FloatRegister Vt, int index, const Address &a) {
@@ -172,8 +172,8 @@ index 388177589..1abc7e3b0 100644
 +                  Register dy, Register incy, Register temp_reg);
 +
    void string_compare(Register str1, Register str2,
- 		      Register cnt1, Register cnt2, Register result,
- 		      Register tmp1);
+                       Register cnt1, Register cnt2, Register result,
+                       Register tmp1);
 @@ -1236,6 +1239,11 @@ private:
    // Uses rscratch2 if the address is not directly reachable
    Address spill_address(int size, int offset, Register tmp=rscratch2);
