@@ -1,0 +1,66 @@
+From c5590435871f83fcca35a3ee28692e5864b8a657 Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Tue, 9 Mar 2021 16:51:56 +0800
+Subject: [PATCH] [Huawei]Disable ddot intrinsic on CPUs that not
+ support
+
+
+
+Signed-off-by: Mou Zhuojun <mouzhuojun@huawei.com>
+---
+ hotspot/src/cpu/ppc/vm/vm_version_ppc.cpp     | 5 +++++
+ hotspot/src/cpu/sparc/vm/vm_version_sparc.cpp | 5 +++++
+ hotspot/src/cpu/x86/vm/vm_version_x86.cpp     | 5 +++++
+ 3 files changed, 15 insertions(+)
+
+diff --git a/hotspot/src/cpu/ppc/vm/vm_version_ppc.cpp b/hotspot/src/cpu/ppc/vm/vm_version_ppc.cpp
+index 3c59c96ca..b5ce1cfa9 100644
+--- a/hotspot/src/cpu/ppc/vm/vm_version_ppc.cpp
++++ b/hotspot/src/cpu/ppc/vm/vm_version_ppc.cpp
+@@ -236,6 +236,11 @@ void VM_Version::initialize() {
+     FLAG_SET_DEFAULT(UseSHA, false);
+   }
+ 
++  if (UseF2jBLASIntrinsics) {
++    warning("F2jBLAS instructions are not available on this CPU");
++    FLAG_SET_DEFAULT(UseF2jBLASIntrinsics, false);
++  }
++
+   if (FLAG_IS_DEFAULT(UseMontgomeryMultiplyIntrinsic)) {
+     UseMontgomeryMultiplyIntrinsic = true;
+   }
+diff --git a/hotspot/src/cpu/sparc/vm/vm_version_sparc.cpp b/hotspot/src/cpu/sparc/vm/vm_version_sparc.cpp
+index d7240e876..bd893e138 100644
+--- a/hotspot/src/cpu/sparc/vm/vm_version_sparc.cpp
++++ b/hotspot/src/cpu/sparc/vm/vm_version_sparc.cpp
+@@ -382,6 +382,11 @@ void VM_Version::initialize() {
+     }
+   }
+ 
++  if (UseF2jBLASIntrinsics) {
++    warning("F2jBLAS instructions are not available on this CPU");
++    FLAG_SET_DEFAULT(UseF2jBLASIntrinsics, false);
++  }
++
+   if (FLAG_IS_DEFAULT(ContendedPaddingWidth) &&
+     (cache_line_size > ContendedPaddingWidth))
+     ContendedPaddingWidth = cache_line_size;
+diff --git a/hotspot/src/cpu/x86/vm/vm_version_x86.cpp b/hotspot/src/cpu/x86/vm/vm_version_x86.cpp
+index 3a4246c68..46b3e32ea 100644
+--- a/hotspot/src/cpu/x86/vm/vm_version_x86.cpp
++++ b/hotspot/src/cpu/x86/vm/vm_version_x86.cpp
+@@ -628,6 +628,11 @@ void VM_Version::get_processor_features() {
+     FLAG_SET_DEFAULT(UseSHA512Intrinsics, false);
+   }
+ 
++  if (UseF2jBLASIntrinsics) {
++    warning("F2jBLAS instructions are not available on this CPU");
++    FLAG_SET_DEFAULT(UseF2jBLASIntrinsics, false);
++  }
++
+   // Adjust RTM (Restricted Transactional Memory) flags
+   if (!supports_rtm() && UseRTMLocking) {
+     // Can't continue because UseRTMLocking affects UseBiasedLocking flag
+-- 
+2.19.0
+

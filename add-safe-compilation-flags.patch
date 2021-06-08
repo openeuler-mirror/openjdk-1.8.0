@@ -1,0 +1,87 @@
+From 77723879ed55a3d2475f0d9f831ea7c31e59a22e Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Thu, 4 Mar 2021 09:22:24 +0800
+Subject: [PATCH] [Huawei]add safe compilation flags
+
+
+
+Signed-off-by: Sun Jianye  <sunjianye@huawei.com>
+---
+ common/autoconf/flags.m4                    | 2 +-
+ common/autoconf/generated-configure.sh      | 2 +-
+ hotspot/make/windows/makefiles/compile.make | 2 +-
+ hotspot/make/windows/makefiles/sa.make      | 2 +-
+ hotspot/make/windows/makefiles/vm.make      | 4 ++--
+ 5 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/common/autoconf/flags.m4 b/common/autoconf/flags.m4
+index 838a76734..a8a938072 100644
+--- a/common/autoconf/flags.m4
++++ b/common/autoconf/flags.m4
+@@ -706,7 +706,7 @@ AC_DEFUN_ONCE([FLAGS_SETUP_COMPILER_FLAGS_FOR_JDK],
+         # And since we now know that the linker is gnu, then add:
+         #   -z defs, to forbid undefined symbols in object files
+         #   -z noexecstack, to mark stack regions as non-executable
+-        LDFLAGS_JDK="${LDFLAGS_JDK} -Xlinker -z -Xlinker defs -Xlinker -z -Xlinker noexecstack"
++        LDFLAGS_JDK="${LDFLAGS_JDK} -Xlinker -z -Xlinker defs -Xlinker -z -Xlinker noexecstack -Xlinker -z -Xlinker relro -Xlinker -z -Xlinker now"
+         if test "x$DEBUG_LEVEL" = "xrelease"; then
+           # When building release libraries, tell the linker optimize them.
+           # Should this be supplied to the OSS linker as well?
+diff --git a/common/autoconf/generated-configure.sh b/common/autoconf/generated-configure.sh
+index 03872a3c9..b8ae42603 100644
+--- a/common/autoconf/generated-configure.sh
++++ b/common/autoconf/generated-configure.sh
+@@ -42174,7 +42174,7 @@ $as_echo "$supports" >&6; }
+         # And since we now know that the linker is gnu, then add:
+         #   -z defs, to forbid undefined symbols in object files
+         #   -z noexecstack, to mark stack regions as non-executable
+-        LDFLAGS_JDK="${LDFLAGS_JDK} -Xlinker -z -Xlinker defs -Xlinker -z -Xlinker noexecstack"
++        LDFLAGS_JDK="${LDFLAGS_JDK} -Xlinker -z -Xlinker defs -Xlinker -z -Xlinker noexecstack -Xlinker -z -Xlinker relro -Xlinker -z -Xlinker now"
+         if test "x$DEBUG_LEVEL" = "xrelease"; then
+           # When building release libraries, tell the linker optimize them.
+           # Should this be supplied to the OSS linker as well?
+diff --git a/hotspot/make/windows/makefiles/compile.make b/hotspot/make/windows/makefiles/compile.make
+index f3581c163..a405eb336 100644
+--- a/hotspot/make/windows/makefiles/compile.make
++++ b/hotspot/make/windows/makefiles/compile.make
+@@ -53,7 +53,7 @@ CXX=cl.exe
+ # improving the quality of crash log stack traces involving jvm.dll.
+ 
+ # These are always used in all compiles
+-CXX_FLAGS=$(EXTRA_CFLAGS) /nologo /W3 /WX
++CXX_FLAGS=$(EXTRA_CFLAGS) /nologo /W3 /WX /GS
+ 
+ # Let's add debug information when Full Debug Symbols is enabled
+ !if "$(ENABLE_FULL_DEBUG_SYMBOLS)" == "1"
+diff --git a/hotspot/make/windows/makefiles/sa.make b/hotspot/make/windows/makefiles/sa.make
+index 776e58e51..520d190d8 100644
+--- a/hotspot/make/windows/makefiles/sa.make
++++ b/hotspot/make/windows/makefiles/sa.make
+@@ -143,7 +143,7 @@ SA_LFLAGS = $(SA_LFLAGS) -map -debug
+ SA_LFLAGS = /SAFESEH $(SA_LFLAGS)
+ !endif
+ 
+-SA_CFLAGS = $(SA_CFLAGS) $(MP_FLAG)
++SA_CFLAGS = $(SA_CFLAGS) $(MP_FLAG) /GS
+ 
+ # Note that we do not keep sawindbj.obj around as it would then
+ # get included in the dumpbin command in build_vm_def.sh
+diff --git a/hotspot/make/windows/makefiles/vm.make b/hotspot/make/windows/makefiles/vm.make
+index f26cad6e7..082232719 100644
+--- a/hotspot/make/windows/makefiles/vm.make
++++ b/hotspot/make/windows/makefiles/vm.make
+@@ -32,9 +32,9 @@ COMMONSRC=$(WorkSpace)\src
+ ALTSRC=$(WorkSpace)\src\closed
+ 
+ !ifdef RELEASE
+-CXX_FLAGS=$(CXX_FLAGS) /D "PRODUCT"
++CXX_FLAGS=$(CXX_FLAGS) /D "PRODUCT" /GS
+ !else
+-CXX_FLAGS=$(CXX_FLAGS) /D "ASSERT"
++CXX_FLAGS=$(CXX_FLAGS) /D "ASSERT" /GS
+ !endif
+ 
+ !if "$(Variant)" == "compiler1"
+-- 
+2.19.0
+
