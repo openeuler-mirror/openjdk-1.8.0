@@ -1,0 +1,134 @@
+diff --git a/jdk/src/share/classes/sun/security/util/AbstractAlgorithmConstraints.java b/jdk/src/share/classes/sun/security/util/AbstractAlgorithmConstraints.java
+index 944958de4..5c7602925 100644
+--- a/jdk/src/share/classes/sun/security/util/AbstractAlgorithmConstraints.java
++++ b/jdk/src/share/classes/sun/security/util/AbstractAlgorithmConstraints.java
+@@ -77,34 +77,26 @@ public abstract class AbstractAlgorithmConstraints
+         return new ArrayList<>(Arrays.asList(algorithmsInProperty));
+     }
+ 
+-    static boolean checkAlgorithm(List<String> algorithms, String algorithm,
++    static boolean checkAlgorithm(Set<String> algorithms, String algorithm,
+             AlgorithmDecomposer decomposer) {
+         if (algorithm == null || algorithm.length() == 0) {
+             throw new IllegalArgumentException("No algorithm name specified");
+         }
+ 
+         Set<String> elements = null;
+-        for (String item : algorithms) {
+-            if (item == null || item.isEmpty()) {
+-                continue;
+-            }
++        if (algorithms.contains(algorithm.toLowerCase())) {
++            return false;
++        }
+ 
+-            // check the full name
+-            if (item.equalsIgnoreCase(algorithm)) {
++        // decompose the algorithm into sub-elements
++        if (elements == null) {
++            elements = decomposer.decompose(algorithm);
++        }
++        // check the element of the elements
++        for (String element : elements) {
++            if (algorithms.contains(element.toLowerCase())) {
+                 return false;
+             }
+-
+-            // decompose the algorithm into sub-elements
+-            if (elements == null) {
+-                elements = decomposer.decompose(algorithm);
+-            }
+-
+-            // check the items of the algorithm
+-            for (String element : elements) {
+-                if (item.equalsIgnoreCase(element)) {
+-                    return false;
+-                }
+-            }
+         }
+ 
+         return true;
+diff --git a/jdk/src/share/classes/sun/security/util/DisabledAlgorithmConstraints.java b/jdk/src/share/classes/sun/security/util/DisabledAlgorithmConstraints.java
+index 51e625632..6ff26bf2f 100644
+--- a/jdk/src/share/classes/sun/security/util/DisabledAlgorithmConstraints.java
++++ b/jdk/src/share/classes/sun/security/util/DisabledAlgorithmConstraints.java
+@@ -96,7 +96,7 @@ public class DisabledAlgorithmConstraints extends AbstractAlgorithmConstraints {
+             new DisabledAlgorithmConstraints(PROPERTY_JAR_DISABLED_ALGS);
+     }
+ 
+-    private final List<String> disabledAlgorithms;
++    private final Set<String> disabledAlgorithms;
+     private final Constraints algorithmConstraints;
+ 
+     public static DisabledAlgorithmConstraints certPathConstraints() {
+@@ -128,11 +128,11 @@ public class DisabledAlgorithmConstraints extends AbstractAlgorithmConstraints {
+     public DisabledAlgorithmConstraints(String propertyName,
+             AlgorithmDecomposer decomposer) {
+         super(decomposer);
+-        disabledAlgorithms = getAlgorithms(propertyName);
++        List<String> disabledAlgorithmsList = getAlgorithms(propertyName);
+ 
+         // Check for alias
+         int ecindex = -1, i = 0;
+-        for (String s : disabledAlgorithms) {
++        for (String s : disabledAlgorithmsList) {
+             if (s.regionMatches(true, 0,"include ", 0, 8)) {
+                 if (s.regionMatches(true, 8, PROPERTY_DISABLED_EC_CURVES, 0,
+                         PROPERTY_DISABLED_EC_CURVES.length())) {
+@@ -143,11 +143,19 @@ public class DisabledAlgorithmConstraints extends AbstractAlgorithmConstraints {
+             i++;
+         }
+         if (ecindex > -1) {
+-            disabledAlgorithms.remove(ecindex);
+-            disabledAlgorithms.addAll(ecindex,
++            disabledAlgorithmsList.remove(ecindex);
++            disabledAlgorithmsList.addAll(ecindex,
+                     getAlgorithms(PROPERTY_DISABLED_EC_CURVES));
+         }
+-        algorithmConstraints = new Constraints(propertyName, disabledAlgorithms);
++        algorithmConstraints = new Constraints(propertyName, disabledAlgorithmsList);
++
++        disabledAlgorithms = new HashSet<String>();
++        for (String algorithm : disabledAlgorithmsList) {
++            if (algorithm == null || algorithm.isEmpty()) {
++                continue;
++            }
++            disabledAlgorithms.add(algorithm.toLowerCase());
++        }
+     }
+ 
+     /*
+diff --git a/jdk/src/share/classes/sun/security/util/LegacyAlgorithmConstraints.java b/jdk/src/share/classes/sun/security/util/LegacyAlgorithmConstraints.java
+index 4e7502fb5..01d0447ab 100644
+--- a/jdk/src/share/classes/sun/security/util/LegacyAlgorithmConstraints.java
++++ b/jdk/src/share/classes/sun/security/util/LegacyAlgorithmConstraints.java
+@@ -28,6 +28,7 @@ package sun.security.util;
+ import java.security.AlgorithmParameters;
+ import java.security.CryptoPrimitive;
+ import java.security.Key;
++import java.util.HashSet;
+ import java.util.List;
+ import java.util.Set;
+ 
+@@ -40,12 +41,19 @@ public class LegacyAlgorithmConstraints extends AbstractAlgorithmConstraints {
+     public final static String PROPERTY_TLS_LEGACY_ALGS =
+             "jdk.tls.legacyAlgorithms";
+ 
+-    private final List<String> legacyAlgorithms;
++    private final Set<String> legacyAlgorithms;
+ 
+     public LegacyAlgorithmConstraints(String propertyName,
+             AlgorithmDecomposer decomposer) {
+         super(decomposer);
+-        legacyAlgorithms = getAlgorithms(propertyName);
++        List<String> legacyAlgorithmsList = getAlgorithms(propertyName);
++        legacyAlgorithms = new HashSet<String>();
++        for (String algorithm : legacyAlgorithmsList) {
++            if (algorithm == null || algorithm.isEmpty()) {
++                continue;
++            }
++            legacyAlgorithms.add(algorithm.toLowerCase());
++        }
+     }
+ 
+     @Override

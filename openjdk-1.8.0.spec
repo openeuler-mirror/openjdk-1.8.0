@@ -918,7 +918,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 6
+Release: 7
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1103,6 +1103,7 @@ Patch189: 8266187_Memory_leak_in_appendBootClassPath.patch
 Patch190: 8266929_huawei_add_oid_mapping_common_sig_types.patch
 Patch191: 8264640.patch
 Patch192: add_kae_implementation_add_default_conf_file.patch
+Patch193: improve_algorithmConstraints_checkAlgorithm_performance.patch
 
 #############################################
 #
@@ -1555,6 +1556,7 @@ pushd %{top_level_dir_name}
 %patch190 -p1
 %patch191 -p1
 %patch192 -p1
+%patch193 -p1
 
 popd
 
@@ -2172,7 +2174,10 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
-* Mon Jun 27 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.6
+* Tue Jun 8 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.7
+- add improve_algorithmConstraints_checkAlgorithm_performance.patch
+
+* Mon Jun 7 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.6
 - add add_kae_implementation_add_default_conf_file.patch
 
 * Fri Jun 4 2021 hedongbo <hedongbo@huawei.com> - 1:1.8.0.292-b10.5
