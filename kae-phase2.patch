@@ -3756,8 +3756,8 @@ index 00000000..897e2c6b
 +        } catch (ArrayIndexOutOfBoundsException | BadPaddingException e) {
 +            if (e instanceof AEADBadTagException) {
 +                throw e; // AEADBadTagException is expected for some tests
-+            } else if (e instanceof BadPaddingException || e.getMessage().contains("wrong final block length")) {
-+                if (padding == Padding.NOPADDING) {
++            } else if (e instanceof BadPaddingException) {
++                if (padding == Padding.NOPADDING || e.getMessage().contains("wrong final block length")) {
 +                    throw new IllegalBlockSizeException("Input length not multiple of " + blockSize + " bytes");
 +                } else {
 +                    throw e;
