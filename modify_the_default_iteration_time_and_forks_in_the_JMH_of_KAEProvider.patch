@@ -1,0 +1,49 @@
+diff --git a/jdk/test/micro/org/openeuler/bench/security/openssl/BenchmarkBase.java b/jdk/test/micro/org/openeuler/bench/security/openssl/BenchmarkBase.java
+index f19c948a..9aef6dc6 100644
+--- a/jdk/test/micro/org/openeuler/bench/security/openssl/BenchmarkBase.java
++++ b/jdk/test/micro/org/openeuler/bench/security/openssl/BenchmarkBase.java
+@@ -45,11 +45,11 @@ import java.security.Security;
+ import java.util.Random;
+ import java.util.concurrent.TimeUnit;
+ 
+-@BenchmarkMode(Mode.AverageTime)
+-@OutputTimeUnit(TimeUnit.MICROSECONDS)
+-@Warmup(iterations = 2, time = 2, timeUnit = TimeUnit.SECONDS)
+-@Measurement(iterations = 3, time = 2, timeUnit = TimeUnit.SECONDS)
+-@Fork(jvmArgsPrepend = {"-Xms100G", "-Xmx100G", "-XX:+AlwaysPreTouch"}, value = 1)
++@BenchmarkMode(Mode.Throughput)
++@OutputTimeUnit(TimeUnit.SECONDS)
++@Warmup(iterations = 3, time = 3, timeUnit = TimeUnit.SECONDS)
++@Measurement(iterations = 8, time = 2, timeUnit = TimeUnit.SECONDS)
++@Fork(jvmArgsPrepend = {"-Xms100G", "-Xmx100G", "-XX:+AlwaysPreTouch"}, value = 5)
+ @Threads(1)
+ @State(Scope.Thread)
+ public class BenchmarkBase {
+diff --git a/jdk/test/micro/org/openeuler/bench/security/openssl/RSAKeyPairGeneratorBenchmark.java b/jdk/test/micro/org/openeuler/bench/security/openssl/RSAKeyPairGeneratorBenchmark.java
+index 65bb8bf8..b1739222 100644
+--- a/jdk/test/micro/org/openeuler/bench/security/openssl/RSAKeyPairGeneratorBenchmark.java
++++ b/jdk/test/micro/org/openeuler/bench/security/openssl/RSAKeyPairGeneratorBenchmark.java
+@@ -30,6 +30,7 @@ import org.openjdk.jmh.annotations.Setup;
+ import java.util.concurrent.TimeUnit;
+ import org.openjdk.jmh.annotations.Warmup;
+ 
++import java.security.KeyPair;
+ import java.security.KeyPairGenerator;
+ 
+ @Warmup(iterations = 10, time = 2, timeUnit = TimeUnit.SECONDS)
+@@ -46,12 +47,12 @@ public class RSAKeyPairGeneratorBenchmark extends BenchmarkBase {
+     public void setUp() throws Exception {
+         setupProvider();
+         keyPairGenerator = createKeyPairGenerator();
++        keyPairGenerator.initialize(keySize);
+     }
+ 
+     @Benchmark
+-    public void generateKeyPair() throws Exception {
+-        keyPairGenerator.initialize(keySize);
+-        keyPairGenerator.generateKeyPair();
++    public KeyPair generateKeyPair() throws Exception {
++        return keyPairGenerator.generateKeyPair();
+     }
+ 
+     private KeyPairGenerator createKeyPairGenerator() throws Exception {
