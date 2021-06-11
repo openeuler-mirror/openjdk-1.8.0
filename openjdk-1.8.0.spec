@@ -918,7 +918,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 9
+Release: 10
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1105,6 +1105,7 @@ Patch191: 8264640.patch
 Patch192: add_kae_implementation_add_default_conf_file.patch
 Patch193: improve_algorithmConstraints_checkAlgorithm_performance.patch
 Patch194: modify_the_default_iteration_time_and_forks_in_the_JMH_of_KAEProvider.patch
+Patch195: support_CMS_parallel_inspection.patch
 
 #############################################
 #
@@ -1558,7 +1559,7 @@ pushd %{top_level_dir_name}
 %patch191 -p1
 %patch192 -p1
 %patch194 -p1
-
+%patch195 -p1
 popd
 
 # System library fixes
@@ -2175,6 +2176,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Wed Jun 10 2021 hu_bo_dao <hubodao@huawei.com> - 1:1.8.0.292-b10.10
+- add support_CMS_parallel_inspection.patch
+
 * Wed Jun 9 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.9
 - add modify_the_default_iteration_time_and_forks_in_the_JMH_of_KAEProvider.patch
 
