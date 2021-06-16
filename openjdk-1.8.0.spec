@@ -918,7 +918,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 12
+Release: 13
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1108,6 +1108,7 @@ Patch194: modify_the_default_iteration_time_and_forks_in_the_JMH_of_KAEProvider.
 Patch195: support_CMS_parallel_inspection.patch
 Patch196: g1gc-numa-aware-Implementation.patch
 Patch197: implementation_of_Blas_hotspot_function_in_Intrinsics.patch
+Patch198: fix_G1GC_memory_leak_in_numa.patch
 
 #############################################
 #
@@ -1564,6 +1565,7 @@ pushd %{top_level_dir_name}
 %patch195 -p1
 %patch196 -p1
 %patch197 -p1
+%patch198 -p1
 popd
 
 # System library fixes
@@ -2180,6 +2182,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Wed Jun 16 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.13
+- add fix_G1GC_memory_leak_in_numa.patch
+
 * Sat Jun 12 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.12
 - add implementation_of_Blas_hotspot_function_in_Intrinsics.patch
 
