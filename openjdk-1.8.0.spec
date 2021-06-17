@@ -918,7 +918,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 13
+Release: 14
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2182,6 +2182,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Jun 17 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.14
+- fix systemDictionary resolve_from_stream ResourceMark
+
 * Wed Jun 16 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.13
 - add fix_G1GC_memory_leak_in_numa.patch
 
