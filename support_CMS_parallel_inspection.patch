@@ -1,0 +1,298 @@
+commit 6128a6c319f9d10c604bf7d4049ef68b7fd11b27
+Author: hubodao <hubodao@huawei.com>
+Date:   Tue Jun 8 07:37:02 2021 +0000
+
+    support CMS Parallel inspection
+
+diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
+index 53b75a4ca..3c3deab28 100644
+--- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
++++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
+@@ -2871,6 +2871,47 @@ void ConcurrentMarkSweepGeneration::gc_epilogue(bool full) {
+   }
+ }
+ 
++size_t ConcurrentMarkSweepGeneration::num_iterable_blocks() const
++{
++  return (used_stable() + CMSIterateBlockSize - 1) / CMSIterateBlockSize;
++}
++
++void ConcurrentMarkSweepGeneration::object_iterate_block(ObjectClosure *cl, size_t block_index)
++{
++  size_t block_word_size = CMSIterateBlockSize / HeapWordSize;
++  MemRegion span = MemRegion(cmsSpace()->bottom() + block_index * block_word_size,
++                             cmsSpace()->bottom() + (block_index + 1) * block_word_size);
++  if (!span.is_empty()) {  // Non-null task
++    HeapWord *prev_obj;
++    if (block_index == 0) {
++      prev_obj = span.start();
++    } else {
++      prev_obj = cmsSpace()->block_start_careful(span.start());
++      while (prev_obj < span.start()) {
++        size_t sz = cmsSpace()->block_size_no_stall(prev_obj, _collector);
++        if (sz > 0) {
++          prev_obj += sz;
++        } else {
++          break;
++        }
++      }
++    }
++    if (prev_obj < span.end()) {
++      HeapWord *cur, *limit;
++      size_t curSize;
++      for (cur = prev_obj, limit = span.end(); cur < limit; cur += curSize) {
++        curSize = cmsSpace()->block_size_no_stall(cur, _collector);
++        if (curSize == 0) {
++          break;
++        }
++        if (cmsSpace()->block_is_obj(cur)) {
++          cl->do_object(oop(cur));
++        }
++      }
++    }
++  }
++}
++
+ void ConcurrentMarkSweepGeneration::gc_epilogue_work(bool full) {
+   assert(!incremental_collection_failed(), "Should have been cleared");
+   cmsSpace()->setPreconsumptionDirtyCardClosure(NULL);
+diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp
+index ca3fee21b..7d05410fe 100644
+--- a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp
++++ b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.hpp
+@@ -1154,9 +1154,10 @@ class ConcurrentMarkSweepGeneration: public CardGeneration {
+ 
+   // Adaptive size policy
+   CMSAdaptiveSizePolicy* size_policy();
+-
++  static const size_t CMSIterateBlockSize = 1024 * 1024;
+   void set_did_compact(bool v) { _did_compact = v; }
+-
++  virtual size_t num_iterable_blocks() const;
++  virtual void object_iterate_block(ObjectClosure *cl, size_t block_index);
+   bool refs_discovery_is_atomic() const { return false; }
+   bool refs_discovery_is_mt()     const {
+     // Note: CMS does MT-discovery during the parallel-remark
+diff --git a/hotspot/src/share/vm/memory/genCollectedHeap.cpp b/hotspot/src/share/vm/memory/genCollectedHeap.cpp
+index ed2c0afb7..20fbbfd8e 100644
+--- a/hotspot/src/share/vm/memory/genCollectedHeap.cpp
++++ b/hotspot/src/share/vm/memory/genCollectedHeap.cpp
+@@ -1272,6 +1272,73 @@ void GenCollectedHeap::print_heap_change(size_t prev_used) const {
+   }
+ }
+ 
++// The CMSHeapBlockClaimer is used during parallel iteration over the heap,
++// allowing workers to claim heap areas ("blocks"), gaining exclusive rights to these.
++// The eden and survivor spaces are treated as single blocks as it is hard to divide
++// these spaces.
++// The old space is divided into fixed-size blocks.
++class CMSHeapBlockClaimer : public StackObj {
++  size_t _claimed_index;
++
++public:
++  static const size_t InvalidIndex = SIZE_MAX;
++  static const size_t EdenIndex = 0;
++  static const size_t SurvivorIndex = 1;
++  static const size_t NumNonOldGenClaims = 2;
++
++  CMSHeapBlockClaimer() : _claimed_index(EdenIndex) { }
++  // Claim the block and get the block index.
++  size_t claim_and_get_block()
++  {
++    size_t block_index;
++    block_index = Atomic::add(1u, reinterpret_cast<volatile jint *>(&_claimed_index)) - 1;
++    Generation *old_gen = GenCollectedHeap::heap()->get_gen(1);
++    size_t num_claims = old_gen->num_iterable_blocks() + NumNonOldGenClaims;
++    return block_index < num_claims ? block_index : InvalidIndex;
++  }
++  ~CMSHeapBlockClaimer() {}
++};
++
++void GenCollectedHeap::object_iterate_parallel(ObjectClosure *cl, CMSHeapBlockClaimer *claimer)
++{
++  size_t block_index = claimer->claim_and_get_block();
++  DefNewGeneration *def_new_gen = (DefNewGeneration*) get_gen(0);
++  // Iterate until all blocks are claimed
++  if (block_index == CMSHeapBlockClaimer::EdenIndex) {
++    def_new_gen->eden()->object_iterate(cl);
++    block_index = claimer->claim_and_get_block();
++  }
++  if (block_index == CMSHeapBlockClaimer::SurvivorIndex) {
++    def_new_gen->from()->object_iterate(cl);
++    def_new_gen->to()->object_iterate(cl);
++    block_index = claimer->claim_and_get_block();
++  }
++  while (block_index != CMSHeapBlockClaimer::InvalidIndex) {
++    get_gen(1)->object_iterate_block(cl, block_index - CMSHeapBlockClaimer::NumNonOldGenClaims);
++    block_index = claimer->claim_and_get_block();
++  }
++}
++
++class GenParallelObjectIterator : public ParallelObjectIterator {
++private:
++  GenCollectedHeap *_heap;
++  CMSHeapBlockClaimer  _claimer;
++
++public:
++  GenParallelObjectIterator(uint thread_num) : _heap(GenCollectedHeap::heap()),_claimer(){}
++
++  virtual void object_iterate(ObjectClosure *cl, uint worker_id)
++  {
++    _heap->object_iterate_parallel(cl, &_claimer);
++  }
++  ~GenParallelObjectIterator() {}
++};
++
++ParallelObjectIterator* GenCollectedHeap::parallel_object_iterator(uint thread_num)
++{
++  return new GenParallelObjectIterator(thread_num);
++}
++
+ class GenGCPrologueClosure: public GenCollectedHeap::GenClosure {
+  private:
+   bool _full;
+@@ -1415,6 +1482,7 @@ void GenCollectedHeap::stop() {
+ #endif
+ }
+ 
+-void GenCollectedHeap::run_task(AbstractGangTask *task) {
+-
++void GenCollectedHeap::run_task(AbstractGangTask *task)
++{
++  workers()->run_task(task);
+ }
+diff --git a/hotspot/src/share/vm/memory/genCollectedHeap.hpp b/hotspot/src/share/vm/memory/genCollectedHeap.hpp
+index 2c78ea15a..9e5405e28 100644
+--- a/hotspot/src/share/vm/memory/genCollectedHeap.hpp
++++ b/hotspot/src/share/vm/memory/genCollectedHeap.hpp
+@@ -30,6 +30,7 @@
+ #include "memory/generation.hpp"
+ #include "memory/sharedHeap.hpp"
+ 
++class CMSHeapBlockClaimer;
+ class SubTasksDone;
+ 
+ // A "GenCollectedHeap" is a SharedHeap that uses generational
+@@ -213,7 +214,14 @@ public:
+   // Iteration functions.
+   void oop_iterate(ExtendedOopClosure* cl);
+   void object_iterate(ObjectClosure* cl);
++  virtual ParallelObjectIterator* parallel_object_iterator(uint thread_num);
++  // Iteration functions.
++  void object_iterate_parallel(ObjectClosure *cl, CMSHeapBlockClaimer *claimer);
+   void safe_object_iterate(ObjectClosure* cl);
++  virtual FlexibleWorkGang* get_safepoint_workers()
++  {
++    return workers();
++  }
+   Space* space_containing(const void* addr) const;
+ 
+   // A CollectedHeap is divided into a dense sequence of "blocks"; that is,
+diff --git a/hotspot/src/share/vm/memory/generation.cpp b/hotspot/src/share/vm/memory/generation.cpp
+index dc4ac0869..9d6c926e1 100644
+--- a/hotspot/src/share/vm/memory/generation.cpp
++++ b/hotspot/src/share/vm/memory/generation.cpp
+@@ -103,6 +103,12 @@ void Generation::ref_processor_init() {
+   }
+ }
+ 
++size_t Generation::num_iterable_blocks() const
++{
++  return 0;
++}
++void Generation::object_iterate_block(ObjectClosure *cl, size_t block_index){};
++
+ void Generation::print() const { print_on(tty); }
+ 
+ void Generation::print_on(outputStream* st)  const {
+diff --git a/hotspot/src/share/vm/memory/generation.hpp b/hotspot/src/share/vm/memory/generation.hpp
+index ef5457890..eeb9fa691 100644
+--- a/hotspot/src/share/vm/memory/generation.hpp
++++ b/hotspot/src/share/vm/memory/generation.hpp
+@@ -175,7 +175,8 @@ class Generation: public CHeapObj<mtGC> {
+   // Returns the total number of bytes  available in a generation
+   // for the allocation of objects.
+   virtual size_t max_capacity() const;
+-
++  virtual size_t num_iterable_blocks() const;
++  virtual void object_iterate_block(ObjectClosure *cl, size_t block_index);
+   // If this is a young generation, the maximum number of bytes that can be
+   // allocated in this generation before a GC is triggered.
+   virtual size_t capacity_before_gc() const { return 0; }
+diff --git a/jdk/src/share/classes/sun/tools/jmap/JMap.java b/jdk/src/share/classes/sun/tools/jmap/JMap.java
+index e891b6c55..2cb5a5c10 100644
+--- a/jdk/src/share/classes/sun/tools/jmap/JMap.java
++++ b/jdk/src/share/classes/sun/tools/jmap/JMap.java
+@@ -220,20 +220,24 @@ public class JMap {
+ 
+     private static void histo(String pid, String options) throws IOException {
+         VirtualMachine vm = attach(pid);
+-        String parallel = null;
+         String liveopt = "-all";
+-        if (options.startsWith("live")) {
+-            liveopt = "-live";
+-        }
+-        String[] subopts = options.split(",");
++        String parallel = null;
++        String subopts[] = options.split(",");
+         for (int i = 0; i < subopts.length; i++) {
+             String subopt = subopts[i];
+-            if (subopt.startsWith("parallel=")) {
++            if (subopt.equals("") || subopt.equals("all")) {
++                // pass
++            } else if (subopt.equals("live")) {
++                liveopt = "-live";
++            } else if (subopt.startsWith("parallel=")) {
+                 parallel = subopt.substring("parallel=".length());
+                 if (parallel == null) {
+                     System.err.println("Fail: no number provided in option: '" + subopt + "'");
+-                    System.exit(1);
++                    usage(1);
+                 }
++            } else {
++                System.err.println("Fail: invalid option: '" + subopt + "'");
++                usage(1);
+             }
+         }
+         InputStream in = ((HotSpotVirtualMachine)vm).heapHisto(liveopt,parallel);
+diff --git a/jdk/test/sun/tools/jmap/ParallelInspection.sh b/jdk/test/sun/tools/jmap/ParallelInspection.sh
+index 69e51a76f..b4add98c0 100644
+--- a/jdk/test/sun/tools/jmap/ParallelInspection.sh
++++ b/jdk/test/sun/tools/jmap/ParallelInspection.sh
+@@ -76,4 +76,36 @@ set -e
+ stopApplication "${PORTFILE}"
+ waitForApplication
+ 
++# parallel num in CMS GC
++# Start application and use PORTFILE for coordination
++PORTFILE="${TESTCLASSES}"/shutdown.port
++startApplication SimpleApplication "${PORTFILE}" defineGC UseConcMarkSweepGC
++
++# all return statuses are checked in this test
++set +e
++
++failed=0
++
++${JMAP} -J-XX:+UsePerfData -histo:parallel=0 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:parallel=1 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:parallel=2 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:live,parallel=0 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:live,parallel=1 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++
++${JMAP} -J-XX:+UsePerfData -histo:live,parallel=2 $appJavaPid
++if [ $? != 0 ]; then failed=1; fi
++set -e
++
++stopApplication "${PORTFILE}"
++waitForApplication
++
+ exit $failed

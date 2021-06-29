@@ -918,7 +918,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 9
+Release: 15
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1105,6 +1105,11 @@ Patch191: 8264640.patch
 Patch192: add_kae_implementation_add_default_conf_file.patch
 Patch193: improve_algorithmConstraints_checkAlgorithm_performance.patch
 Patch194: modify_the_default_iteration_time_and_forks_in_the_JMH_of_KAEProvider.patch
+Patch195: support_CMS_parallel_inspection.patch
+Patch196: g1gc-numa-aware-Implementation.patch
+Patch197: implementation_of_Blas_hotspot_function_in_Intrinsics.patch
+Patch198: fix_G1GC_memory_leak_in_numa.patch
+Patch199: delete_untrustworthy_cacert_soneraclass2ca.patch
 
 #############################################
 #
@@ -1558,7 +1563,11 @@ pushd %{top_level_dir_name}
 %patch191 -p1
 %patch192 -p1
 %patch194 -p1
-
+%patch195 -p1
+%patch196 -p1
+%patch197 -p1
+%patch198 -p1
+%patch199 -p1
 popd
 
 # System library fixes
@@ -1632,7 +1641,7 @@ export ARCH_DATA_MODEL=64
 
 # We use ourcppflags because the OpenJDK build seems to
 # pass EXTRA_CFLAGS to the HotSpot C++ compiler...
-EXTRA_CFLAGS="%ourcppflags -Wno-error -fcommon"
+EXTRA_CFLAGS="%ourcppflags -Wno-error -fcommon -fsigned-char"
 EXTRA_CPP_FLAGS="%ourcppflags -Wno-error"
 
 EXTRA_ASFLAGS="${EXTRA_CFLAGS} -Wa,--generate-missing-build-notes=yes"
@@ -2175,6 +2184,24 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Mon Jun 28 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.15
+- fix delete_untrustworthy_cacert_soneraclass2ca.patch
+
+* Thu Jun 17 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.14
+- fix systemDictionary resolve_from_stream ResourceMark
+
+* Wed Jun 16 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.13
+- add fix_G1GC_memory_leak_in_numa.patch
+
+* Sat Jun 12 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.12
+- add implementation_of_Blas_hotspot_function_in_Intrinsics.patch
+
+* Sat Jun 12 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.11
+- add g1gc-numa-aware-Implementation.patch
+
+* Wed Jun 10 2021 hu_bo_dao <hubodao@huawei.com> - 1:1.8.0.292-b10.10
+- add support_CMS_parallel_inspection.patch
+
 * Wed Jun 9 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.9
 - add modify_the_default_iteration_time_and_forks_in_the_JMH_of_KAEProvider.patch
 
