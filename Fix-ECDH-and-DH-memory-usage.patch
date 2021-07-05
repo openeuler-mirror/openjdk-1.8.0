@@ -1,0 +1,25 @@
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keyagreement_dh.c b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keyagreement_dh.c
+index 5894a4b4..26ce9a8e 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keyagreement_dh.c
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keyagreement_dh.c
+@@ -132,6 +132,8 @@ cleanup:
+         KAE_ReleaseBigNumFromByteArray(g_bn);
+     if (secret != NULL)
+        free(secret);
++    if (computeKeyRetBn != NULL)
++       BN_free(computeKeyRetBn);
+ 
+     return retByteArray;
+ }
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_ec.c b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_ec.c
+index 93b710bf..0f32674c 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_ec.c
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_ec.c
+@@ -383,7 +383,6 @@ static EC_GROUP* GetGroupByParam(JNIEnv* env, jbyteArray pArr, jbyteArray aArr,
+     EC_GROUP* group = NULL;
+     BN_CTX* ctx = NULL;
+     EC_POINT* generator = NULL;
+-    p = KAE_GetBigNumFromByteArray(env, pArr);
+     if ((p = KAE_GetBigNumFromByteArray(env, pArr)) == NULL || (a = KAE_GetBigNumFromByteArray(env, aArr)) == NULL ||
+         (b = KAE_GetBigNumFromByteArray(env, bArr)) == NULL || (x = KAE_GetBigNumFromByteArray(env, xArr)) == NULL ||
+         (y = KAE_GetBigNumFromByteArray(env, yArr)) == NULL || (cofactor = BN_new()) == NULL ||
