@@ -918,7 +918,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 16
+Release: 17
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1700,7 +1700,6 @@ fi
 
 make \
     JAVAC_FLAGS=-g \
-    LOG=trace \
     SCTP_WERROR= \
     ${maketargets} || ( pwd; find $top_dir_abs_path -name "hs_err_pid*.log" | xargs cat && false )
 
@@ -2186,6 +2185,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Jul 8 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.17
+- remove debug log to reduce build time
+
 * Mon Jul 5 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.16
 - add Fix-ECDH-and-DH-memory-usage.patch
 
