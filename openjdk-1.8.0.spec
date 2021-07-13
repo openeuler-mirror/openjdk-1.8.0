@@ -918,7 +918,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 16
+Release: 19
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1111,6 +1111,8 @@ Patch197: implementation_of_Blas_hotspot_function_in_Intrinsics.patch
 Patch198: fix_G1GC_memory_leak_in_numa.patch
 Patch199: delete_untrustworthy_cacert_soneraclass2ca.patch
 Patch200: Fix-ECDH-and-DH-memory-usage.patch
+Patch201: fix_run_SPECjvm2008_failed_on_32_bit_system.patch
+Patch202: Fix-RSACipher-memory-usage.patch
 
 #############################################
 #
@@ -1570,6 +1572,8 @@ pushd %{top_level_dir_name}
 %patch198 -p1
 %patch199 -p1
 %patch200 -p1
+%patch201 -p1
+%patch202 -p1
 popd
 
 # System library fixes
@@ -1700,7 +1704,6 @@ fi
 
 make \
     JAVAC_FLAGS=-g \
-    LOG=trace \
     SCTP_WERROR= \
     ${maketargets} || ( pwd; find $top_dir_abs_path -name "hs_err_pid*.log" | xargs cat && false )
 
@@ -2186,6 +2189,15 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Jul 12 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.19
+- add Fix-RSACipher-memory-usage.patch
+
+* Thu Jul 12 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.18
+- fix run SPECjvm2008 failed on 32 bit system
+
+* Thu Jul 8 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.17
+- remove debug log to reduce build time
+
 * Mon Jul 5 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.16
 - add Fix-ECDH-and-DH-memory-usage.patch
 
