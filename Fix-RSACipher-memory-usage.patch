@@ -1,0 +1,20 @@
+commit 59b41b317972a826715c705da489bb36d1a0a5a9
+Author: noah <hedongbo@huawei.com>
+Date:   Mon Jul 12 15:54:23 2021 +0800
+
+    I408SI: Fix RSACipher memory usage
+
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_cipher_rsa.c b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_cipher_rsa.c
+index cbab7bdb..d1aedf5f 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_cipher_rsa.c
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_cipher_rsa.c
+@@ -82,6 +82,9 @@ cleanup:
+     if (inBytes != NULL) {
+         (*env)->ReleaseByteArrayElements(env, in, inBytes, 0);
+     }
++    if (rsa != NULL) {
++        RSA_free(rsa);
++    }
+     return resultSize;
+ }
+ 
