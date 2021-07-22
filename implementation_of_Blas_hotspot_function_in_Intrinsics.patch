@@ -1,0 +1,1638 @@
+commit 9856171f660f6edb240bb4e7e95a87b60f4d2bc3
+Author: hubodao <hubodao@huawei.com>
+Date:   Tue Jun 8 08:07:38 2021 +0000
+
+    blas instrinsic
+
+diff --git a/hotspot/src/cpu/aarch64/vm/c1_LIRGenerator_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/c1_LIRGenerator_aarch64.cpp
+index 7080ea10d..62a8ab7bd 100644
+--- a/hotspot/src/cpu/aarch64/vm/c1_LIRGenerator_aarch64.cpp
++++ b/hotspot/src/cpu/aarch64/vm/c1_LIRGenerator_aarch64.cpp
+@@ -919,6 +919,126 @@ void LIRGenerator::do_MathIntrinsic(Intrinsic* x) {
+   }
+ }
+ 
++void LIRGenerator::do_dgemm_dgemm(Intrinsic* x) {
++  assert(x->number_of_arguments() == 16, "wrong type");
++
++  LIRItem ta(x->argument_at(0), this);
++  LIRItem tb(x->argument_at(1), this);
++  LIRItem m(x->argument_at(2), this);
++  LIRItem n(x->argument_at(3), this);
++  LIRItem k(x->argument_at(4), this);
++  LIRItem alpha(x->argument_at(5), this);
++  LIRItem a(x->argument_at(6), this);
++  LIRItem a_offset(x->argument_at(7), this);
++  LIRItem lda(x->argument_at(8), this);
++  LIRItem b(x->argument_at(9), this);
++  LIRItem b_offset(x->argument_at(10), this);
++  LIRItem ldb(x->argument_at(11), this);
++  LIRItem beta(x->argument_at(12), this);
++  LIRItem c(x->argument_at(13), this);
++  LIRItem c_offset(x->argument_at(14), this);
++  LIRItem ldc(x->argument_at(15), this);
++
++  ta.load_item();
++  tb.load_item();
++  m.load_item();
++  n.load_item();
++  k.load_item();
++  alpha.load_item();
++  a.load_item();
++  a_offset.load_nonconstant();
++  lda.load_item();
++  b.load_item();
++  b_offset.load_nonconstant();
++  ldb.load_item();
++  beta.load_item();
++  c.load_item();
++  c_offset.load_nonconstant();
++  ldc.load_item();
++
++  LIR_Opr ta_base = ta.result();
++  LIR_Opr tb_base = tb.result();
++  LIR_Opr r_m = m.result();
++  LIR_Opr r_n = n.result();
++  LIR_Opr r_k = k.result();
++  LIR_Opr r_alpha = alpha.result();
++  LIR_Opr a_base = a.result();
++  LIR_Opr r_a_offset = a_offset.result();
++  LIR_Opr r_lda = lda.result();
++  LIR_Opr b_base = b.result();
++  LIR_Opr r_b_offset = b_offset.result();
++  LIR_Opr r_ldb = ldb.result();
++  LIR_Opr r_beta = beta.result();
++  LIR_Opr c_base = c.result();
++  LIR_Opr r_c_offset = c_offset.result();
++  LIR_Opr r_ldc = ldc.result();
++
++  LIR_Opr ta_value = load_String_value(ta_base);
++  LIR_Opr ta_offset = load_String_offset(ta_base);
++  LIR_Opr tb_value = load_String_value(tb_base);
++  LIR_Opr tb_offset = load_String_offset(tb_base);
++
++  LIR_Address* addr_ta = emit_array_address(ta_value, ta_offset, T_CHAR, false);
++  LIR_Address* addr_tb = emit_array_address(tb_value, tb_offset, T_CHAR, false);
++  LIR_Address* addr_a = emit_array_address(a_base, r_a_offset, T_DOUBLE, false);
++  LIR_Address* addr_b = emit_array_address(b_base, r_b_offset, T_DOUBLE, false);
++  LIR_Address* addr_c = emit_array_address(c_base, r_c_offset, T_DOUBLE, false);
++
++  LIR_Opr tmp = new_pointer_register();
++  LIR_Opr ta_addr = new_register(T_ADDRESS);
++  __ leal(LIR_OprFact::address(addr_ta), tmp);
++  __ move(tmp, ta_addr);
++  tmp = new_pointer_register();
++  LIR_Opr tb_addr = new_register(T_ADDRESS);
++  __ leal(LIR_OprFact::address(addr_tb), tmp);
++  __ move(tmp, tb_addr);
++  tmp = new_pointer_register();
++  LIR_Opr a_addr = new_register(T_ADDRESS);
++  __ leal(LIR_OprFact::address(addr_a), tmp);
++  __ move(tmp, a_addr);
++  tmp = new_pointer_register();
++  LIR_Opr b_addr = new_register(T_ADDRESS);
++  __ leal(LIR_OprFact::address(addr_b), tmp);
++  __ move(tmp, b_addr);
++  tmp = new_pointer_register();
++  LIR_Opr c_addr = new_register(T_ADDRESS);
++  __ leal(LIR_OprFact::address(addr_c), tmp);
++  __ move(tmp, c_addr);
++
++  BasicTypeList signature(13);
++  signature.append(T_ADDRESS);
++  signature.append(T_ADDRESS);
++  signature.append(T_INT);
++  signature.append(T_INT);
++  signature.append(T_INT);
++  signature.append(T_DOUBLE);
++  signature.append(T_ADDRESS);
++  signature.append(T_INT);
++  signature.append(T_ADDRESS);
++  signature.append(T_INT);
++  signature.append(T_DOUBLE);
++  signature.append(T_ADDRESS);
++  signature.append(T_INT);
++
++  LIR_OprList* args = new LIR_OprList();
++  args->append(ta_addr);
++  args->append(tb_addr);
++  args->append(r_m);
++  args->append(r_n);
++  args->append(r_k);
++  args->append(r_alpha);
++  args->append(a_addr);
++  args->append(r_lda);
++  args->append(b_addr);
++  args->append(r_ldb);
++  args->append(r_beta);
++  args->append(c_addr);
++  args->append(r_ldc);
++
++  assert(StubRoutines::dgemmDgemm() != NULL, "invalid stub entry");
++  call_runtime(&signature, args, StubRoutines::dgemmDgemm(), voidType, NULL);
++  set_no_result(x);
++}
+ 
+ void LIRGenerator::do_ArrayCopy(Intrinsic* x) {
+   assert(x->number_of_arguments() == 5, "wrong type");
+@@ -1038,6 +1158,114 @@ void LIRGenerator::do_update_CRC32(Intrinsic* x) {
+   }
+ }
+ 
++void LIRGenerator::do_dgemv_dgemv(Intrinsic* x) {
++  assert(x->number_of_arguments() == 14, "wrong type");
++
++  LIRItem trans(x->argument_at(0), this);
++  LIRItem m(x->argument_at(1), this);
++  LIRItem n(x->argument_at(2), this);
++  LIRItem alpha(x->argument_at(3), this);
++  LIRItem array_a(x->argument_at(4), this);
++  LIRItem array_a_offset(x->argument_at(5), this);
++  LIRItem lda(x->argument_at(6), this);
++  LIRItem array_x(x->argument_at(7), this);
++  LIRItem array_x_offset(x->argument_at(8), this);
++  LIRItem incx(x->argument_at(9), this);
++  LIRItem beta(x->argument_at(10), this);
++  LIRItem array_y(x->argument_at(11), this);
++  LIRItem array_y_offset(x->argument_at(12), this);
++  LIRItem incy(x->argument_at(13), this);
++
++  trans.load_item();
++  m.load_item();
++  n.load_item();
++  alpha.load_item();
++  array_a.load_item();
++  array_a_offset.load_nonconstant();
++  lda.load_item();
++  array_x.load_item();
++  array_x_offset.load_nonconstant();
++  incx.load_item();
++  beta.load_item();
++  array_y.load_item();
++  array_y_offset.load_nonconstant();
++  incy.load_item();
++
++  LIR_Opr res_trans_base = trans.result();
++  LIR_Opr res_m = m.result();
++  LIR_Opr res_n = n.result();
++  LIR_Opr res_alpha = alpha.result();
++  LIR_Opr res_a_base = array_a.result();
++  LIR_Opr res_a_offset = array_a_offset.result();
++  LIR_Opr res_lda = lda.result();
++  LIR_Opr res_x_base = array_x.result();
++  LIR_Opr res_x_offset = array_x_offset.result();
++  LIR_Opr res_incx = incx.result();
++  LIR_Opr res_beta = beta.result();
++  LIR_Opr res_y_base = array_y.result();
++  LIR_Opr res_y_offset = array_y_offset.result();
++  LIR_Opr res_incy = incy.result();
++
++  LIR_Opr addr_trans_base = LIRGenerator::load_String_value(res_trans_base);
++  LIR_Opr addr_trans_offset = LIRGenerator::load_String_offset(res_trans_base);
++  LIR_Address* addr_trans = emit_array_address(addr_trans_base, addr_trans_offset, T_CHAR, false);
++
++  LIR_Address* addr_a = emit_array_address(res_a_base, res_a_offset, T_DOUBLE, false);
++  LIR_Address* addr_x = emit_array_address(res_x_base, res_x_offset, T_DOUBLE, false);
++  LIR_Address* addr_y = emit_array_address(res_y_base, res_y_offset, T_DOUBLE, false);
++
++  // load addr to register
++  LIR_Opr tmp = new_pointer_register();
++  LIR_Opr trans_addr = new_register(T_ADDRESS);
++  __ leal(LIR_OprFact::address(addr_trans), tmp);
++  __ move(tmp, trans_addr);
++
++  LIR_Opr tmp1 = new_pointer_register();
++  LIR_Opr a_addr = new_register(T_ADDRESS);
++  __ leal(LIR_OprFact::address(addr_a), tmp1);
++  __ move(tmp1, a_addr);
++
++  LIR_Opr tmp2 = new_pointer_register();
++  LIR_Opr x_addr = new_register(T_ADDRESS);
++  __ leal(LIR_OprFact::address(addr_x), tmp2);
++  __ move(tmp2, x_addr);
++
++  LIR_Opr tmp3 = new_pointer_register();
++  LIR_Opr y_addr = new_register(T_ADDRESS);
++  __ leal(LIR_OprFact::address(addr_y), tmp3);
++  __ move(tmp3, y_addr);
++
++  BasicTypeList signature(11);
++  signature.append(T_ADDRESS);
++  signature.append(T_INT);
++  signature.append(T_INT);
++  signature.append(T_DOUBLE);
++  signature.append(T_ADDRESS);
++  signature.append(T_INT);
++  signature.append(T_ADDRESS);
++  signature.append(T_INT);
++  signature.append(T_DOUBLE);
++  signature.append(T_ADDRESS);
++  signature.append(T_INT);
++
++  LIR_OprList* args = new LIR_OprList();
++  args->append(trans_addr);
++  args->append(res_m);
++  args->append(res_n);
++  args->append(res_alpha);
++  args->append(a_addr);
++  args->append(res_lda);
++  args->append(x_addr);
++  args->append(res_incx);
++  args->append(res_beta);
++  args->append(y_addr);
++  args->append(res_incy);
++
++  assert(StubRoutines::dgemvDgemv() != NULL, "invalid stub entry");
++  call_runtime(&signature, args, StubRoutines::dgemvDgemv(), voidType, NULL);
++  set_no_result(x);
++}
++
+ // _i2l, _i2f, _i2d, _l2i, _l2f, _l2d, _f2i, _f2l, _f2d, _d2i, _d2l, _d2f
+ // _i2b, _i2c, _i2s
+ void LIRGenerator::do_Convert(Convert* x) {
+diff --git a/hotspot/src/cpu/aarch64/vm/interpreterGenerator_aarch64.hpp b/hotspot/src/cpu/aarch64/vm/interpreterGenerator_aarch64.hpp
+index c0aaa1de4..a275a6a99 100644
+--- a/hotspot/src/cpu/aarch64/vm/interpreterGenerator_aarch64.hpp
++++ b/hotspot/src/cpu/aarch64/vm/interpreterGenerator_aarch64.hpp
+@@ -50,6 +50,11 @@ void generate_transcendental_entry(AbstractInterpreter::MethodKind kind, int fpa
+   address generate_CRC32_updateBytes_entry(AbstractInterpreter::MethodKind kind);
+   void lock_method(void);
+   void generate_stack_overflow_check(void);
++  void load_String_value(Register src, Register dst);
++  void load_String_offset(Register src, Register dst);
++  void emit_array_address(Register src, Register idx, Register dst, BasicType type);
++  address generate_Dgemm_dgemm_entry();
++  address generate_Dgemv_dgemv_entry();
+ 
+   void generate_counter_incr(Label* overflow, Label* profile_method, Label* profile_method_continue);
+   void generate_counter_overflow(Label* do_continue);
+diff --git a/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp
+index c5ec637a1..125983179 100644
+--- a/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp
++++ b/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp
+@@ -3221,6 +3221,44 @@ class StubGenerator: public StubCodeGenerator {
+     return start;
+   }
+ 
++  address load_BLAS_library() {
++    // Try to load BLAS library.
++    const char library_name[] = "openblas";
++    char err_buf[1024] = {0};
++    char path[JVM_MAXPATHLEN] = {0};
++    os::jvm_path(path, sizeof(path));
++    int jvm_offset = -1;
++
++    // Match "jvm[^/]*" in jvm_path.
++    const char* last_name = strrchr(path, '/');
++    last_name = last_name ? last_name : path;
++    const char* last_lib_name = strstr(last_name, "jvm");
++    if (last_lib_name != NULL) {
++      jvm_offset = last_lib_name - path;
++    }
++
++    address library = NULL;
++    // Find the BLAS shared library.
++    // Search path: <home>/jre/lib/<arch>/<vm>/libopenblas.so
++    if (jvm_offset >= 0) {
++      if (jvm_offset + strlen(library_name) + strlen(os::dll_file_extension()) < JVM_MAXPATHLEN) {
++        strncpy(&path[jvm_offset], library_name, strlen(library_name));
++        strncat(&path[jvm_offset], os::dll_file_extension(), strlen(os::dll_file_extension()));
++        library = (address)os::dll_load(path, err_buf, sizeof(err_buf));
++      }
++    }
++    return library;
++  }
++
++  address get_BLAS_func_entry(address library, const char* func_name) {
++    if (library == NULL) {
++        return NULL;
++    }
++
++    // Try to find BLAS function entry.
++    return (address)os::dll_lookup((void*)library, func_name);
++  }
++
+   /**
+    *  Arguments:
+    *
+@@ -3254,6 +3292,218 @@ class StubGenerator: public StubCodeGenerator {
+     return start;
+   }
+ 
++  // Parameter conversion from JVM to native BLAS
++  //
++  // Register:
++  // r0: transa                         r0: transa
++  // r1: transb                         r1: transb
++  // r2: m                              r2: &m
++  // r3: n                              r3: &n
++  // r4: k            =========>        r4: &k
++  // r5: A                              r5: &alpha
++  // r6: lda                            r6: A
++  // r7: B                              r7: &lda
++  // v0: alpha
++  // v1: beta
++  //
++  // Stack:
++  // |-------|                          |-------|
++  // | ldc   |                          | ldc   |
++  // |-------|                          |-------|
++  // | C     |                          | C     |
++  // |-------|                          |-------|
++  // | ldb   |                          | ldb   |
++  // |-------| <-- sp                   |-------|
++  // |       |                          | m     |
++  // |-------|                          |-------|
++  // |       |                          | n     |
++  // |-------|                          |-------|
++  // |       |                          | k     |
++  // |-------|                          |-------|
++  // |       |                          | lda   |
++  // |-------|                          |-------|
++  // |       |                          | alpha |
++  // |-------|                          |-------|
++  // |       |                          | beta  |
++  // |-------|        =========>        |-------|
++  // |       |                          | lr    |
++  // |-------|                          |-------|
++  // |       |                          | rfp   |
++  // |-------|                          |-------| <-- fp
++  // | ...   |                          | ...   |
++  // |-------|                          |-------|
++  // |       |                          | &ldc  |
++  // |-------|                          |-------|
++  // |       |                          | C     |
++  // |-------|                          |-------|
++  // |       |                          | &bata |
++  // |-------|                          |-------|
++  // |       |                          | &ldb  |
++  // |-------|                          |-------|
++  // |       |                          | B     |
++  // |-------|                          |-------| <-- sp
++  address generate_dgemmDgemm(address library) {
++    __ align(CodeEntryAlignment);
++    StubCodeMark mark(this, "StubRoutines", "dgemm_dgemm");
++
++    address fn = get_BLAS_func_entry(library, "dgemm_");
++    if (fn == NULL) return NULL;
++
++    address start = __ pc();
++
++    const Register transa       = c_rarg0;
++    const Register transb       = c_rarg1;
++    const Register m            = c_rarg2;
++    const Register n            = c_rarg3;
++    const Register k            = c_rarg4;
++    const FloatRegister alpha   = c_farg0;
++    const Register A            = c_rarg5;
++    const Register lda          = c_rarg6;
++    const Register B            = c_rarg7;
++    const FloatRegister beta    = c_farg1;
++
++    BLOCK_COMMENT("Entry:");
++
++    // extend stack
++    __ sub(sp, sp, 0x60);
++    __ stp(rfp, lr, Address(sp, 48));
++    __ add(rfp, sp, 0x30);
++    // load BLAS function entry
++    __ mov(rscratch1, fn);
++    // C
++    __ ldr(rscratch2, Address(rfp, 56));
++    // store m / n to stack
++    __ stpw(n, m, Address(rfp, 40));
++    // &beta
++    __ add(r2, rfp, 0x10);
++    // store k / lda to stack
++    __ stpw(lda, k, Address(rfp, 32));
++    // load ldc
++    __ add(r3, rfp, 0x40);
++    // store C / &beta
++    __ stp(r2, rscratch2, Address(sp, 16));
++    // &ldb
++    __ add(r2, rfp, 0x30);
++    // store B
++    __ str(B, Address(sp));
++    // move A from r5 to r6
++    __ mov(r6, A);
++    // store ldc
++    __ str(r3, Address(sp, 32));
++    // &alpha
++    __ add(r5, rfp, 0x18);
++    // store &ldb
++    __ str(r2, Address(sp, 8));
++    // &k
++    __ add(r4, rfp, 0x24);
++    // store alpha / beta
++    __ stpd(beta, alpha, Address(rfp, 16));
++    // load &lda to r7
++    __ add(r7, rfp, 0x20);
++    // load &n
++    __ add(r3, rfp, 0x28);
++    // load &m
++    __ add(r2, rfp, 0x2c);
++    // call dgemm
++    __ blr(rscratch1);
++
++    // restore rfp and lr
++    __ ldp(rfp, lr, Address(sp, 48));
++    // exit stack
++    __ add(sp, sp, 0x60);
++    __ ret(lr);
++
++    return start;
++  }
++
++  /**
++   *  public void dgemv(String trans, int m, int n,
++   *                    double alpha, double[] a, int lda,
++   *                    double[] x, int incx,
++   *                    double beta, double[] y, int incy)
++   *
++   *  Arguments:
++   *
++   *  Inputs:
++   *   c_rarg0         - char* trans
++   *   c_rarg1         - int m
++   *   c_rarg2         - int n
++   *   d0/c_farg0      - double alpha
++   *   c_rarg3         - double[] a
++   *   c_rarg4         - int lda
++   *   c_rarg5         - double[] x
++   *   c_rarg6         - int incx
++   *   d1/c_farg1      - double beta
++   *   c_rarg7         - double[] y
++   *   [sp]            - int incy
++   *
++   *  Output:
++   *       null
++   *
++   */
++
++  address generate_dgemvDgemv(address library) {
++    __ align(CodeEntryAlignment);
++    StubCodeMark mark(this, "StubRoutines", "dgemv_dgemv");
++
++    address fn = get_BLAS_func_entry(library, "dgemv_");
++    if (fn == NULL) return NULL;
++
++    address start = __ pc();
++    BLOCK_COMMENT("Entry: ");
++
++    Register trans = c_rarg0;
++    Register m = c_rarg1;
++    Register n = c_rarg2;
++    Register a = c_rarg3;
++    Register lda = c_rarg4;
++    Register x = c_rarg5;
++    Register incx = c_rarg6;
++    Register y = c_rarg7;
++
++    FloatRegister alpha = c_farg0;
++    FloatRegister beta = c_farg1;
++
++    __ sub(sp, sp, 0x50);
++    __ stp(rfp, lr, Address(sp, 32));
++    __ add(rfp, sp, 0x20);
++
++    // no need for saving trans to tmp register, keep it in register x0
++    __ strw(m, Address(rfp, 44));
++    __ strw(n, Address(rfp, 40));
++    __ strd(alpha, Address(rfp, 32));
++    __ strw(lda, Address(rfp, 28));
++    __ strw(incx, Address(rfp, 24));
++    __ strd(beta, Address(rfp, 16));
++
++    // pre call
++    // load incy and push on stack, order incy --> y --> beta
++    __ add(r1, rfp, 0x30);
++    __ str(r1, Address(sp, 16));
++    __ str(y, Address(sp, 8));
++    __ add(r1, rfp, 0x10);
++    __ str(r1, Address(sp));
++
++    __ add(r7, rfp, 0x18);
++    __ mov(r6, x);
++    __ add(r5, rfp, 0x1c);
++    __ mov(r4, a);
++    __ add(r3, rfp, 0x20);
++    __ add(r2, rfp, 0x28);
++    __ add(r1, rfp, 0x2c);
++
++    __ mov(rscratch1, fn);
++    __ blr(rscratch1);
++
++    __ ldp(rfp, lr, Address(sp, 32));
++    __ add(sp, sp, 0x50);
++    __ ret(lr);
++
++    return start;
++  }
++
++
++
+   /**
+    *  Arguments:
+    *
+@@ -4252,6 +4502,14 @@ class StubGenerator: public StubCodeGenerator {
+       StubRoutines::_crc_table_adr = (address)StubRoutines::aarch64::_crc_table;
+       StubRoutines::_updateBytesCRC32 = generate_updateBytesCRC32();
+     }
++
++    if (UseF2jBLASIntrinsics) {
++      StubRoutines::_BLAS_library = load_BLAS_library();
++      // F2jBLAS intrinsics will use the implements in BLAS dynamic library
++      StubRoutines::_ddotF2jBLAS = generate_ddotF2jBLAS();
++      StubRoutines::_dgemmDgemm = generate_dgemmDgemm(StubRoutines::_BLAS_library);
++      StubRoutines::_dgemvDgemv = generate_dgemvDgemv(StubRoutines::_BLAS_library);
++    }
+   }
+ 
+   void generate_all() {
+@@ -4296,10 +4554,6 @@ class StubGenerator: public StubCodeGenerator {
+       StubRoutines::_montgomerySquare = g.generate_multiply();
+     }
+ 
+-    if (UseF2jBLASIntrinsics) {
+-      StubRoutines::_ddotF2jBLAS = generate_ddotF2jBLAS();
+-    }
+-
+     if (UseAESIntrinsics) {
+       StubRoutines::_aescrypt_encryptBlock = generate_aescrypt_encryptBlock();
+       StubRoutines::_aescrypt_decryptBlock = generate_aescrypt_decryptBlock();
+diff --git a/hotspot/src/cpu/aarch64/vm/templateInterpreter_aarch64.cpp b/hotspot/src/cpu/aarch64/vm/templateInterpreter_aarch64.cpp
+index ae5cb3f32..924b6670f 100644
+--- a/hotspot/src/cpu/aarch64/vm/templateInterpreter_aarch64.cpp
++++ b/hotspot/src/cpu/aarch64/vm/templateInterpreter_aarch64.cpp
+@@ -856,6 +856,250 @@ address InterpreterGenerator::generate_CRC32_updateBytes_entry(AbstractInterpret
+   return generate_native_entry(false);
+ }
+ 
++// Access the char-array of String
++void InterpreterGenerator::load_String_value(Register src, Register dst) {
++  //  Need to cooperate with JDK-8243996
++  int value_offset = java_lang_String::value_offset_in_bytes();
++
++  __ add(src, src, value_offset);
++  __ load_heap_oop(dst, Address(src));
++}
++
++void InterpreterGenerator::load_String_offset(Register src, Register dst) {
++  __ mov(dst, 0);
++
++  // Get String value offset, because of order of initialization for Interpreter,
++  // we have to hardcode the offset for String value. (JDK-8243996)
++  if (java_lang_String::has_offset_field()) {
++    int offset_offset = java_lang_String::offset_offset_in_bytes();
++    __ add(src, src, offset_offset);
++    __ ldrw(dst, Address(src));
++  }
++}
++
++void InterpreterGenerator::emit_array_address(Register src, Register idx,
++                                              Register dst, BasicType type) {
++  int offset_in_bytes = arrayOopDesc::base_offset_in_bytes(type);
++  int elem_size = type2aelembytes(type);
++  int shift = exact_log2(elem_size);
++
++  __ lsl(idx, idx, shift);
++  __ add(idx, idx, offset_in_bytes);
++  __ add(dst, src, idx);
++}
++
++/**
++ * Stub Arguments:
++ *
++ *   c_rarg0   - char* transa
++ *   c_rarg1   - char* transb
++ *   c_rarg2   - int m
++ *   c_rarg3   - int n
++ *   c_rarg4   - int k
++ *   d0        - double alpha
++ *   c_rarg5   - double[] A
++ *   c_rarg6   - int lda
++ *   c_rarg7   - double[] B
++ *   d1        - double beta
++ *   [sp + 16] - int ldc
++ *   [sp + 8]  - double[] C
++ *   [sp]      - int ldb
++ *
++ */
++address InterpreterGenerator::generate_Dgemm_dgemm_entry() {
++  if (!UseF2jBLASIntrinsics || (StubRoutines::dgemmDgemm() == NULL)) return NULL;
++
++  address entry = __ pc();
++
++  // r13: senderSP must preserved for slow path
++
++  // Arguments are reversed on java expression stack
++  const Register ta         = c_rarg0;
++  const Register tb         = c_rarg1;
++  const Register m          = c_rarg2;
++  const Register n          = c_rarg3;
++  const Register k          = c_rarg4;
++  const FloatRegister alpha = c_farg0;
++  const Register A          = c_rarg5;
++  const Register lda        = c_rarg6;
++  const Register B          = c_rarg7;
++  const FloatRegister beta  = c_farg1;
++  const Register tmp1       = rscratch1;
++  const Register tmp2       = rscratch2;
++
++  // trana
++  __ ldr(ta, Address(esp, 17 * wordSize));
++  load_String_value(ta, tmp1);
++  load_String_offset(ta, tmp2);
++  emit_array_address(tmp1, tmp2, ta, T_CHAR);
++  // tranb
++  __ ldr(tb, Address(esp, 16 * wordSize));
++  load_String_value(tb, tmp1);
++  load_String_offset(tb, tmp2);
++  emit_array_address(tmp1, tmp2, tb, T_CHAR);
++  // m, n, k
++  __ ldrw(m, Address(esp, 15 * wordSize));
++  __ ldrw(n, Address(esp, 14 * wordSize));
++  __ ldrw(k, Address(esp, 13 * wordSize));
++  // alpha
++  __ ldrd(alpha, Address(esp, 11 * wordSize));
++  // A
++  __ ldr(tmp1, Address(esp, 10 * wordSize));
++  __ mov(tmp2, 0);
++  __ ldrw(tmp2, Address(esp, 9 * wordSize));
++  emit_array_address(tmp1, tmp2, A, T_DOUBLE);
++  // lda
++  __ ldrw(lda, Address(esp, 8 * wordSize));
++  // B
++  __ ldr(tmp1, Address(esp, 7 * wordSize));
++  __ ldrw(tmp2, Address(esp, 6 * wordSize));
++  emit_array_address(tmp1, tmp2, B, T_DOUBLE);
++  // beta
++  __ ldrd(beta, Address(esp, 3 * wordSize));
++  // Start pushing arguments to machine stack.
++  //
++  // Remove the incoming args, peeling the machine SP back to where it
++  // was in the caller.  This is not strictly necessary, but unless we
++  // do so the stack frame may have a garbage FP; this ensures a
++  // correct call stack that we can always unwind.  The ANDR should be
++  // unnecessary because the sender SP in r13 is always aligned, but
++  // it doesn't hurt.
++  __ andr(sp, r13, -16);
++  __ str(lr, Address(sp, -wordSize));
++  // ldc
++  __ ldrw(tmp1, Address(esp, 0x0));
++  __ strw(tmp1, Address(sp, 2 * -wordSize));
++  // C
++  __ ldr(tmp1, Address(esp, 2 * wordSize));
++  __ ldrw(tmp2, Address(esp, wordSize));
++  emit_array_address(tmp1, tmp2, tmp1, T_DOUBLE);
++  __ str(tmp1, Address(sp, 3 * -wordSize));
++  // ldb
++  __ ldrw(tmp2, Address(esp, 5 * wordSize));
++  __ strw(tmp2, Address(sp, 4 * -wordSize));
++
++  // Call function
++  __ add(sp, sp, 4 * -wordSize);
++  address fn = CAST_FROM_FN_PTR(address, StubRoutines::dgemmDgemm());
++  __ mov(tmp1, fn);
++  __ blr(tmp1);
++
++  __ ldr(lr, Address(sp, 3 * wordSize));
++  // For assert(Rd != sp || imm % 16 == 0)
++  __ add(sp, sp, 4 * wordSize);
++  __ br(lr);
++
++  return entry;
++}
++
++address InterpreterGenerator::generate_Dgemv_dgemv_entry() {
++  if (StubRoutines::dgemvDgemv() == NULL) return NULL;
++  address entry = __ pc();
++
++  const Register trans = c_rarg0;              // trans
++  const Register m = c_rarg1;                  // m
++  const Register n = c_rarg2;                  // n
++  const Register a = c_rarg3;                  // array a addr
++  const Register lda = c_rarg4;                // lda
++  const Register x = c_rarg5;                  // array x addr
++  const Register incx = c_rarg6;               // incx
++  const Register y = c_rarg7;                  // array y addr
++
++  const FloatRegister alpha = v0;              // alpha
++  const FloatRegister beta = v1;               // beta
++
++  const Register tmp1 = rscratch1;
++  const Register tmp2 = rscratch2;
++
++  // esp: expression stack of caller
++  // dgemv parameter ---> the position in stack ---> move to register
++  // | char* trans  |        | esp + 15 |                |  r0  |
++  // | int m        |        | esp + 14 |                |  r1  |
++  // | int n        |        | esp + 13 |                |  r2  |
++  // | double alpha |        | esp + 11 |                |  v0  |
++  // ----------------        ------------                --------
++  // | double* a    |        | esp + 10 |                |      |
++  // |              |        |          |                |  r3  |
++  // | int a_offset |        | esp + 9  |                |      |
++  // ----------------        ------------                --------
++  // | int lda      |        | esp + 8  |                |  r4  |
++  // ----------------        ------------                --------
++  // | double* x    |        | esp + 7  |                |      |
++  // |              |        |          |                |  r5  |
++  // | int x_offset |        | esp + 6  |                |      |
++  // ----------------        ------------                --------
++  // | int incx     |        | esp + 5  |                |  r6  |
++  // | double beta  |        | esp + 3  |                |  v1  |
++  // ----------------        ------------                --------
++  // | double* y    |        | esp + 2  |                |      |
++  // |              |        |          |                |  r7  |
++  // | int y_offset |        | esp + 1  |                |      |
++  // ----------------        ------------                --------
++  // | int incy     |        | esp      |                | [sp] |
++
++
++  // trans
++  __ ldr(trans, Address(esp, 15 * wordSize));
++  load_String_value(trans, tmp1);
++  load_String_offset(trans, tmp2);
++  emit_array_address(tmp1, tmp2, trans, T_CHAR);
++  // m, n
++  __ ldrw(m, Address(esp, 14 * wordSize));
++  __ ldrw(n, Address(esp, 13 * wordSize));
++
++  // alpha
++  __ ldrd(alpha, Address(esp, 11 * wordSize));
++
++  // a
++  __ ldr(tmp1, Address(esp, 10 * wordSize));
++  __ mov(tmp2, zr);
++  __ ldrw(tmp2, Address(esp, 9 * wordSize));
++  emit_array_address(tmp1, tmp2, a, T_DOUBLE);
++
++  // lda
++  __ ldrw(lda, Address(esp, 8 * wordSize));
++
++  // x
++  __ ldr(tmp1, Address(esp, 7 * wordSize));
++  __ mov(tmp2, zr);
++  __ ldrw(tmp2, Address(esp, 6 * wordSize));
++  emit_array_address(tmp1, tmp2, x, T_DOUBLE);
++
++  // incx
++  __ ldrw(incx, Address(esp, 5 * wordSize));
++
++  // beta
++  __ ldrd(beta, Address(esp, 3 * wordSize));
++
++  // y
++  __ ldr(tmp1, Address(esp, 2 * wordSize));
++  __ mov(tmp2, zr);
++  __ ldrw(tmp2, Address(esp, wordSize));
++  emit_array_address(tmp1, tmp2, y, T_DOUBLE);
++
++  // resume sp, restore lr
++  __ andr(sp, r13, -16);
++  __ str(lr, Address(sp, -wordSize));
++
++  // incy, push on stack
++  __ ldrw(tmp1, Address(esp, 0));
++  __ strw(tmp1, Address(sp, 2 * -wordSize));
++
++  __ add(sp, sp, -2 * wordSize);
++
++  // call function
++  address fn = CAST_FROM_FN_PTR(address, StubRoutines::dgemvDgemv());
++  __ mov(tmp1, fn);
++  __ blr(tmp1);
++
++  // resume lr
++  __ ldr(lr, Address(sp, wordSize));
++  __ add(sp, sp, 2 * wordSize);
++  __ br(lr);
++
++  return  entry;
++}
++
+ void InterpreterGenerator::bang_stack_shadow_pages(bool native_call) {
+   // Bang each page in the shadow zone. We can't assume it's been done for
+   // an interpreter frame with greater than a page of locals, so each page
+@@ -1575,6 +1819,10 @@ address AbstractInterpreterGenerator::generate_method_entry(
+                                            : // fall thru
+   case Interpreter::java_util_zip_CRC32_updateByteBuffer
+                                            : entry_point = ((InterpreterGenerator*)this)->generate_CRC32_updateBytes_entry(kind); break;
++  case Interpreter::org_netlib_blas_Dgemm_dgemm
++                                           : entry_point = ((InterpreterGenerator*)this)->generate_Dgemm_dgemm_entry(); break;
++  case Interpreter::org_netlib_blas_Dgemv_dgemv
++                                           : entry_point = ((InterpreterGenerator*)this)->generate_Dgemv_dgemv_entry(); break;
+   default                                  : ShouldNotReachHere();                                                       break;
+   }
+ 
+diff --git a/hotspot/src/cpu/sparc/vm/c1_LIRGenerator_sparc.cpp b/hotspot/src/cpu/sparc/vm/c1_LIRGenerator_sparc.cpp
+index f1160792a..477c6e550 100644
+--- a/hotspot/src/cpu/sparc/vm/c1_LIRGenerator_sparc.cpp
++++ b/hotspot/src/cpu/sparc/vm/c1_LIRGenerator_sparc.cpp
+@@ -754,6 +754,13 @@ void LIRGenerator::do_MathIntrinsic(Intrinsic* x) {
+   }
+ }
+ 
++void LIRGenerator::do_dgemm_dgemm(Intrinsic* x) {
++  fatal("BLAS intrinsics are not implemented on this platform!");
++}
++
++void LIRGenerator::do_dgemv_dgemv(Intrinsic* x) {
++  fatal("BLAS intrinsics are not implemented on this platform!");
++}
+ 
+ void LIRGenerator::do_ArrayCopy(Intrinsic* x) {
+   assert(x->number_of_arguments() == 5, "wrong type");
+diff --git a/hotspot/src/cpu/x86/vm/c1_LIRGenerator_x86.cpp b/hotspot/src/cpu/x86/vm/c1_LIRGenerator_x86.cpp
+index dd23f005b..d1ecbaeb4 100644
+--- a/hotspot/src/cpu/x86/vm/c1_LIRGenerator_x86.cpp
++++ b/hotspot/src/cpu/x86/vm/c1_LIRGenerator_x86.cpp
+@@ -896,6 +896,13 @@ void LIRGenerator::do_MathIntrinsic(Intrinsic* x) {
+   }
+ }
+ 
++void LIRGenerator::do_dgemm_dgemm(Intrinsic* x) {
++  fatal("BLAS intrinsics are not implemented on this platform!");
++}
++
++void LIRGenerator::do_dgemv_dgemv(Intrinsic *x) {
++  fatal("Blas intrinsics are not implemented on this platform!");
++}
+ 
+ void LIRGenerator::do_ArrayCopy(Intrinsic* x) {
+   assert(x->number_of_arguments() == 5, "wrong type");
+diff --git a/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp b/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp
+index 459315cb7..79b2b2bb1 100644
+--- a/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp
++++ b/hotspot/src/share/vm/c1/c1_GraphBuilder.cpp
+@@ -3672,6 +3672,20 @@ bool GraphBuilder::try_inline_intrinsics(ciMethod* callee) {
+     case vmIntrinsics::_fullFence :
+       break;
+ 
++    case vmIntrinsics::_dgemm_dgemm:
++      if (!UseF2jBLASIntrinsics || (StubRoutines::dgemmDgemm() == NULL)) {
++        return false;
++      }
++      cantrap = false;
++      preserves_state = true;
++      break;
++
++    case vmIntrinsics::_dgemv_dgemv:
++      if (!UseF2jBLASIntrinsics || (StubRoutines::dgemvDgemv() == NULL)) return false;
++      cantrap = false;
++      preserves_state = true;
++      break;
++
+     default                       : return false; // do not inline
+   }
+   // create intrinsic node
+diff --git a/hotspot/src/share/vm/c1/c1_LIRGenerator.cpp b/hotspot/src/share/vm/c1/c1_LIRGenerator.cpp
+index 65c04e3e5..070fd8052 100644
+--- a/hotspot/src/share/vm/c1/c1_LIRGenerator.cpp
++++ b/hotspot/src/share/vm/c1/c1_LIRGenerator.cpp
+@@ -1208,7 +1208,7 @@ void LIRGenerator::do_Return(Return* x) {
+   set_no_result(x);
+ }
+ 
+-// Examble: ref.get()
++// Example: ref.get()
+ // Combination of LoadField and g1 pre-write barrier
+ void LIRGenerator::do_Reference_get(Intrinsic* x) {
+ 
+@@ -1220,7 +1220,7 @@ void LIRGenerator::do_Reference_get(Intrinsic* x) {
+   LIRItem reference(x->argument_at(0), this);
+   reference.load_item();
+ 
+-  // need to perform the null check on the reference objecy
++  // need to perform the null check on the reference object
+   CodeEmitInfo* info = NULL;
+   if (x->needs_null_check()) {
+     info = state_for(x);
+@@ -1422,6 +1422,44 @@ LIR_Opr LIRGenerator::load_constant(LIR_Const* c) {
+   return result;
+ }
+ 
++// Access the char-array of String
++LIR_Opr LIRGenerator::load_String_value(LIR_Opr str) {
++  int value_offset = java_lang_String::value_offset_in_bytes();
++  LIR_Opr value = new_register(T_ARRAY);
++  LIR_Opr tmp = new_pointer_register();
++
++  __ add(str, LIR_OprFact::intConst(value_offset), tmp);
++  LIR_Address* array_addr = new LIR_Address(tmp, T_ARRAY);
++#if INCLUDE_ALL_GCS
++  if (UseShenandoahGC) {
++    LIR_Opr tmp = new_register(T_OBJECT);
++    LIR_Opr addr = ShenandoahBarrierSet::barrier_set()->bsc1()->resolve_address(this, array_addr, T_OBJECT, NULL);
++    __ load(addr->as_address_ptr(), tmp);
++    tmp = ShenandoahBarrierSet::barrier_set()->bsc1()->load_reference_barrier(this, tmp, addr);
++    __ move(tmp, value);
++  } else
++#endif
++  __ load(array_addr, value);
++
++  return value;
++}
++
++LIR_Opr LIRGenerator::load_String_offset(LIR_Opr str) {
++  LIR_Opr offset = new_register(T_INT);
++
++  if (java_lang_String::has_offset_field()) {
++    LIR_Opr tmp = new_pointer_register();
++    int offset_offset = java_lang_String::offset_offset_in_bytes();
++    __ add(str, LIR_OprFact::intConst(offset_offset), tmp);
++    LIR_Address* addr = new LIR_Address(tmp, T_INT);
++    __ load(addr, offset);
++  } else {
++    offset = LIR_OprFact::intConst(0);
++  }
++
++  return offset;
++}
++
+ // Various barriers
+ 
+ void LIRGenerator::pre_barrier(LIR_Opr addr_opr, LIR_Opr pre_val,
+@@ -3290,6 +3328,14 @@ void LIRGenerator::do_Intrinsic(Intrinsic* x) {
+     do_update_CRC32(x);
+     break;
+ 
++  case vmIntrinsics::_dgemm_dgemm:
++    do_dgemm_dgemm(x);
++    break;
++
++  case vmIntrinsics::_dgemv_dgemv:
++    do_dgemv_dgemv(x);
++    break;
++
+   default: ShouldNotReachHere(); break;
+   }
+ }
+diff --git a/hotspot/src/share/vm/c1/c1_LIRGenerator.hpp b/hotspot/src/share/vm/c1/c1_LIRGenerator.hpp
+index 24d072b36..57d675c5b 100644
+--- a/hotspot/src/share/vm/c1/c1_LIRGenerator.hpp
++++ b/hotspot/src/share/vm/c1/c1_LIRGenerator.hpp
+@@ -210,6 +210,10 @@ class LIRGenerator: public InstructionVisitor, public BlockClosure {
+   // Given an immediate value, return an operand usable in logical ops.
+   LIR_Opr load_immediate(int x, BasicType type);
+ 
++  // Get String value and offset
++  LIR_Opr load_String_value(LIR_Opr str);
++  LIR_Opr load_String_offset(LIR_Opr str);
++
+   void  set_result(Value x, LIR_Opr opr)           {
+     assert(opr->is_valid(), "must set to valid value");
+     assert(x->operand()->is_illegal(), "operand should never change");
+@@ -251,6 +255,8 @@ class LIRGenerator: public InstructionVisitor, public BlockClosure {
+   void do_FPIntrinsics(Intrinsic* x);
+   void do_Reference_get(Intrinsic* x);
+   void do_update_CRC32(Intrinsic* x);
++  void do_dgemm_dgemm(Intrinsic* x);
++  void do_dgemv_dgemv(Intrinsic* x);
+ 
+   void do_UnsafePrefetch(UnsafePrefetch* x, bool is_store);
+ 
+diff --git a/hotspot/src/share/vm/c1/c1_Runtime1.cpp b/hotspot/src/share/vm/c1/c1_Runtime1.cpp
+index f379a0395..3ece7f6ea 100644
+--- a/hotspot/src/share/vm/c1/c1_Runtime1.cpp
++++ b/hotspot/src/share/vm/c1/c1_Runtime1.cpp
+@@ -305,6 +305,8 @@ const char* Runtime1::name_for_address(address entry) {
+   FUNCTION_CASE(entry, JFR_TIME_FUNCTION);
+ #endif
+   FUNCTION_CASE(entry, StubRoutines::updateBytesCRC32());
++  FUNCTION_CASE(entry, StubRoutines::dgemmDgemm());
++  FUNCTION_CASE(entry, StubRoutines::dgemvDgemv());
+ 
+ #undef FUNCTION_CASE
+ 
+diff --git a/hotspot/src/share/vm/classfile/vmSymbols.cpp b/hotspot/src/share/vm/classfile/vmSymbols.cpp
+index a5f89dbf8..34514022a 100644
+--- a/hotspot/src/share/vm/classfile/vmSymbols.cpp
++++ b/hotspot/src/share/vm/classfile/vmSymbols.cpp
+@@ -333,6 +333,8 @@ bool vmIntrinsics::should_be_pinned(vmIntrinsics::ID id) {
+ #endif
+   case vmIntrinsics::_currentTimeMillis:
+   case vmIntrinsics::_nanoTime:
++  case vmIntrinsics::_dgemm_dgemm:
++  case vmIntrinsics::_dgemv_dgemv:
+     return true;
+   default:
+     return false;
+diff --git a/hotspot/src/share/vm/classfile/vmSymbols.hpp b/hotspot/src/share/vm/classfile/vmSymbols.hpp
+index 6bd8dbedd..942d172a1 100644
+--- a/hotspot/src/share/vm/classfile/vmSymbols.hpp
++++ b/hotspot/src/share/vm/classfile/vmSymbols.hpp
+@@ -857,6 +857,14 @@
+   do_intrinsic(_f2jblas_ddot, com_github_fommil_netlib_f2jblas, ddot_name, ddot_signature, F_R)                         \
+    do_name(     ddot_name,                                         "ddot")                                              \
+    do_signature(ddot_signature,                                    "(I[DI[DI)D")                                        \
++  do_class(org_netlib_blas_dgemm,                       "org/netlib/blas/Dgemm")                                        \
++  do_intrinsic(_dgemm_dgemm, org_netlib_blas_dgemm, dgemm_name, dgemm_signature, F_S)                                    \
++   do_name(     dgemm_name,                                        "dgemm")                                             \
++   do_signature(dgemm_signature,                                   "(Ljava/lang/String;Ljava/lang/String;IIID[DII[DIID[DII)V")  \
++  do_class(org_netlib_blas_dgemv,                       "org/netlib/blas/Dgemv")                                        \
++  do_intrinsic(_dgemv_dgemv, org_netlib_blas_dgemv, dgemv_name, dgemv_signature, F_S)                                   \
++   do_name(     dgemv_name,                                         "dgemv")                                            \
++   do_signature(dgemv_signature,                                    "(Ljava/lang/String;IID[DII[DIID[DII)V")            \
+                                                                                                                         \
+   /* support for sun.security.provider.SHA2 */                                                                          \
+   do_class(sun_security_provider_sha2,                             "sun/security/provider/SHA2")                        \
+diff --git a/hotspot/src/share/vm/interpreter/abstractInterpreter.hpp b/hotspot/src/share/vm/interpreter/abstractInterpreter.hpp
+index e14c50bf0..293382b3c 100644
+--- a/hotspot/src/share/vm/interpreter/abstractInterpreter.hpp
++++ b/hotspot/src/share/vm/interpreter/abstractInterpreter.hpp
+@@ -100,6 +100,8 @@ class AbstractInterpreter: AllStatic {
+     java_util_zip_CRC32_update,                                 // implementation of java.util.zip.CRC32.update()
+     java_util_zip_CRC32_updateBytes,                            // implementation of java.util.zip.CRC32.updateBytes()
+     java_util_zip_CRC32_updateByteBuffer,                       // implementation of java.util.zip.CRC32.updateByteBuffer()
++    org_netlib_blas_Dgemm_dgemm,                                // implementation of org.netlib.blas.Dgemm.dgemm()
++    org_netlib_blas_Dgemv_dgemv,                                // implementation of org.netlib.blas.Dgemv.dgemv()
+     number_of_method_entries,
+     invalid = -1
+   };
+diff --git a/hotspot/src/share/vm/interpreter/cppInterpreter.cpp b/hotspot/src/share/vm/interpreter/cppInterpreter.cpp
+index 0007aa8be..9e48a1d94 100644
+--- a/hotspot/src/share/vm/interpreter/cppInterpreter.cpp
++++ b/hotspot/src/share/vm/interpreter/cppInterpreter.cpp
+@@ -31,17 +31,20 @@
+ #ifdef CC_INTERP
+ # define __ _masm->
+ 
+-void CppInterpreter::initialize() {
++void CppInterpreter::initialize_stub() {
+   if (_code != NULL) return;
++  int code_size = InterpreterCodeSize;
++  NOT_PRODUCT(code_size *= 4;)  // debug uses extra interpreter code space
++  _code = new StubQueue(new InterpreterCodeletInterface, code_size, NULL,
++                        "Interpreter");
++}
++
++void CppInterpreter::initialize_code() {
+   AbstractInterpreter::initialize();
+ 
+   // generate interpreter
+   { ResourceMark rm;
+     TraceTime timer("Interpreter generation", TraceStartupTime);
+-    int code_size = InterpreterCodeSize;
+-    NOT_PRODUCT(code_size *= 4;)  // debug uses extra interpreter code space
+-    _code = new StubQueue(new InterpreterCodeletInterface, code_size, NULL,
+-                          "Interpreter");
+     InterpreterGenerator g(_code);
+     if (PrintInterpreter) print();
+   }
+diff --git a/hotspot/src/share/vm/interpreter/cppInterpreter.hpp b/hotspot/src/share/vm/interpreter/cppInterpreter.hpp
+index 6a6447503..58efcfaf2 100644
+--- a/hotspot/src/share/vm/interpreter/cppInterpreter.hpp
++++ b/hotspot/src/share/vm/interpreter/cppInterpreter.hpp
+@@ -54,7 +54,8 @@ class CppInterpreter: public AbstractInterpreter {
+ 
+  public:
+   // Initialization/debugging
+-  static void       initialize();
++  static void       initialize_stub();
++  static void       initialize_code();
+   // this only returns whether a pc is within generated code for the interpreter.
+ 
+   // This is a moderately dubious interface for the c++ interpreter. Only
+diff --git a/hotspot/src/share/vm/interpreter/interpreter.cpp b/hotspot/src/share/vm/interpreter/interpreter.cpp
+index 7ce4bdbb3..a313f2e63 100644
+--- a/hotspot/src/share/vm/interpreter/interpreter.cpp
++++ b/hotspot/src/share/vm/interpreter/interpreter.cpp
+@@ -85,8 +85,6 @@ void InterpreterCodelet::print_on(outputStream* st) const {
+ // Implementation of  platform independent aspects of Interpreter
+ 
+ void AbstractInterpreter::initialize() {
+-  if (_code != NULL) return;
+-
+   // make sure 'imported' classes are initialized
+   if (CountBytecodes || TraceBytecodes || StopInterpreterAt) BytecodeCounter::reset();
+   if (PrintBytecodeHistogram)                                BytecodeHistogram::reset();
+@@ -114,8 +112,22 @@ void AbstractInterpreter::print() {
+ }
+ 
+ 
+-void interpreter_init() {
+-  Interpreter::initialize();
++// The reason that interpreter initialization is split into two parts is that the first part
++// needs to run before methods are loaded (which with CDS implies linked also), and the other
++// part needs to run after. The reason is that when methods are loaded (with CDS) or linked
++// (without CDS), the i2c adapters are generated that assert we are currently in the interpreter.
++// Asserting that requires knowledge about where the interpreter is in memory. Therefore,
++// establishing the interpreter address must be done before methods are loaded. However,
++// we would like to actually generate the interpreter after methods are loaded. That allows
++// us to remove otherwise hardcoded offsets regarding fields that are needed in the interpreter
++// code. This leads to a split if 1. reserving the memory for the interpreter, 2. loading methods
++// and 3. generating the interpreter.
++void interpreter_init_stub() {
++  Interpreter::initialize_stub();
++}
++
++void interpreter_init_code() {
++  Interpreter::initialize_code();
+ #ifndef PRODUCT
+   if (TraceBytecodes) BytecodeTracer::set_closure(BytecodeTracer::std_closure());
+ #endif // PRODUCT
+@@ -251,6 +263,13 @@ AbstractInterpreter::MethodKind AbstractInterpreter::method_kind(methodHandle m)
+                                 return java_lang_ref_reference_get;
+   }
+ 
++  if (UseF2jBLASIntrinsics) {
++    switch (m->intrinsic_id()) {
++      case vmIntrinsics::_dgemm_dgemm: return org_netlib_blas_Dgemm_dgemm;
++      case vmIntrinsics::_dgemv_dgemv: return org_netlib_blas_Dgemv_dgemv;
++    }
++  }
++
+   // Accessor method?
+   if (m->is_accessor()) {
+     assert(m->size_of_parameters() == 1, "fast code for accessors assumes parameter size = 1");
+@@ -311,6 +330,8 @@ void AbstractInterpreter::print_method_kind(MethodKind kind) {
+     case java_util_zip_CRC32_update           : tty->print("java_util_zip_CRC32_update"); break;
+     case java_util_zip_CRC32_updateBytes      : tty->print("java_util_zip_CRC32_updateBytes"); break;
+     case java_util_zip_CRC32_updateByteBuffer : tty->print("java_util_zip_CRC32_updateByteBuffer"); break;
++    case org_netlib_blas_Dgemm_dgemm : tty->print("org_netlib_blas_Dgemm_dgemm"); break;
++    case org_netlib_blas_Dgemv_dgemv : tty->print("org_netlib_blas_Dgemv_dgemv"); break;
+     default:
+       if (kind >= method_handle_invoke_FIRST &&
+           kind <= method_handle_invoke_LAST) {
+diff --git a/hotspot/src/share/vm/interpreter/templateInterpreter.cpp b/hotspot/src/share/vm/interpreter/templateInterpreter.cpp
+index 1520c7b1c..f38f05117 100644
+--- a/hotspot/src/share/vm/interpreter/templateInterpreter.cpp
++++ b/hotspot/src/share/vm/interpreter/templateInterpreter.cpp
+@@ -32,12 +32,20 @@
+ 
+ # define __ _masm->
+ 
+-void TemplateInterpreter::initialize() {
++void TemplateInterpreter::initialize_stub() {
+   if (_code != NULL) return;
+   // assertions
+   assert((int)Bytecodes::number_of_codes <= (int)DispatchTable::length,
+          "dispatch table too small");
+ 
++  // allocate interpreter
++  int code_size = InterpreterCodeSize;
++  NOT_PRODUCT(code_size *= 4;)  // debug uses extra interpreter code space
++  _code = new StubQueue(new InterpreterCodeletInterface, code_size, NULL,
++                        "Interpreter");
++}
++
++void TemplateInterpreter::initialize_code() {
+   AbstractInterpreter::initialize();
+ 
+   TemplateTable::initialize();
+@@ -45,10 +53,6 @@ void TemplateInterpreter::initialize() {
+   // generate interpreter
+   { ResourceMark rm;
+     TraceTime timer("Interpreter generation", TraceStartupTime);
+-    int code_size = InterpreterCodeSize;
+-    NOT_PRODUCT(code_size *= 4;)  // debug uses extra interpreter code space
+-    _code = new StubQueue(new InterpreterCodeletInterface, code_size, NULL,
+-                          "Interpreter");
+     InterpreterGenerator g(_code);
+     if (PrintInterpreter) print();
+   }
+@@ -401,6 +405,11 @@ void TemplateInterpreterGenerator::generate_all() {
+     method_entry(java_util_zip_CRC32_updateByteBuffer)
+   }
+ 
++  if (UseF2jBLASIntrinsics) {
++    method_entry(org_netlib_blas_Dgemm_dgemm)
++    method_entry(org_netlib_blas_Dgemv_dgemv)
++  }
++
+   initialize_method_handle_entries();
+ 
+   // all native method kinds (must be one contiguous block)
+diff --git a/hotspot/src/share/vm/interpreter/templateInterpreter.hpp b/hotspot/src/share/vm/interpreter/templateInterpreter.hpp
+index 5f76dca8a..96da6353c 100644
+--- a/hotspot/src/share/vm/interpreter/templateInterpreter.hpp
++++ b/hotspot/src/share/vm/interpreter/templateInterpreter.hpp
+@@ -132,7 +132,8 @@ class TemplateInterpreter: public AbstractInterpreter {
+ 
+  public:
+   // Initialization/debugging
+-  static void       initialize();
++  static void       initialize_stub();
++  static void       initialize_code();
+   // this only returns whether a pc is within generated code for the interpreter.
+   static bool       contains(address pc)                        { return _code != NULL && _code->contains(pc); }
+ 
+diff --git a/hotspot/src/share/vm/opto/escape.cpp b/hotspot/src/share/vm/opto/escape.cpp
+index 68631dbf2..0e0cc1028 100644
+--- a/hotspot/src/share/vm/opto/escape.cpp
++++ b/hotspot/src/share/vm/opto/escape.cpp
+@@ -979,7 +979,9 @@ void ConnectionGraph::process_call_arguments(CallNode *call) {
+                   strcmp(call->as_CallLeaf()->_name, "mulAdd") == 0 ||
+                   strcmp(call->as_CallLeaf()->_name, "montgomery_multiply") == 0 ||
+                   strcmp(call->as_CallLeaf()->_name, "montgomery_square") == 0 ||
+-                  strcmp(call->as_CallLeaf()->_name, "f2jblas_ddot") == 0)
++                  strcmp(call->as_CallLeaf()->_name, "f2jblas_ddot") == 0 ||
++                  strcmp(call->as_CallLeaf()->_name, "dgemm_dgemm") == 0) ||
++                  strcmp(call->as_CallLeaf()->_name, "dgemv_dgemv") == 0
+                  ))) {
+             call->dump();
+             fatal(err_msg_res("EA unexpected CallLeaf %s", call->as_CallLeaf()->_name));
+diff --git a/hotspot/src/share/vm/opto/graphKit.cpp b/hotspot/src/share/vm/opto/graphKit.cpp
+index 41a067ce2..1c3bc2e8c 100644
+--- a/hotspot/src/share/vm/opto/graphKit.cpp
++++ b/hotspot/src/share/vm/opto/graphKit.cpp
+@@ -2372,7 +2372,11 @@ Node* GraphKit::make_runtime_call(int flags,
+                                   Node* parm0, Node* parm1,
+                                   Node* parm2, Node* parm3,
+                                   Node* parm4, Node* parm5,
+-                                  Node* parm6, Node* parm7) {
++                                  Node* parm6, Node* parm7,
++                                  Node* parm8, Node* parm9,
++                                  Node* parm10, Node* parm11,
++                                  Node* parm12, Node* parm13,
++                                  Node* parm14, Node* parm15) {
+   // Slow-path call
+   bool is_leaf = !(flags & RC_NO_LEAF);
+   bool has_io  = (!is_leaf && !(flags & RC_NO_IO));
+@@ -2415,7 +2419,15 @@ Node* GraphKit::make_runtime_call(int flags,
+   if (parm5 != NULL) { call->init_req(TypeFunc::Parms+5, parm5);
+   if (parm6 != NULL) { call->init_req(TypeFunc::Parms+6, parm6);
+   if (parm7 != NULL) { call->init_req(TypeFunc::Parms+7, parm7);
+-    /* close each nested if ===> */  } } } } } } } }
++  if (parm8 != NULL) { call->init_req(TypeFunc::Parms+8, parm8);
++  if (parm9 != NULL) { call->init_req(TypeFunc::Parms+9, parm9);
++  if (parm10 != NULL) { call->init_req(TypeFunc::Parms+10, parm10);
++  if (parm11 != NULL) { call->init_req(TypeFunc::Parms+11, parm11);
++  if (parm12 != NULL) { call->init_req(TypeFunc::Parms+12, parm12);
++  if (parm13 != NULL) { call->init_req(TypeFunc::Parms+13, parm13);
++  if (parm14 != NULL) { call->init_req(TypeFunc::Parms+14, parm14);
++  if (parm15 != NULL) { call->init_req(TypeFunc::Parms+15, parm15);
++    /* close each nested if ===> */  } } } } } } } } } } } } } } } }
+   assert(call->in(call->req()-1) != NULL, "must initialize all parms");
+ 
+   if (!is_leaf) {
+diff --git a/hotspot/src/share/vm/opto/graphKit.hpp b/hotspot/src/share/vm/opto/graphKit.hpp
+index 7a363fd33..e9a061acf 100644
+--- a/hotspot/src/share/vm/opto/graphKit.hpp
++++ b/hotspot/src/share/vm/opto/graphKit.hpp
+@@ -818,7 +818,11 @@ class GraphKit : public Phase {
+                           Node* parm0 = NULL, Node* parm1 = NULL,
+                           Node* parm2 = NULL, Node* parm3 = NULL,
+                           Node* parm4 = NULL, Node* parm5 = NULL,
+-                          Node* parm6 = NULL, Node* parm7 = NULL);
++                          Node* parm6 = NULL, Node* parm7 = NULL,
++                          Node* parm8 = NULL, Node* parm9 = NULL,
++                          Node* parm10 = NULL, Node* parm11 = NULL,
++                          Node* parm12 = NULL, Node* parm13 = NULL,
++                          Node* parm14 = NULL, Node* parm15 = NULL);
+   enum {  // flag values for make_runtime_call
+     RC_NO_FP = 1,               // CallLeafNoFPNode
+     RC_NO_IO = 2,               // do not hook IO edges
+diff --git a/hotspot/src/share/vm/opto/library_call.cpp b/hotspot/src/share/vm/opto/library_call.cpp
+index 5cbc0f012..10eeea217 100644
+--- a/hotspot/src/share/vm/opto/library_call.cpp
++++ b/hotspot/src/share/vm/opto/library_call.cpp
+@@ -336,6 +336,8 @@ class LibraryCallKit : public GraphKit {
+   bool inline_montgomeryMultiply();
+   bool inline_montgomerySquare();
+   bool inline_ddotF2jBLAS();
++  bool inline_dgemmDgemm();
++  bool inline_dgemvDgemv();
+ 
+   bool inline_profileBoolean();
+ };
+@@ -589,6 +591,8 @@ CallGenerator* Compile::make_vm_intrinsic(ciMethod* m, bool is_virtual) {
+     break;
+ 
+   case vmIntrinsics::_f2jblas_ddot:
++  case vmIntrinsics::_dgemm_dgemm:
++  case vmIntrinsics::_dgemv_dgemv:
+     if (!UseF2jBLASIntrinsics) return NULL;
+     break;
+ 
+@@ -988,9 +992,13 @@ bool LibraryCallKit::try_to_inline(int predicate) {
+ 
+   case vmIntrinsics::_profileBoolean:
+     return inline_profileBoolean();
++
+   case vmIntrinsics::_f2jblas_ddot:
+     return inline_ddotF2jBLAS();
+-
++  case vmIntrinsics::_dgemm_dgemm:
++    return inline_dgemmDgemm();
++  case vmIntrinsics::_dgemv_dgemv:
++    return inline_dgemvDgemv();
+   default:
+     // If you get here, it may be that someone has added a new intrinsic
+     // to the list in vmSymbols.hpp without implementing it here.
+@@ -6353,6 +6361,144 @@ bool LibraryCallKit::inline_ddotF2jBLAS() {
+   return true;
+ }
+ 
++/**
++ * double org.netlib.blas.Dgemm.dgemm(java.lang.String transa,
++ *                                    java.lang.String transb, int m, int n, int k,
++ *                                    double alpha, double[] a, int offset_a, int lda,
++ *                                    double[] b, int offset_b, int ldb, double beta,
++ *                                    double[] c, int offset_c, int Ldc)
++ */
++bool LibraryCallKit::inline_dgemmDgemm() {
++  assert(callee()->signature()->count() == 16, "Dgemm.dgemm has 16 parameters");
++
++  address stubAddr = StubRoutines::dgemmDgemm();
++  if (stubAddr == NULL) return false;
++
++  Node* transa = argument(0);
++  Node* transb = argument(1);
++  Node* m = argument(2);
++  Node* n = argument(3);
++  Node* k = argument(4);
++  Node* alpha = round_double_node(argument(5));
++  Node* a = argument(7);
++  Node* a_offset = argument(8);
++  Node* lda = argument(9);
++  Node* b = argument(10);
++  Node* b_offset = argument(11);
++  Node* ldb = argument(12);
++  Node* beta = round_double_node(argument(13));
++  Node* c = argument(15);
++  Node* c_offset = argument(16);
++  Node* ldc = argument(17);
++
++  const Type* a_type = a->Value(&_gvn);
++  const Type* b_type = b->Value(&_gvn);
++  const Type* c_type = c->Value(&_gvn);
++  const TypeAryPtr* a_base_type = a_type->isa_aryptr();
++  const TypeAryPtr* b_base_type = b_type->isa_aryptr();
++  const TypeAryPtr* c_base_type = c_type->isa_aryptr();
++  if (a_base_type == NULL || b_base_type == NULL || c_base_type == NULL) return false;
++
++  ciKlass* a_klass = a_base_type->klass();
++  ciKlass* b_klass = b_base_type->klass();
++  ciKlass* c_klass = c_base_type->klass();
++  if (a_klass == NULL || b_klass == NULL || c_klass == NULL) return false;
++
++  BasicType a_elem_type = a_klass->as_array_klass()->element_type()->basic_type();
++  BasicType b_elem_type = b_klass->as_array_klass()->element_type()->basic_type();
++  BasicType c_elem_type = a_klass->as_array_klass()->element_type()->basic_type();
++  if (a_elem_type != T_DOUBLE || b_elem_type != T_DOUBLE || c_elem_type != T_DOUBLE) return false;
++
++  // get array a/b/c's addr
++  Node* a_start = array_element_address(a, a_offset, a_elem_type);
++  Node* b_start = array_element_address(b, b_offset, b_elem_type);
++  Node* c_start = array_element_address(c, c_offset, c_elem_type);
++
++  // Get start addr of string
++  Node* transa_value   = load_String_value(NULL, transa);
++  Node* transa_offset  = load_String_offset(NULL, transa);
++  Node* transa_start   = array_element_address(transa_value, transa_offset, T_CHAR);
++  Node* transb_value   = load_String_value(NULL, transb);
++  Node* transb_offset  = load_String_offset(NULL, transb);
++  Node* transb_start   = array_element_address(transb_value, transb_offset, T_CHAR);
++
++  const char *stubName = "dgemm_dgemm";
++  make_runtime_call(RC_LEAF, OptoRuntime::dgemmDgemm_Type(),
++                            stubAddr, stubName, TypePtr::BOTTOM,
++                            transa_start, transb_start, m, n, k, alpha, top(),
++                            a_start, lda, b_start, ldb, beta, top(), c_start, ldc);
++
++  return true;
++}
++
++/**
++ * void org.netlib.blas.Dgemv.dgemv(string trans, int m, int n, double alpha,
++ *                                  double[] a, int _a_offset, int lda,
++ *                                  double[] x, int _x_offset, int incx, double beta,
++ *                                  double[] y, int _y_offset, int incy)
++ */
++bool LibraryCallKit::inline_dgemvDgemv() {
++  assert(callee()->signature()->count() == 14, "F2jBLAS.dgemv has 14 parameters");
++  Node* trans = argument(0);
++  Node* m = argument(1);
++  Node* n = argument(2);
++  Node* alpha = round_double_node(argument(3));
++  Node* a = argument(5);
++  Node* a_offset = argument(6);
++  Node* lda = argument(7);
++  Node* x = argument(8);
++  Node* x_offset = argument(9);
++  Node* incx = argument(10);
++  Node* beta = round_double_node(argument(11));
++  Node* y = argument(13);
++  Node* y_offset = argument(14);
++  Node* incy = argument(15);
++
++  const Type* a_type = a->Value(&_gvn);
++  const Type* x_type = x->Value(&_gvn);
++  const Type* y_type = y->Value(&_gvn);
++  const TypeAryPtr* a_base_type = a_type->isa_aryptr();
++  const TypeAryPtr* x_base_type = x_type->isa_aryptr();
++  const TypeAryPtr* y_base_type = y_type->isa_aryptr();
++  if (a_base_type == NULL || x_base_type == NULL || y_base_type == NULL) return false;
++
++  ciKlass* a_klass = a_base_type->klass();
++  ciKlass* x_klass = x_base_type->klass();
++  ciKlass* y_klass = y_base_type->klass();
++
++  if (a_klass == NULL || x_klass == NULL || y_klass == NULL) return false;
++
++  BasicType a_elem_type = a_klass->as_array_klass()->element_type()->basic_type();
++  BasicType x_elem_type = x_klass->as_array_klass()->element_type()->basic_type();
++  BasicType y_elem_type = y_klass->as_array_klass()->element_type()->basic_type();
++
++  if (a_elem_type != T_DOUBLE || x_elem_type != T_DOUBLE || y_elem_type != T_DOUBLE) return false;
++
++
++  address stubAddr = StubRoutines::dgemvDgemv();
++  if (stubAddr == NULL) return false;
++
++  // 'a_start' points to array a + scaled offset
++  Node* a_start = array_element_address(a, a_offset, a_elem_type);
++  // 'x_start' points to array x + scaled offset
++  Node* x_start = array_element_address(x, x_offset, x_elem_type);
++  // 'y_start' points to array y + scaled offset
++  Node* y_start = array_element_address(y, y_offset, y_elem_type);
++
++  Node* no_ctrl = NULL;
++
++  // get start addr of string
++  Node* trans_value   = load_String_value(no_ctrl, trans);
++  Node* trans_offset  = load_String_offset(no_ctrl, trans);
++  Node* trans_start   = array_element_address(trans_value, trans_offset, T_CHAR);
++
++  const char *stubName = "dgemv_dgemv";
++  Node* call = make_runtime_call(RC_LEAF, OptoRuntime::dgemvDgemv_Type(), stubAddr, stubName,
++                                 TypePtr::BOTTOM, trans_start, m, n, alpha, top(), a_start,
++                                 lda, x_start, incx, beta, top(), y_start, incy);
++  return true;
++}
++
+ /**
+  * Calculate CRC32 for ByteBuffer.
+  * int java.util.zip.CRC32.updateByteBuffer(int crc, long buf, int off, int len)
+diff --git a/hotspot/src/share/vm/opto/runtime.cpp b/hotspot/src/share/vm/opto/runtime.cpp
+index f1fe4d666..dc8f0c774 100644
+--- a/hotspot/src/share/vm/opto/runtime.cpp
++++ b/hotspot/src/share/vm/opto/runtime.cpp
+@@ -944,6 +944,81 @@ const TypeFunc* OptoRuntime::ddotF2jBLAS_Type() {
+   return TypeFunc::make(domain, range);
+ }
+ 
++/**
++ * double org.netlib.blas.Dgemm.dgemm(java.lang.String transa,
++ *                                    java.lang.String transb, int m, int n, int k,
++ *                                    double alpha, double[] a, int offset_a, int lda,
++ *                                    double[] b, int offset_b, int ldb, double beta,
++ *                                    double[] c, int offset_c, int Ldc)
++ */
++const TypeFunc* OptoRuntime::dgemmDgemm_Type() {
++    // create input type (domain)
++    int num_args = 15;
++    int argcnt = num_args;
++    const Type** fields = TypeTuple::fields(argcnt);
++    int argp = TypeFunc::Parms;
++
++    fields[argp++] = TypeAryPtr::CHARS;       // char[]
++    fields[argp++] = TypeAryPtr::CHARS;       // char[]
++    fields[argp++] = TypeInt::INT;            // int m
++    fields[argp++] = TypeInt::INT;            // int n
++    fields[argp++] = TypeInt::INT;            // int k
++    fields[argp++] = Type::DOUBLE;            // double alpha
++    fields[argp++] = Type::HALF;
++    fields[argp++] = TypeAryPtr::DOUBLES;     // double[] a
++    fields[argp++] = TypeInt::INT;            // int lda
++    fields[argp++] = TypeAryPtr::DOUBLES;     // double[] b
++    fields[argp++] = TypeInt::INT;            // int ldb
++    fields[argp++] = Type::DOUBLE;            // double beta
++    fields[argp++] = Type::HALF;
++    fields[argp++] = TypeAryPtr::DOUBLES;     // double[] c
++    fields[argp++] = TypeInt::INT;            // int ldc
++    assert(argp == TypeFunc::Parms + argcnt, "correct decoding");
++    const TypeTuple* domain = TypeTuple::make(TypeFunc::Parms + argcnt, fields);
++
++    // no result type needed
++    fields = TypeTuple::fields(1);
++    fields[TypeFunc::Parms + 0] = NULL;       // void
++    const TypeTuple* range = TypeTuple::make(TypeFunc::Parms, fields);
++    return TypeFunc::make(domain, range);
++}
++
++/**
++ * void dgemv(String trans, int m, int n, double alpha,
++ *            double[] a, int _a_offset, int lda,
++ *            double[] x, int _x_offset, int incx, double beta,
++ *            double[] y, int _y_offset, int incy)
++ */
++const TypeFunc* OptoRuntime::dgemvDgemv_Type() {
++  // create input type (domain)
++  int num_args = 13;
++  int argcnt = num_args;
++  const Type** fields = TypeTuple::fields(argcnt);
++  int argp = TypeFunc::Parms;
++
++  fields[argp++] = TypeAryPtr::CHARS;       // char[]
++  fields[argp++] = TypeInt::INT;            // int m
++  fields[argp++] = TypeInt::INT;            // int n
++  fields[argp++] = Type::DOUBLE;            // double alpha
++  fields[argp++] = Type::HALF;
++  fields[argp++] = TypeAryPtr::DOUBLES;     // double[] a
++  fields[argp++] = TypeInt::INT;            // int lda
++  fields[argp++] = TypeAryPtr::DOUBLES;     // double[] x
++  fields[argp++] = TypeInt::INT;            // int incx
++  fields[argp++] = Type::DOUBLE;            // double beta
++  fields[argp++] = Type::HALF;
++  fields[argp++] = TypeAryPtr::DOUBLES;     // double[] y
++  fields[argp++] = TypeInt::INT;            // int incy
++  assert(argp == TypeFunc::Parms + argcnt, "correct decoding");
++  const TypeTuple* domain = TypeTuple::make(TypeFunc::Parms + argcnt, fields);
++
++  // no result type needed
++  fields = TypeTuple::fields(1);
++  fields[TypeFunc::Parms + 0] = NULL;       // void
++  const TypeTuple* range = TypeTuple::make(TypeFunc::Parms, fields);
++  return TypeFunc::make(domain, range);
++}
++
+ // for cipherBlockChaining calls of aescrypt encrypt/decrypt, four pointers and a length, returning int
+ const TypeFunc* OptoRuntime::cipherBlockChaining_aescrypt_Type() {
+   // create input type (domain)
+diff --git a/hotspot/src/share/vm/opto/runtime.hpp b/hotspot/src/share/vm/opto/runtime.hpp
+index 66d393c5c..e07c34c15 100644
+--- a/hotspot/src/share/vm/opto/runtime.hpp
++++ b/hotspot/src/share/vm/opto/runtime.hpp
+@@ -318,6 +318,8 @@ private:
+   static const TypeFunc* updateBytesCRC32_Type();
+ 
+   static const TypeFunc* ddotF2jBLAS_Type();
++  static const TypeFunc* dgemmDgemm_Type();
++  static const TypeFunc* dgemvDgemv_Type();
+ 
+   // leaf on stack replacement interpreter accessor types
+   static const TypeFunc* osr_end_Type();
+diff --git a/hotspot/src/share/vm/runtime/init.cpp b/hotspot/src/share/vm/runtime/init.cpp
+index 1512ccc96..4c133bd4e 100644
+--- a/hotspot/src/share/vm/runtime/init.cpp
++++ b/hotspot/src/share/vm/runtime/init.cpp
+@@ -54,7 +54,8 @@ void VM_Version_init();
+ void os_init_globals();        // depends on VM_Version_init, before universe_init
+ void stubRoutines_init1();
+ jint universe_init();          // depends on codeCache_init and stubRoutines_init
+-void interpreter_init();       // before any methods loaded
++void interpreter_init_stub();  // before any methods loaded
++void interpreter_init_code();  // after methods loaded, but before they are linked
+ void invocationCounter_init(); // before any methods loaded
+ void marksweep_init();
+ void accessFlags_init();
+@@ -106,7 +107,7 @@ jint init_globals() {
+   if (status != JNI_OK)
+     return status;
+ 
+-  interpreter_init();  // before any methods loaded
++  interpreter_init_stub(); // before methods get loaded
+   invocationCounter_init();  // before any methods loaded
+   marksweep_init();
+   accessFlags_init();
+@@ -114,6 +115,7 @@ jint init_globals() {
+   InterfaceSupport_init();
+   SharedRuntime::generate_stubs();
+   universe2_init();  // dependent on codeCache_init and stubRoutines_init1
++  interpreter_init_code(); // after universe2_init and before any method gets linked
+   referenceProcessor_init();
+   jni_handles_init();
+ #if INCLUDE_VM_STRUCTS
+diff --git a/hotspot/src/share/vm/runtime/stubRoutines.cpp b/hotspot/src/share/vm/runtime/stubRoutines.cpp
+index 10f438bc5..f2106d13a 100644
+--- a/hotspot/src/share/vm/runtime/stubRoutines.cpp
++++ b/hotspot/src/share/vm/runtime/stubRoutines.cpp
+@@ -136,7 +136,10 @@ address StubRoutines::_sha512_implCompressMB = NULL;
+ address StubRoutines::_updateBytesCRC32 = NULL;
+ address StubRoutines::_crc_table_adr = NULL;
+ 
++address StubRoutines::_BLAS_library = NULL;
+ address StubRoutines::_ddotF2jBLAS = NULL;
++address StubRoutines::_dgemmDgemm = NULL;
++address StubRoutines::_dgemvDgemv = NULL;
+ 
+ address StubRoutines::_multiplyToLen = NULL;
+ address StubRoutines::_squareToLen = NULL;
+diff --git a/hotspot/src/share/vm/runtime/stubRoutines.hpp b/hotspot/src/share/vm/runtime/stubRoutines.hpp
+index a4eeb910d..16075d9f4 100644
+--- a/hotspot/src/share/vm/runtime/stubRoutines.hpp
++++ b/hotspot/src/share/vm/runtime/stubRoutines.hpp
+@@ -214,7 +214,10 @@ class StubRoutines: AllStatic {
+   static address _updateBytesCRC32;
+   static address _crc_table_adr;
+ 
++  static address _BLAS_library;
+   static address _ddotF2jBLAS;
++  static address _dgemmDgemm;
++  static address _dgemvDgemv;
+ 
+   static address _multiplyToLen;
+   static address _squareToLen;
+@@ -380,6 +383,8 @@ class StubRoutines: AllStatic {
+   static address crc_table_addr()      { return _crc_table_adr; }
+ 
+   static address ddotF2jBLAS()         { return _ddotF2jBLAS; }
++  static address dgemmDgemm()          { return _dgemmDgemm; }
++  static address dgemvDgemv()          { return _dgemvDgemv; }
+ 
+   static address multiplyToLen()       {return _multiplyToLen; }
+   static address squareToLen()         {return _squareToLen; }

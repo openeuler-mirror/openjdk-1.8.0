@@ -23,7 +23,7 @@ index c3dec0a30..201dd9594 100644
      *index = '\0'; // chop to just the package name
      while ((index = strchr(name, '/')) != NULL) {
        *index = '.'; // replace '/' with '.' in package name
-@@ -1170,29 +1170,31 @@ Klass* SystemDictionary::resolve_from_stream(Symbol* class_name,
+@@ -1170,29 +1170,32 @@ Klass* SystemDictionary::resolve_from_stream(Symbol* class_name,
        !class_loader.is_null() &&
        parsed_name != NULL &&
        parsed_name->utf8_length() >= (int)pkglen) {
@@ -50,6 +50,7 @@ index c3dec0a30..201dd9594 100644
 -      Exceptions::_throw_msg(THREAD_AND_LOCATION,
 -        vmSymbols::java_lang_SecurityException(), message);
 -    }
++      ResourceMark rm(THREAD);
 +      bool prohibited;
 +      const jbyte* base = parsed_name->base();
 +      if ((base[0] | base[1] | base[2] | base[3] | base[4]) & 0x80) {
