@@ -238,7 +238,7 @@ index 17447587..d2095e63 100644
        close();
        remove(_full_path);
 +      remove(_appcds_file_lock_path);
-       fail_stop("Unable to write to shared archive file.", NULL);
+       fail_stop("Unable to write to shared archive file.");
      }
    }
 @@ -492,6 +519,10 @@ void FileMapInfo::write_bytes_aligned(const void* buffer, int nbytes) {

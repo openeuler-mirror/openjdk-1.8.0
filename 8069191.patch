@@ -1,0 +1,284 @@
+From 8d1f47f09c817f343a5ce5a181d2789f7e1c7c84 Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Wed, 28 Jul 2021 17:55:27 +0800
+Subject: [PATCH] [Backport]8069191:moving predicate out of loops
+ may cause array accesses to bypass null check
+
+Offering: Cloud Compiler JDK
+Reference: https://bugs.openjdk.java.net/browse/JDK-8069191
+
+
+Signed-off-by: Wang Kun <wangkun49@huawei.com>
+---
+diff --git a/hotspot/src/share/vm/opto/compile.cpp b/hotspot/src/share/vm/opto/compile.cpp
+index 5bee20b..832033a 100644
+--- a/hotspot/src/share/vm/opto/compile.cpp
++++ b/hotspot/src/share/vm/opto/compile.cpp
+@@ -2886,9 +2886,38 @@ void Compile::final_graph_reshaping_impl( Node *n, Final_Reshape_Counts &frc) {
+     break;
+   }
+ 
+-#ifdef _LP64
+-  case Op_CastPP:
+-    if (n->in(1)->is_DecodeN() && Matcher::gen_narrow_oop_implicit_null_checks()) {
++  case Op_CastPP: {
++    // Remove CastPP nodes to gain more freedom during scheduling but
++    // keep the dependency they encode as control or precedence edges
++    // (if control is set already) on memory operations. Some CastPP
++    // nodes don't have a control (don't carry a dependency): skip
++    // those.
++    if (n->in(0) != NULL) {
++      ResourceMark rm;
++      Unique_Node_List wq;
++      wq.push(n);
++      for (uint next = 0; next < wq.size(); ++next) {
++        Node *m = wq.at(next);
++        for (DUIterator_Fast imax, i = m->fast_outs(imax); i < imax; i++) {
++          Node* use = m->fast_out(i);
++          if (use->is_Mem() || use->is_EncodeNarrowPtr()) {
++            use->ensure_control_or_add_prec(n->in(0));
++          } else if (use->in(0) == NULL) {
++            switch(use->Opcode()) {
++            case Op_AddP:
++            case Op_DecodeN:
++            case Op_DecodeNKlass:
++            case Op_CheckCastPP:
++            case Op_CastPP:
++              wq.push(use);
++              break;
++            }
++          }
++        }
++      }
++    }
++    const bool is_LP64 = LP64_ONLY(true) NOT_LP64(false);
++    if (is_LP64 && n->in(1)->is_DecodeN() && Matcher::gen_narrow_oop_implicit_null_checks()) {
+       Node* in1 = n->in(1);
+       const Type* t = n->bottom_type();
+       Node* new_in1 = in1->clone();
+@@ -2921,9 +2950,15 @@ void Compile::final_graph_reshaping_impl( Node *n, Final_Reshape_Counts &frc) {
+       if (in1->outcnt() == 0) {
+         in1->disconnect_inputs(NULL, this);
+       }
++    } else {
++      n->subsume_by(n->in(1), this);
++      if (n->outcnt() == 0) {
++        n->disconnect_inputs(NULL, this);
++      }
+     }
+     break;
+-
++  }
++#ifdef _LP64
+   case Op_CmpP:
+     // Do this transformation here to preserve CmpPNode::sub() and
+     // other TypePtr related Ideal optimizations (for example, ptr nullness).
+diff --git a/hotspot/src/share/vm/opto/gcm.cpp b/hotspot/src/share/vm/opto/gcm.cpp
+index f51484e..893becc 100644
+--- a/hotspot/src/share/vm/opto/gcm.cpp
++++ b/hotspot/src/share/vm/opto/gcm.cpp
+@@ -116,6 +116,9 @@ void PhaseCFG::replace_block_proj_ctrl( Node *n ) {
+   }
+ }
+ 
++static bool is_dominator(Block* d, Block* n) {
++  return d->dom_lca(n) == d;
++}
+ 
+ //------------------------------schedule_pinned_nodes--------------------------
+ // Set the basic block for Nodes pinned into blocks
+@@ -138,6 +141,42 @@ void PhaseCFG::schedule_pinned_nodes(VectorSet &visited) {
+         schedule_node_into_block(node, block);
+       }
+ 
++      // If the node has precedence edges (added when CastPP nodes are
++      // removed in final_graph_reshaping), fix the control of the
++      // node to cover the precedence edges and remove the
++      // dependencies.
++      Node* n = NULL;
++      for (uint i = node->len()-1; i >= node->req(); i--) {
++        Node* m = node->in(i);
++        if (m == NULL) continue;
++        // Skip the precedence edge if the test that guarded a CastPP:
++        // - was optimized out during escape analysis
++        // (OptimizePtrCompare): the CastPP's control isn't an end of
++        // block.
++        // - is moved in the branch of a dominating If: the control of
++        // the CastPP is then a Region.
++        if (m->is_block_proj() || m->is_block_start()) {
++          node->rm_prec(i);
++          if (n == NULL) {
++            n = m;
++          } else {
++            Block* bn = get_block_for_node(n);
++            Block* bm = get_block_for_node(m);
++            assert(is_dominator(bn, bm) || is_dominator(bm, bn), "one must dominate the other");
++            n = is_dominator(bn, bm) ? m : n;
++          }
++        }
++      }
++      if (n != NULL) {
++        assert(node->in(0), "control should have been set");
++        Block* bn = get_block_for_node(n);
++        Block* bnode = get_block_for_node(node->in(0));
++        assert(is_dominator(bn, bnode) || is_dominator(bnode, bn), "one must dominate the other");
++        if (!is_dominator(bn, bnode)) {
++          node->set_req(0, n);
++        }
++      }
++
+       // process all inputs that are non NULL
+       for (int i = node->req() - 1; i >= 0; --i) {
+         if (node->in(i) != NULL) {
+diff --git a/hotspot/src/share/vm/opto/matcher.cpp b/hotspot/src/share/vm/opto/matcher.cpp
+index 0c9a8d4..1036df2 100644
+--- a/hotspot/src/share/vm/opto/matcher.cpp
++++ b/hotspot/src/share/vm/opto/matcher.cpp
+@@ -1068,6 +1068,15 @@ Node *Matcher::xform( Node *n, int max_stack ) {
+         mstack.push(m, Visit, n, -1);
+       }
+ 
++      // Handle precedence edges for interior nodes
++      for (i = n->len()-1; (uint)i >= n->req(); i--) {
++        Node *m = n->in(i);
++        if (m == NULL || C->node_arena()->contains(m)) continue;
++        n->rm_prec(i);
++        // set -1 to call add_prec() instead of set_req() during Step1
++        mstack.push(m, Visit, n, -1);
++      }
++
+       // For constant debug info, I'd rather have unmatched constants.
+       int cnt = n->req();
+       JVMState* jvms = n->jvms();
+@@ -1758,6 +1767,14 @@ MachNode *Matcher::ReduceInst( State *s, int rule, Node *&mem ) {
+   return ex;
+ }
+ 
++void Matcher::handle_precedence_edges(Node* n, MachNode *mach) {
++  for (uint i = n->req(); i < n->len(); i++) {
++    if (n->in(i) != NULL) {
++      mach->add_prec(n->in(i));
++    }
++  }
++}
++
+ void Matcher::ReduceInst_Chain_Rule( State *s, int rule, Node *&mem, MachNode *mach ) {
+   // 'op' is what I am expecting to receive
+   int op = _leftOp[rule];
+@@ -1792,6 +1809,8 @@ void Matcher::ReduceInst_Chain_Rule( State *s, int rule, Node *&mem, MachNode *m
+ 
+ 
+ uint Matcher::ReduceInst_Interior( State *s, int rule, Node *&mem, MachNode *mach, uint num_opnds ) {
++  handle_precedence_edges(s->_leaf, mach);
++
+   if( s->_leaf->is_Load() ) {
+     Node *mem2 = s->_leaf->in(MemNode::Memory);
+     assert( mem == (Node*)1 || mem == mem2, "multiple Memories being matched at once?" );
+@@ -1874,6 +1893,9 @@ void Matcher::ReduceOper( State *s, int rule, Node *&mem, MachNode *mach ) {
+     mem = s->_leaf->in(MemNode::Memory);
+     debug_only(_mem_node = s->_leaf;)
+   }
++
++  handle_precedence_edges(s->_leaf, mach);
++
+   if( s->_leaf->in(0) && s->_leaf->req() > 1) {
+     if( !mach->in(0) )
+       mach->set_req(0,s->_leaf->in(0));
+diff --git a/hotspot/src/share/vm/opto/matcher.hpp b/hotspot/src/share/vm/opto/matcher.hpp
+index 2f2dc5b..f882ad2 100644
+--- a/hotspot/src/share/vm/opto/matcher.hpp
++++ b/hotspot/src/share/vm/opto/matcher.hpp
+@@ -124,6 +124,8 @@ class Matcher : public PhaseTransform {
+   // Mach node for ConP #NULL
+   MachNode* _mach_null;
+ 
++  void handle_precedence_edges(Node* n, MachNode *mach);
++
+ public:
+   int LabelRootDepth;
+   // Convert ideal machine register to a register mask for spill-loads
+diff --git a/hotspot/src/share/vm/opto/node.cpp b/hotspot/src/share/vm/opto/node.cpp
+index d6b9d15..7ea783e 100644
+--- a/hotspot/src/share/vm/opto/node.cpp
++++ b/hotspot/src/share/vm/opto/node.cpp
+@@ -1432,12 +1432,6 @@ bool Node::remove_dead_region(PhaseGVN *phase, bool can_reshape) {
+   return false;
+ }
+ 
+-//------------------------------Ideal_DU_postCCP-------------------------------
+-// Idealize graph, using DU info.  Must clone result into new-space
+-Node *Node::Ideal_DU_postCCP( PhaseCCP * ) {
+-  return NULL;                 // Default to no change
+-}
+-
+ //------------------------------hash-------------------------------------------
+ // Hash function over Nodes.
+ uint Node::hash() const {
+@@ -2126,6 +2120,14 @@ Node* Node::unique_ctrl_out() {
+   return found;
+ }
+ 
++void Node::ensure_control_or_add_prec(Node* c) {
++  if (in(0) == NULL) {
++    set_req(0, c);
++  } else if (in(0) != c) {
++    add_prec(c);
++  }
++}
++
+ //=============================================================================
+ //------------------------------yank-------------------------------------------
+ // Find and remove
+diff --git a/hotspot/src/share/vm/opto/node.hpp b/hotspot/src/share/vm/opto/node.hpp
+index 270b966..f0a6ee0 100644
+--- a/hotspot/src/share/vm/opto/node.hpp
++++ b/hotspot/src/share/vm/opto/node.hpp
+@@ -926,9 +926,6 @@ protected:
+   bool remove_dead_region(PhaseGVN *phase, bool can_reshape);
+ public:
+ 
+-  // Idealize graph, using DU info.  Done after constant propagation
+-  virtual Node *Ideal_DU_postCCP( PhaseCCP *ccp );
+-
+   // See if there is valid pipeline info
+   static  const Pipeline *pipeline_class();
+   virtual const Pipeline *pipeline() const;
+@@ -962,6 +959,9 @@ public:
+   // Return the unique control out if only one. Null if none or more than one.
+   Node* unique_ctrl_out();
+ 
++  // Set control or add control as precedence edge
++  void ensure_control_or_add_prec(Node* c);
++
+ //----------------- Code Generation
+ 
+   // Ideal register class for Matching.  Zero means unmatched instruction
+diff --git a/hotspot/src/share/vm/opto/phaseX.cpp b/hotspot/src/share/vm/opto/phaseX.cpp
+index 9c4a705..ae1031d 100644
+--- a/hotspot/src/share/vm/opto/phaseX.cpp
++++ b/hotspot/src/share/vm/opto/phaseX.cpp
+@@ -1774,11 +1774,6 @@ Node *PhaseCCP::transform_once( Node *n ) {
+     _worklist.push(n);          // n re-enters the hash table via the worklist
+   }
+ 
+-  // Idealize graph using DU info.  Must clone() into new-space.
+-  // DU info is generally used to show profitability, progress or safety
+-  // (but generally not needed for correctness).
+-  Node *nn = n->Ideal_DU_postCCP(this);
+-
+   // TEMPORARY fix to ensure that 2nd GVN pass eliminates NULL checks
+   switch( n->Opcode() ) {
+   case Op_FastLock:      // Revisit FastLocks for lock coarsening
+@@ -1795,12 +1790,6 @@ Node *PhaseCCP::transform_once( Node *n ) {
+   default:
+     break;
+   }
+-  if( nn ) {
+-    _worklist.push(n);
+-    // Put users of 'n' onto worklist for second igvn transform
+-    add_users_to_worklist(n);
+-    return nn;
+-  }
+ 
+   return  n;
+ }
