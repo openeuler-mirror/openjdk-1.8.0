@@ -190,14 +190,6 @@ diff --git a/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp b/hotspot/src/
 index 0d73c0c0c..337d5c1dd 100644
 --- a/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp
 +++ b/hotspot/src/cpu/aarch64/vm/stubGenerator_aarch64.cpp
-@@ -45,6 +45,7 @@
- 
- #include "stubRoutines_aarch64.hpp"
- 
-+
- #ifdef COMPILER2
- #include "opto/runtime.hpp"
- #endif
 @@ -3220,6 +3221,39 @@ class StubGenerator: public StubCodeGenerator {
      return start;
    }
