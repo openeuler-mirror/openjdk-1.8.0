@@ -10,11 +10,9 @@ Signed-off-by: Wang Kun <wangkun49@huawei.com>
  jdk/make/data/cacerts/addtrustqualifiedca          | 32 -----------------
  jdk/make/data/cacerts/luxtrustglobalrootca         | 28 ---------------
  jdk/make/data/cacerts/quovadisrootca               | 41 ----------------------
- jdk/make/data/cacerts/thawtepremiumserverca        | 27 --------------
  jdk/make/data/cacerts/utnuserfirstobjectca         | 33 -----------------
- jdk/make/data/cacerts/verisigntsaca                | 24 -------------
- .../sun/security/lib/cacerts/VerifyCACerts.java    | 40 ++-------------------
- 8 files changed, 3 insertions(+), 254 deletions(-)
+ .../sun/security/lib/cacerts/VerifyCACerts.java    | 29 ++-------------------
+ 8 files changed, 3 insertions(+), 192 deletions(-)
  delete mode 100644 jdk/make/data/cacerts/addtrustexternalca
  delete mode 100644 jdk/make/data/cacerts/addtrustqualifiedca
  delete mode 100644 jdk/make/data/cacerts/luxtrustglobalrootca
@@ -180,39 +178,6 @@ index 0c195ff..0000000
 -xFIY6iHOsfHmhIHluqmGKPJDWl0Snawe2ajlCmqnf6CHKc/yiU3U7MXi5nrQNiOK
 -SnQ2+Q==
 ------END CERTIFICATE-----
-diff --git a/jdk/make/data/cacerts/thawtepremiumserverca b/jdk/make/data/cacerts/thawtepremiumserverca
-deleted file mode 100644
-index 2df456a..0000000
---- a/jdk/make/data/cacerts/thawtepremiumserverca
-+++ /dev/null
-@@ -1,27 +0,0 @@
--Owner: EMAILADDRESS=premium-server@thawte.com, CN=Thawte Premium Server CA, OU=Certification Services Division, O=Thawte Consulting cc, L=Cape Town, ST=Western Cape, C=ZA
--Issuer: EMAILADDRESS=premium-server@thawte.com, CN=Thawte Premium Server CA, OU=Certification Services Division, O=Thawte Consulting cc, L=Cape Town, ST=Western Cape, C=ZA
--Serial number: 36122296c5e338a520a1d25f4cd70954
--Valid from: Thu Aug 01 00:00:00 GMT 1996 until: Fri Jan 01 23:59:59 GMT 2021
--Signature algorithm name: SHA1withRSA
--Subject Public Key Algorithm: 1024-bit RSA key
--Version: 3
-------BEGIN CERTIFICATE-----
--MIIDNjCCAp+gAwIBAgIQNhIilsXjOKUgodJfTNcJVDANBgkqhkiG9w0BAQUFADCB
--zjELMAkGA1UEBhMCWkExFTATBgNVBAgTDFdlc3Rlcm4gQ2FwZTESMBAGA1UEBxMJ
--Q2FwZSBUb3duMR0wGwYDVQQKExRUaGF3dGUgQ29uc3VsdGluZyBjYzEoMCYGA1UE
--CxMfQ2VydGlmaWNhdGlvbiBTZXJ2aWNlcyBEaXZpc2lvbjEhMB8GA1UEAxMYVGhh
--d3RlIFByZW1pdW0gU2VydmVyIENBMSgwJgYJKoZIhvcNAQkBFhlwcmVtaXVtLXNl
--cnZlckB0aGF3dGUuY29tMB4XDTk2MDgwMTAwMDAwMFoXDTIxMDEwMTIzNTk1OVow
--gc4xCzAJBgNVBAYTAlpBMRUwEwYDVQQIEwxXZXN0ZXJuIENhcGUxEjAQBgNVBAcT
--CUNhcGUgVG93bjEdMBsGA1UEChMUVGhhd3RlIENvbnN1bHRpbmcgY2MxKDAmBgNV
--BAsTH0NlcnRpZmljYXRpb24gU2VydmljZXMgRGl2aXNpb24xITAfBgNVBAMTGFRo
--YXd0ZSBQcmVtaXVtIFNlcnZlciBDQTEoMCYGCSqGSIb3DQEJARYZcHJlbWl1bS1z
--ZXJ2ZXJAdGhhd3RlLmNvbTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA0jY2
--aovXwlue2oFBYo847kkEVdbQ7xwblRZH7xhINTpS9CtqBo87L+pW46+GjZ4X9560
--ZXUCTe/LCaIhUdib0GfQug2SBhRz1JPLlyoAnFxODLz6FVL88kRu2hFKbgifLy3j
--+ao6hnO2RlNYyIkFvYMRuHM/qgeN9EJN50CdHDcCAwEAAaMTMBEwDwYDVR0TAQH/
--BAUwAwEB/zANBgkqhkiG9w0BAQUFAAOBgQBlkKyID1bZ5jA01CbH0FDxkt5r1DmI
--CSLGpmODA/eZd9iy5Ri4XWPz1HP7bJyZePFLeH0ZJMMrAoT4vCLZiiLXoPxx7JGH
--IPG47LHlVYCsPVLIOQ7C8MAFT9aCdYy9X9LcdpoFEsmvcsPcJX6kTY4XpeCHf+Ga
--WuFg3GQjPEIuTQ==
-------END CERTIFICATE-----
 diff --git a/jdk/make/data/cacerts/utnuserfirstobjectca b/jdk/make/data/cacerts/utnuserfirstobjectca
 deleted file mode 100644
 index 80a0b5c..0000000
@@ -252,36 +217,6 @@ index 80a0b5c..0000000
 -81OtbLUrohKqGU8J2l7nk8aOFAj+8DCAGKCGhU3IfdeLA/5u1fedFqySLKAj5ZyR
 -Uh+U3xeUc8OzwcFxBSAAeL0TUh2oPs0AH8g=
 ------END CERTIFICATE-----
-diff --git a/jdk/make/data/cacerts/verisigntsaca b/jdk/make/data/cacerts/verisigntsaca
-deleted file mode 100644
-index 9813dda..0000000
---- a/jdk/make/data/cacerts/verisigntsaca
-+++ /dev/null
-@@ -1,24 +0,0 @@
--Owner: CN=Thawte Timestamping CA, OU=Thawte Certification, O=Thawte, L=Durbanville, ST=Western Cape, C=ZA
--Issuer: CN=Thawte Timestamping CA, OU=Thawte Certification, O=Thawte, L=Durbanville, ST=Western Cape, C=ZA
--Serial number: 67c8e1e8e3be1cbdfc913b8ea6238749
--Valid from: Wed Jan 01 00:00:00 GMT 1997 until: Fri Jan 01 23:59:59 GMT 2021
--Signature algorithm name: SHA1withRSA
--Subject Public Key Algorithm: 1024-bit RSA key
--Version: 3
-------BEGIN CERTIFICATE-----
--MIICsDCCAhmgAwIBAgIQZ8jh6OO+HL38kTuOpiOHSTANBgkqhkiG9w0BAQUFADCB
--izELMAkGA1UEBhMCWkExFTATBgNVBAgTDFdlc3Rlcm4gQ2FwZTEUMBIGA1UEBxML
--RHVyYmFudmlsbGUxDzANBgNVBAoTBlRoYXd0ZTEdMBsGA1UECxMUVGhhd3RlIENl
--cnRpZmljYXRpb24xHzAdBgNVBAMTFlRoYXd0ZSBUaW1lc3RhbXBpbmcgQ0EwHhcN
--OTcwMTAxMDAwMDAwWhcNMjEwMTAxMjM1OTU5WjCBizELMAkGA1UEBhMCWkExFTAT
--BgNVBAgTDFdlc3Rlcm4gQ2FwZTEUMBIGA1UEBxMLRHVyYmFudmlsbGUxDzANBgNV
--BAoTBlRoYXd0ZTEdMBsGA1UECxMUVGhhd3RlIENlcnRpZmljYXRpb24xHzAdBgNV
--BAMTFlRoYXd0ZSBUaW1lc3RhbXBpbmcgQ0EwgZ8wDQYJKoZIhvcNAQEBBQADgY0A
--MIGJAoGBANYrWHhhRYZT6jR7UZztsOYuGA7+4F+oJ9O0yeB8WU4WDnNUYMF/9p8u
--6TqFJBU820cEY8OexJQaWt9MevPZQx08EHp5JduQ/vBR5zDWQQD9nyjfeb6Uu522
--FOMjhdepQeBMpHmwKxqL8vg7ij5FrHGSALSQQZj7X+36ty6K+Ig3AgMBAAGjEzAR
--MA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQEFBQADgYEAS+mqF4EF+3kKMZ/F
--QfRWVKvpwuWXjhj+kckMPiZkyaFMJ2SnvQGTVXFuF0853BvcSTUQOSP/ypvIz2Y/
--3Ewa1IEGQlIf4SaxFhe65nByMUToTo1b5NP50OOPJWQx5yr4GIg2GlLFDUE1G2m3
--JvUXzMEZXkt8XOKDgJH6L/uatxY=
-------END CERTIFICATE-----
 diff --git a/jdk/test/sun/security/lib/cacerts/VerifyCACerts.java b/jdk/test/sun/security/lib/cacerts/VerifyCACerts.java
 index dd107fc..791ddb6 100644
 --- a/jdk/test/sun/security/lib/cacerts/VerifyCACerts.java
@@ -290,14 +225,14 @@ index dd107fc..791ddb6 100644
              + File.separator + "security" + File.separator + "cacerts";
  
      // The numbers of certs now.
--    private static final int COUNT = 97;
-+    private static final int COUNT = 90;
+-    private static final int COUNT = 91;
++    private static final int COUNT = 86;
  
      // SHA-256 of cacerts, can be generated with
      // shasum -a 256 cacerts | sed -e 's/../&:/g' | tr '[:lower:]' '[:upper:]' | cut -c1-95
      private static final String CHECKSUM
--            = "9F:6B:41:1D:05:AF:E3:C5:4F:E8:39:89:50:79:60:B1:F6:A4:02:40:0C:28:8D:73:78:08:E5:61:7C:17:EA:59";
-+            = "DC:22:7E:D7:F3:46:1F:8B:A8:4E:EE:C2:A8:4B:8E:26:89:4F:95:5C:71:A3:1B:5A:6E:A6:48:FD:CB:C9:F2:95";
+-            = "9B:C3:0B:24:D4:26:E4:A9:4F:2C:96:25:06:9B:08:E5:13:5B:0B:33:74:5F:78:DB:BD:91:CD:31:D4:37:07:28";
++            = "A5:00:71:02:B4:8B:AC:BE:64:34:0A:F2:DF:9D:F7:75:9D:05:84:7E:F6:EA:48:F0:64:36:29:8C:E7:A2:2D:63";
  
      // map of cert alias to SHA-256 fingerprint
      @SuppressWarnings("serial")
@@ -314,23 +249,6 @@ index dd107fc..791ddb6 100644
              put("baltimorecybertrustca [jdk]",
                      "16:AF:57:A9:F6:76:B0:AB:12:60:95:AA:5E:BA:DE:F2:2A:B3:11:19:D6:44:AC:95:CD:4B:93:DB:F3:F2:6A:EB");
              put("digicertglobalrootca [jdk]",
-@@ -133,16 +127,6 @@ public class VerifyCACerts {
-                     "A4:31:0D:50:AF:18:A6:44:71:90:37:2A:86:AF:AF:8B:95:1F:FB:43:1D:83:7F:1E:56:88:B4:59:71:ED:15:57");
-             put("thawteprimaryrootcag3 [jdk]",
-                     "4B:03:F4:58:07:AD:70:F2:1B:FC:2C:AE:71:C9:FD:E4:60:4C:06:4C:F5:FF:B6:86:BA:E5:DB:AA:D7:FD:D3:4C");
--            put("thawtepremiumserverca [jdk]",
--                    "3F:9F:27:D5:83:20:4B:9E:09:C8:A3:D2:06:6C:4B:57:D3:A2:47:9C:36:93:65:08:80:50:56:98:10:5D:BC:E9");
--            put("verisigntsaca [jdk]",
--                    "CB:6B:05:D9:E8:E5:7C:D8:82:B1:0B:4D:B7:0D:E4:BB:1D:E4:2B:A4:8A:7B:D0:31:8B:63:5B:F6:E7:78:1A:9D");
--            put("verisignclass2g2ca [jdk]",
--                    "3A:43:E2:20:FE:7F:3E:A9:65:3D:1E:21:74:2E:AC:2B:75:C2:0F:D8:98:03:05:BC:50:2C:AF:8C:2D:9B:41:A1");
--            put("verisignclass3ca [jdk]",
--                    "A4:B6:B3:99:6F:C2:F3:06:B3:FD:86:81:BD:63:41:3D:8C:50:09:CC:4F:A3:29:C2:CC:F0:E2:FA:1B:14:03:05");
--            put("verisignclass3g2ca [jdk]",
--                    "83:CE:3C:12:29:68:8A:59:3D:48:5F:81:97:3C:0F:91:95:43:1E:DA:37:CC:5E:36:43:0E:79:C7:A8:88:63:8B");
-             put("verisignuniversalrootca [jdk]",
-                     "23:99:56:11:27:A5:71:25:DE:8C:EF:EA:61:0D:DF:2F:A0:78:B5:C8:06:7F:4E:82:82:90:BF:B8:60:E8:4B:3C");
-             put("verisignclass3g3ca [jdk]",
 @@ -163,10 +147,6 @@ public class VerifyCACerts {
                      "5D:56:49:9B:E4:D2:E0:8B:CF:CA:D0:8A:3E:38:72:3D:50:50:3B:DE:70:69:48:E4:2F:55:60:30:19:E5:28:AE");
              put("letsencryptisrgx1 [jdk]",
@@ -342,29 +260,28 @@ index dd107fc..791ddb6 100644
              put("quovadisrootca1g3 [jdk]",
                      "8A:86:6F:D1:B2:76:B5:7E:57:8E:92:1C:65:82:8A:2B:ED:58:E9:F2:F2:88:05:41:34:B7:F1:F4:BF:C9:CC:74");
              put("quovadisrootca2 [jdk]",
-@@ -267,21 +247,7 @@ public class VerifyCACerts {
+@@ -267,20 +247,7 @@ public class VerifyCACerts {
+     // Exception list to 90 days expiry policy
+     // No error will be reported if certificate in this list expires
      @SuppressWarnings("serial")
-     private static final HashSet<String> EXPIRY_EXC_ENTRIES = new HashSet<String>() {
-         {
+-    private static final HashSet<String> EXPIRY_EXC_ENTRIES = new HashSet<String>() {
+-        {
 -            // Valid until: Tue Jul 09 14:40:36 EDT 2019
 -            add("utnuserfirstobjectca [jdk]");
 -            // Valid until: Sat May 30 10:38:31 GMT 2020
 -            add("addtrustexternalca [jdk]");
 -            // Valid until: Sat May 30 10:44:50 GMT 2020
 -            add("addtrustqualifiedca [jdk]");
--            // Valid until: Fri Jan 01 15:59:59 PST 2021
--            add("verisigntsaca [jdk]");
--            // Valid until: Fri Jan 01 15:59:59 PST 2021
--            add("thawtepremiumserverca [jdk]");
 -            // Valid until: Wed Mar 17 02:51:37 PDT 2021
 -            add("luxtrustglobalrootca [jdk]");
 -            // Valid until: Wed Mar 17 11:33:33 PDT 2021
 -            add("quovadisrootca [jdk]");
--            // Valid until: Tue Apr 06 00:29:40 PDT 2021
-+            // Valid until: Tue Apr 06 15:29:40 HKT 2021
-             add("soneraclass2ca [jdk]");
-         }
-     };
+-        }
+-    };
++    private static final HashSet<String> EXPIRY_EXC_ENTRIES = new HashSet<String>();
+
+     // Ninety days in milliseconds
+     private static final long NINETY_DAYS = 7776000000L;
 -- 
 1.8.3.1
 

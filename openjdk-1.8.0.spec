@@ -145,16 +145,14 @@
 %global origin          openjdk
 %global origin_nice     OpenJDK
 %global top_level_dir_name   %{origin}
-# Define old aarch64/jdk8u tree variables for compatibility
-%global project		aarch64-port
-%global repo		jdk8u-shenandoah
-%global revision    	aarch64-shenandoah-jdk8u292-b10
-%global full_revision	%{project}-%{repo}-%{revision}
+%global repo		jdk8u
+%global revision    	jdk8u302-b07
+%global full_revision	%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
 
-%global updatever       292
-%global buildver        b10
+%global updatever       302
+%global buildver        b07
 # priority must be 7 digits in total. The expression is workarounding tip
 %global priority        1800%{updatever}
 
@@ -918,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 19
+Release: 2
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -976,16 +974,13 @@ Patch8:	 replace-vector-to-improve-performance-of-xml.validat.patch
 Patch10: 8221658.patch
 Patch18: fix-vendor-info.patch
 Patch21: 8202952.patch
-Patch24: 8134883.patch
 Patch25: 8196485.patch
 Patch26: disable-UseLSE-on-ARMv8.1-by-default.patch
 Patch27: 8157570.patch
 Patch28: 8194246.patch
-Patch29: 8214345.patch
 Patch30: 8191483.patch
 Patch31: 8141356.patch
 Patch33: 8166253.patch
-Patch34: 8191955.patch
 Patch35: 8186042.patch
 Patch36: 8060463.patch
 Patch37: 8131600.patch
@@ -1005,8 +1000,6 @@ Patch72: inline-optimize-for-aarch64.patch
 
 # 8u242
 Patch75: Add-ability-to-configure-third-port-for-remote-JMX.patch
-Patch76: 8203196.patch
-Patch77: 8190332.patch
 Patch83: 8204947.patch
 Patch85: 8139041.patch
 
@@ -1031,13 +1024,11 @@ Patch103: Ddot-intrinsic-implement.patch
 Patch104: 8234003.patch
 Patch105: 8220159.patch
 Patch106: fast-serializer-jdk8.patch
-Patch108: 8231631.patch
 Patch109: Test8167409.sh-fails-to-run-with-32bit-jdk-on-64bit-.patch
 Patch112: 8048210-8056152.patch
 Patch113: 8160425.patch
 Patch114: 8181503.patch
 Patch115: 8243670.patch
-Patch116: fix-crash-in-JVMTI-debug.patch
 Patch118: Fix-LineBuffer-vappend-when-buffer-too-small.patch
 Patch121: Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
 Patch122: optimize-jmap-F-dump-xxx.patch
@@ -1062,7 +1053,6 @@ Patch147: 8215047.patch
 Patch148: 8237894.patch
 Patch149: Remove-the-parentheses-around-company-name.patch
 Patch151: kae-phase1.patch
-Patch152: 8231841-debug.cpp-help-is-missing-an-AArch64-line-fo.patch
 Patch153: initialized-value-should-be-0-in-perfInit.patch
 Patch154: 8254078-DataOutputStream-is-very-slow-post-disabling.patch
 Patch155: Use-atomic-operation-when-G1Uncommit.patch
@@ -1070,11 +1060,9 @@ Patch157: 8140597-Postpone-the-initial-mark-request-until-the-.patch
 Patch158: Use-Mutex-when-G1Uncommit.patch
 Patch159: C1-typos-repair.patch
 Patch160: 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
-Patch161: 8259886-Improve-SSL-session-cache-performance-and-sc.patch
 Patch162: 8214535-support-Jmap-parallel.patch
 Patch163: Fixed-a-copyright-writing-problem.patch
 Patch164: fix-arguments.cpp-error-C2131-on-windows.patch
-Patch165: 818172_overflow_when_strength_reducing_interger_multiply.patch
 Patch166: add-missing-test-case.patch
 Patch167: fix-BoxTypeCachedMax-build-failure-when-jvm-variants.patch
 Patch168: fix-windows-compile-fail.patch
@@ -1100,8 +1088,6 @@ Patch186: update-to-keep-same-with-master.patch
 Patch187: 8182036.patch
 Patch188: 8247691_incorrect_handling_of_VM_exceptions_in_C1_deopt_stub.patch
 Patch189: 8266187_Memory_leak_in_appendBootClassPath.patch
-Patch190: 8266929_huawei_add_oid_mapping_common_sig_types.patch
-Patch191: 8264640.patch
 Patch192: add_kae_implementation_add_default_conf_file.patch
 Patch193: improve_algorithmConstraints_checkAlgorithm_performance.patch
 Patch194: modify_the_default_iteration_time_and_forks_in_the_JMH_of_KAEProvider.patch
@@ -1109,10 +1095,14 @@ Patch195: support_CMS_parallel_inspection.patch
 Patch196: g1gc-numa-aware-Implementation.patch
 Patch197: implementation_of_Blas_hotspot_function_in_Intrinsics.patch
 Patch198: fix_G1GC_memory_leak_in_numa.patch
-Patch199: delete_untrustworthy_cacert_soneraclass2ca.patch
 Patch200: Fix-ECDH-and-DH-memory-usage.patch
 Patch201: fix_run_SPECjvm2008_failed_on_32_bit_system.patch
 Patch202: Fix-RSACipher-memory-usage.patch
+
+# 8u302
+Patch203: fix-lock-ordering-issue-when-calling-JVMTI-GetLoaded.patch
+Patch204: 8069191.patch
+Patch205: fix_g1uncommit_ygc_expand_crash.patch
 
 #############################################
 #
@@ -1452,16 +1442,13 @@ pushd %{top_level_dir_name}
 %patch10 -p1
 %patch18 -p1
 %patch21 -p1
-%patch24 -p1
 %patch25 -p1
 %patch26 -p1
 %patch27 -p1
 %patch28 -p1
-%patch29 -p1
 %patch30 -p1
 %patch31 -p1
 %patch33 -p1
-%patch34 -p1
 %patch35 -p1
 %patch36 -p1
 %patch37 -p1
@@ -1479,8 +1466,6 @@ pushd %{top_level_dir_name}
 %patch70 -p1
 %patch72 -p1
 %patch75 -p1
-%patch76 -p1
-%patch77 -p1
 %patch83 -p1
 %patch85 -p1
 %patch86 -p1
@@ -1499,13 +1484,11 @@ pushd %{top_level_dir_name}
 %patch104 -p1
 %patch105 -p1
 %patch106 -p1
-%patch108 -p1
 %patch109 -p1
 %patch112 -p1
 %patch113 -p1
 %patch114 -p1
 %patch115 -p1
-%patch116 -p1
 %patch118 -p1
 %patch121 -p1
 %patch122 -p1
@@ -1526,7 +1509,6 @@ pushd %{top_level_dir_name}
 %patch148 -p1
 %patch149 -p1
 %patch151 -p1
-%patch152 -p1
 %patch153 -p1
 %patch154 -p1
 %patch155 -p1
@@ -1534,11 +1516,9 @@ pushd %{top_level_dir_name}
 %patch158 -p1
 %patch159 -p1
 %patch160 -p1
-%patch161 -p1
 %patch162 -p1
 %patch163 -p1
 %patch164 -p1
-%patch165 -p1
 %patch166 -p1
 %patch167 -p1
 %patch168 -p1
@@ -1562,18 +1542,18 @@ pushd %{top_level_dir_name}
 %patch187 -p1
 %patch188 -p1
 %patch189 -p1
-%patch190 -p1
-%patch191 -p1
 %patch192 -p1
 %patch194 -p1
 %patch195 -p1
 %patch196 -p1
 %patch197 -p1
 %patch198 -p1
-%patch199 -p1
 %patch200 -p1
 %patch201 -p1
 %patch202 -p1
+%patch203 -p1
+%patch204 -p1
+%patch205 -p1
 popd
 
 # System library fixes
@@ -2189,6 +2169,30 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Aug 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.302-b07.2
+- add fix_g1uncommit_ygc_expand_crash.patch
+
+* Thu Aug 19 2021 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.302-b07.1
+- delete 8266929_huawei_add_oid_mapping_common_sig_types.patch
+
+* Wed Aug 11 2021 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.302-b07.0
+- update to 8u302-b07(ga)(switch to jdk8u from aarch64-port/jdk8u-shenandoah)
+- add 8069191.patch
+- add fix-lock-ordering-issue-when-calling-JVMTI-GetLoaded.patch
+- delete 8134883.patch
+- delete 818172_overflow_when_strength_reducing_interger_multiply.patch
+- delete 8190332.patch
+- delete 8191955.patch
+- delete 8203196.patch
+- delete 8214345.patch
+- delete 8231631.patch
+- delete 8231841-debug.cpp-help-is-missing-an-AArch64-line-fo.patch
+- delete 8259886-Improve-SSL-session-cache-performance-and-sc.patch
+- delete 8264640.patch
+- delete delete_untrustworthy_cacert_soneraclass2ca.patch
+- delete fix-crash-in-JVMTI-debug.patch
+- other adaptations to jdk8u302
+
 * Thu Jul 12 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.19
 - add Fix-RSACipher-memory-usage.patch
 
