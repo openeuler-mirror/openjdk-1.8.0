@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 0
+Release: 1
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1088,7 +1088,6 @@ Patch186: update-to-keep-same-with-master.patch
 Patch187: 8182036.patch
 Patch188: 8247691_incorrect_handling_of_VM_exceptions_in_C1_deopt_stub.patch
 Patch189: 8266187_Memory_leak_in_appendBootClassPath.patch
-Patch190: 8266929_huawei_add_oid_mapping_common_sig_types.patch
 Patch192: add_kae_implementation_add_default_conf_file.patch
 Patch193: improve_algorithmConstraints_checkAlgorithm_performance.patch
 Patch194: modify_the_default_iteration_time_and_forks_in_the_JMH_of_KAEProvider.patch
@@ -1542,7 +1541,6 @@ pushd %{top_level_dir_name}
 %patch187 -p1
 %patch188 -p1
 %patch189 -p1
-%patch190 -p1
 %patch192 -p1
 %patch194 -p1
 %patch195 -p1
@@ -2169,6 +2167,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Aug 19 2021 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.302-b07.1
+- delete 8266929_huawei_add_oid_mapping_common_sig_types.patch
+
 * Wed Aug 11 2021 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.302-b07.0
 - update to 8u302-b07(ga)(switch to jdk8u from aarch64-port/jdk8u-shenandoah)
 - add 8069191.patch
