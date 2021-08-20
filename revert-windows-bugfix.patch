@@ -34,10 +34,10 @@ index 90f490272..181628567 100644
 @@ -21,10 +21,9 @@
   *
   */
-  
+ 
 +#include "precompiled.hpp"
  #include "owstTaskTerminator.hpp"
- 
+
 -#include "precompiled/precompiled.hpp"
 -
  bool OWSTTaskTerminator::exit_termination(size_t tasks, TerminatorTerminator* terminator) {

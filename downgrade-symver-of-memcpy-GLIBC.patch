@@ -237,7 +237,7 @@ index 09434f14d..02fded0dc 100644
      LANG := C, \
      OPTIMIZATION := LOW, \
 +    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
-     CFLAGS := $(CFLAGS_JDKLIB) -DUSE_MMAP \
+     CFLAGS := $(CFLAGS_JDKLIB) $(CFLAGS_WARNINGS_ARE_ERRORS) -DUSE_MMAP \
          -I$(INCLUDEDIR) -I$(JDK_OUTPUTDIR)/include/$(OPENJDK_TARGET_OS) \
          -I$(JDK_TOPDIR)/src/share/transport/socket \
 @@ -148,6 +149,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJDWP, \
@@ -245,7 +245,7 @@ index 09434f14d..02fded0dc 100644
      LANG := C, \
      OPTIMIZATION := LOW, \
 +    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
-     CFLAGS := $(CFLAGS_JDKLIB) -DJDWP_LOGGING \
+     CFLAGS := $(CFLAGS_JDKLIB) $(CFLAGS_WARNINGS_ARE_ERRORS) -DJDWP_LOGGING \
          -I$(JDK_TOPDIR)/src/share/transport/export \
          -I$(JDK_TOPDIR)/src/share/back/export \
 @@ -252,6 +254,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBINSTRUMENT, \
@@ -253,7 +253,7 @@ index 09434f14d..02fded0dc 100644
      LANG := C, \
      OPTIMIZATION := LOW, \
 +    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
-     CFLAGS := $(LIBINSTRUMENT_CFLAGS), \
+     CFLAGS := $(LIBINSTRUMENT_CFLAGS) $(CFLAGS_WARNINGS_ARE_ERRORS), \
      CFLAGS_debug := -DJPLIS_LOGGING, \
      CFLAGS_release := -DNO_JPLIS_LOGGING, \
 @@ -375,6 +378,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBHPROF, \
@@ -261,7 +261,7 @@ index 09434f14d..02fded0dc 100644
      LANG := C, \
      OPTIMIZATION := $(LIBHPROF_OPTIMIZATION), \
 +    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
-     CFLAGS := $(CFLAGS_JDKLIB) \
+     CFLAGS := $(CFLAGS_JDKLIB) $(CFLAGS_WARNINGS_ARE_ERRORS) \
          $(BUILD_LIBHPROF_CFLAGS), \
      CFLAGS_debug := -DHPROF_LOGGING, \
 @@ -403,6 +407,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJAVA_CRW_DEMO, \
@@ -269,7 +269,7 @@ index 09434f14d..02fded0dc 100644
      LANG := C, \
      OPTIMIZATION := LOW, \
 +    EXTRA_FILES := $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp, \
-     CFLAGS := $(CFLAGS_JDKLIB) \
+     CFLAGS := $(CFLAGS_JDKLIB) $(CFLAGS_WARNINGS_ARE_ERRORS) \
          -I$(JDK_TOPDIR)/src/share/demo/jvmti/java_crw_demo, \
      MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libjava_crw_demo/mapfile-vers, \
 diff --git a/jdk/make/lib/SoundLibraries.gmk b/jdk/make/lib/SoundLibraries.gmk

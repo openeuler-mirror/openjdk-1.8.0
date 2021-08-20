@@ -1,0 +1,41 @@
+From d9955ea64090c1d6b1f1e2674c9c064c988f05aa Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Mon, 26 Jul 2021 21:08:09 +0800
+Subject: [PATCH] [Huawei]Fix lock ordering issue when calling JVMTI GetLoadedClasses
+ during marking
+
+Offering: Cloud Compiler JDK
+
+
+Signed-off-by: Zhang Yipeng <zhangyipeng7@huawei.com>
+---
+ hotspot/src/share/vm/prims/jvmtiGetLoadedClasses.cpp | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/hotspot/src/share/vm/prims/jvmtiGetLoadedClasses.cpp b/hotspot/src/share/vm/prims/jvmtiGetLoadedClasses.cpp
+index a292f89..78e557a 100644
+--- a/hotspot/src/share/vm/prims/jvmtiGetLoadedClasses.cpp
++++ b/hotspot/src/share/vm/prims/jvmtiGetLoadedClasses.cpp
+@@ -60,7 +60,6 @@ public:
+   void do_klass(Klass* k) {
+     // Collect all jclasses
+     _classStack.push((jclass) _env->jni_reference(k->java_mirror()));
+-    ensure_klass_alive(k->java_mirror());
+   }
+ 
+   int extract(jclass* result_list) {
+@@ -70,7 +69,10 @@ public:
+ 
+     // Pop all jclasses, fill backwards
+     while (!_classStack.is_empty()) {
+-      result_list[--i] = _classStack.pop();
++      jclass klass_handle = _classStack.pop();
++      oop klass_mirror = JNIHandles::resolve(klass_handle);
++      ensure_klass_alive(klass_mirror);
++      result_list[--i] = klass_handle;
+     }
+ 
+     // Return the number of elements written
+-- 
+1.8.3.1
+
