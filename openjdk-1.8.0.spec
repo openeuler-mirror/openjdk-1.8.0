@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1
+Release: 2
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1102,6 +1102,7 @@ Patch202: Fix-RSACipher-memory-usage.patch
 # 8u302
 Patch203: fix-lock-ordering-issue-when-calling-JVMTI-GetLoaded.patch
 Patch204: 8069191.patch
+Patch205: fix_g1uncommit_ygc_expand_crash.patch
 
 #############################################
 #
@@ -1552,6 +1553,7 @@ pushd %{top_level_dir_name}
 %patch202 -p1
 %patch203 -p1
 %patch204 -p1
+%patch205 -p1
 popd
 
 # System library fixes
@@ -2167,6 +2169,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Aug 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.302-b07.2
+- add fix_g1uncommit_ygc_expand_crash.patch
+
 * Thu Aug 19 2021 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.302-b07.1
 - delete 8266929_huawei_add_oid_mapping_common_sig_types.patch
 
