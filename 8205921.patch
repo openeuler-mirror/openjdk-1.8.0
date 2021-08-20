@@ -20,10 +20,9 @@ Bug url: https://bugs.openjdk.java.net/browse/JDK-8205921
  .../parallelScavenge/psCompactionManager.hpp  |  12 +-
  .../parallelScavenge/psPromotionManager.hpp   |   4 +-
  .../parallelScavenge/psTasks.cpp              |   3 +-
- .../shenandoah/shenandoahConcurrentMark.cpp   |   3 +-
  hotspot/src/share/vm/utilities/taskqueue.cpp  |  18 ---
  hotspot/src/share/vm/utilities/taskqueue.hpp  | 105 ++++++++++++++----
- 16 files changed, 113 insertions(+), 92 deletions(-)
+ 16 files changed, 112 insertions(+), 90 deletions(-)
 
 diff --git a/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp b/hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/concurrentMarkSweepGeneration.cpp
 index 02a29c2b0..53b75a4ca 100644
@@ -389,27 +388,6 @@ index f829e9344..4fe869fd6 100644
        TASKQUEUE_STATS_ONLY(pm->record_steal(p));
        pm->process_popped_location_depth(p);
        pm->drain_stacks_depth(true);
-diff --git a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahConcurrentMark.cpp b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahConcurrentMark.cpp
-index 85bbea6cd..afcb0dd4a 100644
---- a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahConcurrentMark.cpp
-+++ b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahConcurrentMark.cpp
-@@ -939,7 +939,6 @@ void ShenandoahConcurrentMark::mark_loop_prework(uint w, ShenandoahTaskTerminato
- 
- template <class T, bool CANCELLABLE>
- void ShenandoahConcurrentMark::mark_loop_work(T* cl, ShenandoahLiveData* live_data, uint worker_id, ShenandoahTaskTerminator *terminator) {
--  int seed = 17;
-   uintx stride = ShenandoahMarkLoopStride;
- 
-   ShenandoahHeap* heap = ShenandoahHeap::heap();
-@@ -999,7 +998,7 @@ void ShenandoahConcurrentMark::mark_loop_work(T* cl, ShenandoahLiveData* live_da
-     uint work = 0;
-     for (uint i = 0; i < stride; i++) {
-       if (q->pop(t) ||
--          queues->steal(worker_id, &seed, t)) {
-+          queues->steal(worker_id, t)) {
-         do_task<T>(q, cl, live_data, &t);
-         work++;
-       } else {
 diff --git a/hotspot/src/share/vm/utilities/taskqueue.cpp b/hotspot/src/share/vm/utilities/taskqueue.cpp
 index 0f4dcc90b..37f4066ab 100644
 --- a/hotspot/src/share/vm/utilities/taskqueue.cpp
@@ -504,8 +482,8 @@ index 0f1376b49..77556a7d4 100644
 +}
 +
  template<class E, MEMFLAGS F, unsigned int N>
- GenericTaskQueue<E, F, N>::~GenericTaskQueue() {
-   FREE_C_HEAP_ARRAY(E, _elems, F);
+ GenericTaskQueue<E, F, N>::~GenericTaskQueue() {}
+ 
 @@ -498,8 +540,6 @@ bool OverflowTaskQueue<E, F, N>::try_push_to_taskqueue(E t) {
    return taskqueue_t::push(t);
  }
