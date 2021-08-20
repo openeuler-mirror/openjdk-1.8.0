@@ -202,7 +202,7 @@ index 821cf4198..181628567 100644
 +    assert(!peek_in_queue_set(), "Precondition");
      return true;
    }
-  
+ 
    _blocker->lock_without_safepoint_check();
 -  // All arrived, done
    _offered_termination++;
@@ -213,9 +213,9 @@ index 821cf4198..181628567 100644
 +    assert(!peek_in_queue_set(), "Precondition");
      return true;
    }
-  
+ 
 @@ -57,21 +59,31 @@ bool OWSTTaskTerminator::offer_termination(TerminatorTerminator* terminator) {
-  
+
        if (do_spin_master_work(terminator)) {
          assert(_offered_termination == _n_threads, "termination condition");
 +        assert(!peek_in_queue_set(), "Precondition");
@@ -232,14 +232,14 @@ index 821cf4198..181628567 100644
        }
      } else {
        _blocker->wait(true, WorkStealingSleepMillis);
-  
+ 
        if (_offered_termination == _n_threads) {
          _blocker->unlock();
 +        assert(!peek_in_queue_set(), "Precondition");
          return true;
        }
      }
-  
+
      size_t tasks = tasks_in_queue_set();
      if (exit_termination(tasks, terminator)) {
 +      assert_lock_strong(_blocker);
@@ -287,7 +287,7 @@ index ad50889d4..0297b9cd6 100644
 +++ b/hotspot/src/share/vm/gc_implementation/shared/owstTaskTerminator.hpp
 @@ -55,6 +55,7 @@ public:
    }
-  
+ 
    virtual ~OWSTTaskTerminator() {
 +    assert(_spin_master == NULL, "Should have been reset");
      assert(_blocker != NULL, "Can not be NULL");

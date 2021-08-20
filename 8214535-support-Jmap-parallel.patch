@@ -12,8 +12,6 @@ Subject: [PATCH 2/3] backport JDK-8214535 to support Jmap parallel
  .../parallelScavenge/psOldGen.hpp             |  11 ++
  .../shared/vmGCOperations.cpp                 |   2 +-
  .../shared/vmGCOperations.hpp                 |   4 +-
- .../shenandoah/shenandoahHeap.cpp             |   3 +
- .../shenandoah/shenandoahHeap.hpp             |   2 +
  .../share/vm/gc_interface/collectedHeap.hpp   |  19 +++-
  .../src/share/vm/memory/genCollectedHeap.cpp  |   4 +
  .../src/share/vm/memory/genCollectedHeap.hpp  |   3 +-
@@ -385,33 +383,6 @@ index cb070bd7..10d37522 100644
      _csv_format = false;
      _print_help = false;
      _print_class_stats = false;
-diff --git a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.cpp b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.cpp
-index eaf13322..2b45229c 100644
---- a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.cpp
-+++ b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.cpp
-@@ -1112,6 +1112,9 @@ void ShenandoahHeap::gc_threads_do(ThreadClosure* tcl) const {
-     ShenandoahStringDedup::threads_do(tcl);
-   }
- }
-+void ShenandoahHeap::run_task(AbstractGangTask* task) {
-+    workers()->run_task(task);
-+}
- 
- void ShenandoahHeap::print_tracing_info() const {
-   if (PrintGC || TraceGen0Time || TraceGen1Time) {
-diff --git a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.hpp b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.hpp
-index 8e3b9ee1..3cb92ed4 100644
---- a/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.hpp
-+++ b/hotspot/src/share/vm/gc_implementation/shenandoah/shenandoahHeap.hpp
-@@ -192,6 +192,8 @@ public:
- 
-   void gc_threads_do(ThreadClosure* tcl) const;
- 
-+  virtual void run_task(AbstractGangTask* task);
-+
- // ---------- Heap regions handling machinery
- //
- private:
 diff --git a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp b/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
 index 88632ddc..7af75fd6 100644
 --- a/hotspot/src/share/vm/gc_interface/collectedHeap.hpp
