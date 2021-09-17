@@ -1,0 +1,576 @@
+diff --git a/jdk/make/CopyFiles.gmk b/jdk/make/CopyFiles.gmk
+index ad8db6e5..10d37b9e 100644
+--- a/jdk/make/CopyFiles.gmk
++++ b/jdk/make/CopyFiles.gmk
+@@ -609,14 +609,16 @@ endif
+ 
+ ##########################################################################################
+ 
+-ifeq ($(OPENJDK_TARGET_CPU_ARCH), aarch64)
++ifeq ($(ENABLE_KAE), true)
++  ifeq ($(OPENJDK_TARGET_CPU_ARCH), aarch64)
+   
+-  KAE_CONF_PATH= $(JDK_OUTPUTDIR)/lib/ext
+-  $(KAE_CONF_PATH)/kaeprovider.conf: $(JDK_TOPDIR)/src/share/lib/security/kaeprovider.conf
++    KAE_CONF_PATH= $(JDK_OUTPUTDIR)/lib/ext
++    $(KAE_CONF_PATH)/kaeprovider.conf: $(JDK_TOPDIR)/src/share/lib/security/kaeprovider.conf
+ 	$(call install-file)
+ 
+-  COPY_FILES += $(KAE_CONF_PATH)/kaeprovider.conf
++    COPY_FILES += $(KAE_CONF_PATH)/kaeprovider.conf
+ 
++  endif
+ endif
+ 
+ ##########################################################################################
+diff --git a/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEECDHKeyAgreement.java b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEECDHKeyAgreement.java
+index ac05e6d5..7a9cc5cc 100644
+--- a/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEECDHKeyAgreement.java
++++ b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEECDHKeyAgreement.java
+@@ -97,7 +97,7 @@ public class KAEECDHKeyAgreement extends KeyAgreementSpi {
+ 
+         curveName = KAEUtils.getCurveBySize(keyLenBits);
+         if (curveName == null) {
+-            throw new InvalidParameterException("unknown keyLenBits" + keyLenBits);
++            throw new InvalidParameterException("unknown keyLenBits " + keyLenBits);
+         }
+         if (KAEUtils.getCurveByAlias(curveName) != null) {
+             curveName = KAEUtils.getCurveByAlias(curveName);
+diff --git a/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java
+index 83ed8649..8ba70200 100644
+--- a/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java
++++ b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java
+@@ -104,6 +104,8 @@ public class KAEProvider extends Provider {
+         if (needLog && "true".equalsIgnoreCase(props.getProperty("kae.log"))) {
+             logStart(excp);
+             needLog = false; // Log only once
++        } else {
++            KAEProvider.excp = null; // Ignore exception.
+         }
+         if (!"false".equalsIgnoreCase(props.getProperty("kae.md5"))) {
+             putMD5();
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_cipher_rsa.c b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_cipher_rsa.c
+index d1aedf5f..bad16fb7 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_cipher_rsa.c
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_cipher_rsa.c
+@@ -47,7 +47,7 @@ static int RSACryptNotOAEPPadding(JNIEnv* env, jlong keyAddress, jint inLen, jby
+     int resultSize = 0;
+ 
+     // get RSA
+-    EVP_PKEY* pkey = (EVP_PKEY*)keyAddress;
++    EVP_PKEY* pkey = (EVP_PKEY*) keyAddress;
+ 
+     // rsa = pkey->rsa
+     RSA* rsa = EVP_PKEY_get1_RSA(pkey);
+@@ -198,8 +198,8 @@ static int RSACryptOAEPPadding(JNIEnv* env, jlong keyAddress, jint inLen, jbyteA
+      * set rsa mgf1 md
+      * set rsa oaep md
+      */
+-    if(!SetRSAPadding(env, pkeyCtx, paddingType) || !SetRSAMgf1Md(env, pkeyCtx, mgf1MdAlgoUTF) ||
+-       !SetRSAOaepMd(env, pkeyCtx, oaepMdAlgoUTF)) {
++    if (!SetRSAPadding(env, pkeyCtx, paddingType) || !SetRSAMgf1Md(env, pkeyCtx, mgf1MdAlgoUTF) ||
++        !SetRSAOaepMd(env, pkeyCtx, oaepMdAlgoUTF)) {
+         goto cleanup;
+     }
+ 
+@@ -213,7 +213,7 @@ static int RSACryptOAEPPadding(JNIEnv* env, jlong keyAddress, jint inLen, jbyteA
+             goto cleanup;
+         }
+         (*env)->GetByteArrayRegion(env, label, 0, labelSize, labelBytes);
+-        if(!SetRSAOaepLabel(env, pkeyCtx, labelBytes, labelSize)) {
++        if (!SetRSAOaepLabel(env, pkeyCtx, labelBytes, labelSize)) {
+             free(labelBytes);
+             goto cleanup;
+         }
+@@ -434,7 +434,7 @@ JNIEXPORT jint JNICALL Java_org_openeuler_security_openssl_KAERSACipher_nativeRS
+  */
+ JNIEXPORT jint JNICALL Java_org_openeuler_security_openssl_KAERSACipher_nativeRSAEncryptOAEPPadding(JNIEnv* env,
+     jclass cls, jlong keyAddress, jint inLen, jbyteArray in, jbyteArray out,
+-    jint paddingType,jstring oaepMdAlgo, jstring mgf1MdAlgo, jbyteArray label) {
++    jint paddingType, jstring oaepMdAlgo, jstring mgf1MdAlgo, jbyteArray label) {
+     return RSACryptOAEPPadding(env, keyAddress, inLen, in, out, paddingType, oaepMdAlgo, mgf1MdAlgo, label,
+                                EVP_PKEY_encrypt_init, "EVP_PKEY_encrypt_init",
+                                EVP_PKEY_encrypt, "EVP_PKEY_encrypt");
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_exception.c b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_exception.c
+index 1d1736f5..9ccc617c 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_exception.c
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_exception.c
+@@ -23,7 +23,6 @@
+  
+ #include <openssl/evp.h>
+ #include <openssl/err.h>
+-#include "kae_util.h"
+ #include "kae_log.h"
+ #include "kae_exception.h"
+ 
+@@ -58,6 +57,8 @@ void KAE_ThrowEvpException(JNIEnv* env, int reason, const char* msg, void (* def
+         case EVP_R_BAD_DECRYPT:
+         case EVP_R_DATA_NOT_MULTIPLE_OF_BLOCK_LENGTH:
+         case EVP_F_EVP_PKEY_DECRYPT:
++        case EVP_R_PUBLIC_KEY_NOT_RSA:
++        case EVP_R_CTRL_NOT_IMPLEMENTED:
+             KAE_ThrowByName(env, "javax/crypto/BadPaddingException", msg);
+             break;
+         default:
+@@ -128,4 +129,4 @@ void KAE_ThrowSignatureException(JNIEnv* env, const char* msg) {
+ 
+ void KAE_ThrowClassNotFoundException(JNIEnv* env, const char* msg) {
+     KAE_ThrowByName(env, "java/lang/ClassNotFoundException", msg);
+-}
+\ No newline at end of file
++}
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keyagreement_dh.c b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keyagreement_dh.c
+index 26ce9a8e..b1c27241 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keyagreement_dh.c
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keyagreement_dh.c
+@@ -112,7 +112,7 @@ JNIEXPORT jbyteArray JNICALL Java_org_openeuler_security_openssl_KAEDHKeyAgreeme
+ 
+     BN_bin2bn(secret, computekeyLength, computeKeyRetBn);
+ 
+-    retByteArray = KAE_GetByteArrayFromBigNum(env, computeKeyRetBn, NULL);
++    retByteArray = KAE_GetByteArrayFromBigNum(env, computeKeyRetBn);
+     if (retByteArray == NULL) {
+         KAE_ThrowRuntimeException(env, "GetByteArrayFromBigNum failed in nativeComputeKey.");
+         goto cleanup;
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_dh.c b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_dh.c
+index 808a2626..54dc07ed 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_dh.c
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_dh.c
+@@ -97,13 +97,13 @@ JNIEXPORT jobjectArray JNICALL Java_org_openeuler_security_openssl_KAEDHKeyPairG
+     pri_key_bn = DH_get0_priv_key(dh);
+     pub_key_bn = DH_get0_pub_key(dh);
+ 
+-    pub_key = KAE_GetByteArrayFromBigNum(env, pub_key_bn, NULL);
++    pub_key = KAE_GetByteArrayFromBigNum(env, pub_key_bn);
+     if (pub_key == NULL) {
+         KAE_ThrowOOMException(env, "PublicKey allocate failed in nativeGenerateKeyPair.");
+         goto cleanup;
+     }
+ 
+-    pri_key = KAE_GetByteArrayFromBigNum(env, pri_key_bn, NULL);
++    pri_key = KAE_GetByteArrayFromBigNum(env, pri_key_bn);
+     if (pri_key == NULL) {
+         KAE_ThrowRuntimeException(env, "GetByteArrayFromBigNum failed in nativeGenerateKeyPair.");
+         goto cleanup;
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_ec.c b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_ec.c
+index 0f32674c..fbd16841 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_ec.c
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_ec.c
+@@ -43,7 +43,12 @@ typedef enum ECDHParamIndex {
+     ecdhCofactor
+ } ECDHParamIndex;
+ 
+-static const char* ecdhParamNames[] = {"p", "a", "b", "x", "y", "order", "cofactor"};
++// ECDH Key index.
++typedef enum ECDHKeyIndex {
++    ecdhWX = 0,
++    ecdhWY,
++    ecdhS
++} ECDHKeyIndex;
+ 
+ static void FreeECDHCurveParam(JNIEnv* env, BIGNUM* p, BIGNUM* a, BIGNUM* b, jbyteArray paramP,
+     jbyteArray paramA, jbyteArray paramB)
+@@ -69,7 +74,7 @@ static void FreeECDHCurveParam(JNIEnv* env, BIGNUM* p, BIGNUM* a, BIGNUM* b, jby
+ }
+ 
+ // Set p, a, b in group to params.
+-static bool SetECDHCurve(JNIEnv* env, EC_GROUP* group, jobjectArray params, ECDHParamIndex ecdhParamIndex)
++static bool SetECDHCurve(JNIEnv* env, EC_GROUP* group, jobjectArray params)
+ {
+     BIGNUM* p = NULL;
+     BIGNUM* a = NULL;
+@@ -86,25 +91,22 @@ static bool SetECDHCurve(JNIEnv* env, EC_GROUP* group, jobjectArray params, ECDH
+     }
+ 
+     // Set p.
+-    const char* ecdhParamName = ecdhParamNames[ecdhParamIndex];
+-    if ((paramP = KAE_GetByteArrayFromBigNum(env, p, ecdhParamName)) == NULL) {
++    if ((paramP = KAE_GetByteArrayFromBigNum(env, p)) == NULL) {
+         goto cleanup;
+     }
+-    (*env)->SetObjectArrayElement(env, params, ecdhParamIndex, paramP);
++    (*env)->SetObjectArrayElement(env, params, ecdhP, paramP);
+ 
+     // Set a.
+-    ecdhParamName = ecdhParamNames[++ecdhParamIndex];
+-    if ((paramA = KAE_GetByteArrayFromBigNum(env, a, ecdhParamName)) == NULL) {
++    if ((paramA = KAE_GetByteArrayFromBigNum(env, a)) == NULL) {
+         goto cleanup;
+     }
+-    (*env)->SetObjectArrayElement(env, params, ecdhParamIndex, paramA);
++    (*env)->SetObjectArrayElement(env, params, ecdhA, paramA);
+ 
+     // Set b.
+-    ecdhParamName = ecdhParamNames[++ecdhParamIndex];
+-    if ((paramB = KAE_GetByteArrayFromBigNum(env, b, ecdhParamName)) == NULL) {
++    if ((paramB = KAE_GetByteArrayFromBigNum(env, b)) == NULL) {
+         goto cleanup;
+     }
+-    (*env)->SetObjectArrayElement(env, params, ecdhParamIndex, paramB);
++    (*env)->SetObjectArrayElement(env, params, ecdhB, paramB);
+     FreeECDHCurveParam(env, p, a, b, paramP, paramA, paramB);
+     return true;
+ 
+@@ -114,7 +116,7 @@ cleanup:
+ }
+ 
+ // Set generator(x, y) in group to params.
+-static bool SetECDHPoint(JNIEnv* env, EC_GROUP* group, jobjectArray params, ECDHParamIndex ecdhParamIndex)
++static bool SetECDHPoint(JNIEnv* env, EC_GROUP* group, jobjectArray params)
+ {
+     BIGNUM* x = NULL;
+     BIGNUM* y = NULL;
+@@ -135,18 +137,16 @@ static bool SetECDHPoint(JNIEnv* env, EC_GROUP* group, jobjectArray params, ECDH
+     }
+ 
+     // Set x.
+-    const char* ecdhParamName = ecdhParamNames[ecdhParamIndex];
+-    if ((paramX = KAE_GetByteArrayFromBigNum(env, x, ecdhParamName)) == NULL) {
++    if ((paramX = KAE_GetByteArrayFromBigNum(env, x)) == NULL) {
+         goto cleanup;
+     }
+-    (*env)->SetObjectArrayElement(env, params, ecdhParamIndex, paramX);
++    (*env)->SetObjectArrayElement(env, params, ecdhX, paramX);
+ 
+     // Set y.
+-    ecdhParamName = ecdhParamNames[++ecdhParamIndex];
+-    if ((paramY = KAE_GetByteArrayFromBigNum(env, y, ecdhParamName)) == NULL) {
++    if ((paramY = KAE_GetByteArrayFromBigNum(env, y)) == NULL) {
+         goto cleanup;
+     }
+-    (*env)->SetObjectArrayElement(env, params, ecdhParamIndex, paramY);
++    (*env)->SetObjectArrayElement(env, params, ecdhY, paramY);
+     BN_free(x);
+     BN_free(y);
+     (*env)->DeleteLocalRef(env, paramX);
+@@ -170,7 +170,7 @@ cleanup:
+ }
+ 
+ // Set order, cofactor in group to params.
+-static bool SetECDHOrderAndCofactor(JNIEnv* env, EC_GROUP* group, jobjectArray params, ECDHParamIndex ecdhParamIndex)
++static bool SetECDHOrderAndCofactor(JNIEnv* env, EC_GROUP* group, jobjectArray params)
+ {
+     BIGNUM* order = NULL;
+     BIGNUM* cofactor = NULL;
+@@ -184,21 +184,19 @@ static bool SetECDHOrderAndCofactor(JNIEnv* env, EC_GROUP* group, jobjectArray p
+     }
+ 
+     // Set order.
+-    const char* ecdhParamName = ecdhParamNames[ecdhParamIndex];
+-    if ((paramOrder = KAE_GetByteArrayFromBigNum(env, order, ecdhParamName)) == NULL) {
++    if ((paramOrder = KAE_GetByteArrayFromBigNum(env, order)) == NULL) {
+         goto cleanup;
+     }
+-    (*env)->SetObjectArrayElement(env, params, ecdhParamIndex, paramOrder);
++    (*env)->SetObjectArrayElement(env, params, ecdhOrder, paramOrder);
+     if (!EC_GROUP_get_cofactor(group, cofactor, NULL)) {
+         goto cleanup;
+     }
+ 
+     // Set cofactor.
+-    ecdhParamName = ecdhParamNames[++ecdhParamIndex];
+-    if ((paramCofactor = KAE_GetByteArrayFromBigNum(env, cofactor, ecdhParamName)) == NULL) {
++    if ((paramCofactor = KAE_GetByteArrayFromBigNum(env, cofactor)) == NULL) {
+         goto cleanup;
+     }
+-    (*env)->SetObjectArrayElement(env, params, ecdhParamIndex, paramCofactor);
++    (*env)->SetObjectArrayElement(env, params, ecdhCofactor, paramCofactor);
+     BN_free(order);
+     BN_free(cofactor);
+     (*env)->DeleteLocalRef(env, paramOrder);
+@@ -222,7 +220,7 @@ cleanup:
+ }
+ 
+ static void FreeECDHKeyParam(JNIEnv* env,
+-    BIGNUM* wX, BIGNUM* wY, jbyteArray paramWX, jbyteArray paramWY, jbyteArray paramS)
++    BIGNUM* wX, BIGNUM* wY, jbyteArray keyWX, jbyteArray keyWY, jbyteArray keyS)
+ {
+     if (wX != NULL) {
+         BN_free(wX);
+@@ -230,28 +228,28 @@ static void FreeECDHKeyParam(JNIEnv* env,
+     if (wY != NULL) {
+         BN_free(wY);
+     }
+-    if (paramWX != NULL) {
+-        (*env)->DeleteLocalRef(env, paramWX);
++    if (keyWX != NULL) {
++        (*env)->DeleteLocalRef(env, keyWX);
+     }
+-    if (paramWY != NULL) {
+-        (*env)->DeleteLocalRef(env, paramWY);
++    if (keyWY != NULL) {
++        (*env)->DeleteLocalRef(env, keyWY);
+     }
+-    if (paramS != NULL) {
+-        (*env)->DeleteLocalRef(env, paramS);
++    if (keyS != NULL) {
++        (*env)->DeleteLocalRef(env, keyS);
+     }
+ }
+ 
+ // Set publicKey(wX, wY) and privateKey(s) in eckey to params.
+ static bool SetECDHKey(JNIEnv* env, const EC_GROUP* group, jobjectArray params,
+-    ECDHParamIndex ecdhKeyIndex, const EC_KEY* eckey)
++    const EC_KEY* eckey)
+ {
+     BIGNUM* wX = NULL;
+     BIGNUM* wY = NULL;
+     const EC_POINT* pub = NULL;
+     const BIGNUM* s = NULL;
+-    jbyteArray paramWX = NULL;
+-    jbyteArray paramWY = NULL;
+-    jbyteArray paramS = NULL;
++    jbyteArray keyWX = NULL;
++    jbyteArray keyWY = NULL;
++    jbyteArray keyS = NULL;
+     if ((wX = BN_new()) == NULL || (wY = BN_new()) == NULL) {
+         KAE_ThrowOOMException(env, "failed to allocate array");
+         goto cleanup;
+@@ -266,53 +264,47 @@ static bool SetECDHKey(JNIEnv* env, const EC_GROUP* group, jobjectArray params,
+     }
+ 
+     // Set wX.
+-    const char* ecdhParamName = ecdhParamNames[ecdhKeyIndex];
+-    if ((paramWX = KAE_GetByteArrayFromBigNum(env, wX, ecdhParamName)) == NULL) {
++    if ((keyWX = KAE_GetByteArrayFromBigNum(env, wX)) == NULL) {
+         goto cleanup;
+     }
+-    (*env)->SetObjectArrayElement(env, params, ecdhKeyIndex, paramWX);
++    (*env)->SetObjectArrayElement(env, params, ecdhWX, keyWX);
+ 
+     // Set wY.
+-    ecdhParamName = ecdhParamNames[++ecdhKeyIndex];
+-    if ((paramWY = KAE_GetByteArrayFromBigNum(env, wY, ecdhParamName)) == NULL) {
++    if ((keyWY = KAE_GetByteArrayFromBigNum(env, wY)) == NULL) {
+         goto cleanup;
+     }
+-    (*env)->SetObjectArrayElement(env, params, ecdhKeyIndex, paramWY);
++    (*env)->SetObjectArrayElement(env, params, ecdhWY, keyWY);
+ 
+     // Set s.
+-    ecdhParamName = ecdhParamNames[++ecdhKeyIndex];
+-    if ((paramS = KAE_GetByteArrayFromBigNum(env, s, ecdhParamName)) == NULL) {
++    if ((keyS = KAE_GetByteArrayFromBigNum(env, s)) == NULL) {
+         goto cleanup;
+     }
+-    (*env)->SetObjectArrayElement(env, params, ecdhKeyIndex, paramS);
+-    FreeECDHKeyParam(env, wX, wY, paramWX, paramWY, paramS);
++    (*env)->SetObjectArrayElement(env, params, ecdhS, keyS);
++    FreeECDHKeyParam(env, wX, wY, keyWX, keyWY, keyS);
+     return true;
+ 
+ cleanup:
+-    FreeECDHKeyParam(env, wX, wY, paramWX, paramWY, paramS);
++    FreeECDHKeyParam(env, wX, wY, keyWX, keyWY, keyS);
+     return false;
+ }
+ 
+ // Convert EC_GROUP in openssl to byte[][] in java
+ static jobjectArray NewECDHParam(JNIEnv* env, EC_GROUP* group)
+ {
+-    jclass byteArrayClass = NULL;
+-    jobjectArray params = NULL;
+-
+-    byteArrayClass = (*env)->FindClass(env, "[B");
+-    params = (*env)->NewObjectArray(env, KAE_EC_PARAM_NUM_SIZE, byteArrayClass, NULL);
++    jclass byteArrayClass = (*env)->FindClass(env, "[B");
++    jobjectArray params = (*env)->NewObjectArray(env, KAE_EC_PARAM_NUM_SIZE, byteArrayClass, NULL);
+     if (params == NULL) {
+         KAE_ThrowOOMException(env, "failed to allocate array");
+         goto cleanup;
+     }
+ 
+-    if (!SetECDHCurve(env, group, params, ecdhP)) {
++    if (!SetECDHCurve(env, group, params)) {
+         goto cleanup;
+     }
+-    if (!SetECDHPoint(env, group, params, ecdhX)) {
++    if (!SetECDHPoint(env, group, params)) {
+         goto cleanup;
+     }
+-    if (!SetECDHOrderAndCofactor(env, group, params, ecdhOrder)) {
++    if (!SetECDHOrderAndCofactor(env, group, params)) {
+         goto cleanup;
+     }
+ 
+@@ -332,16 +324,13 @@ cleanup:
+ // Convert EC_KEY in openssl to byte[][] in java
+ static jobjectArray NewECDHKey(JNIEnv* env, const EC_GROUP* group, const EC_KEY* eckey)
+ {
+-    jclass byteArrayClass = NULL;
+-    jobjectArray params = NULL;
+-
+-    byteArrayClass = (*env)->FindClass(env, "[B");
+-    params = (*env)->NewObjectArray(env, KAE_EC_KEY_NUM_SIZE, byteArrayClass, NULL);
++    jclass byteArrayClass = (*env)->FindClass(env, "[B");
++    jobjectArray params = (*env)->NewObjectArray(env, KAE_EC_KEY_NUM_SIZE, byteArrayClass, NULL);
+     if (params == NULL) {
+         KAE_ThrowOOMException(env, "failed to allocate array");
+         goto cleanup;
+     }
+-    if (!SetECDHKey(env, group, params, 0, eckey)) {
++    if (!SetECDHKey(env, group, params, eckey)) {
+         goto cleanup;
+     }
+ 
+@@ -435,6 +424,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_openeuler_security_openssl_KAEECKeyPairG
+     JNIEnv* env, jclass cls, jstring curveName)
+ {
+     EC_GROUP* group = NULL;
++    jobjectArray ecdhParam = NULL;
+ 
+     const char *curve = (*env)->GetStringUTFChars(env, curveName, 0);
+     KAE_TRACE("KAEECKeyPairGenerator_nativeGenerateParam(curveName = %s)", curve);
+@@ -447,7 +437,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_openeuler_security_openssl_KAEECKeyPairG
+     if ((group = EC_GROUP_new_by_curve_name(nid)) == NULL) {
+         goto cleanup;
+     }
+-    jobjectArray ecdhParam = NewECDHParam(env, group);
++    ecdhParam = NewECDHParam(env, group);
+ 
+     if (group != NULL) {
+         EC_GROUP_free(group);
+@@ -476,6 +466,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_openeuler_security_openssl_KAEECKeyPairG
+ {
+     EC_GROUP* group = NULL;
+     EC_KEY* eckey = NULL;
++    jobjectArray ecdhKey = NULL;
+ 
+     if ((group = GetGroupByParam(env, pArr, aArr, bArr, xArr, yArr, orderArr, cofactorInt)) == NULL) {
+         goto cleanup;
+@@ -492,7 +483,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_openeuler_security_openssl_KAEECKeyPairG
+         goto cleanup;
+     }
+ 
+-    jobjectArray ecdhKey = NewECDHKey(env, group, eckey);
++    ecdhKey = NewECDHKey(env, group, eckey);
+ 
+     EC_KEY_free(eckey);
+     EC_GROUP_free(group);
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_rsa.c b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_rsa.c
+index de724593..0b23aa7d 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_rsa.c
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_keypairgenerator_rsa.c
+@@ -27,9 +27,6 @@
+ #include "kae_exception.h"
+ #include "org_openeuler_security_openssl_KAERSAKeyPairGenerator.h"
+ #define KAE_RSA_PARAM_SIZE 8
+-#define SUCCESS 1
+-#define FAILED -1
+-
+ 
+ // rsa param index
+ typedef enum RSAParamIndex {
+@@ -102,15 +99,11 @@ static void ReleaseRSA(RSA* rsa) {
+ 
+ /*
+  * Set rsa key param, follow the steps below
+- * step 1. Get rsa param name
+- * step 2. Get rsa param value
+- * step 3. Convert paramValue (BIGNUM) to jbyteArray
+- * step 4. Set the rsa param to the param array
++ * step 1. Get rsa param value
++ * step 2. Convert paramValue (BIGNUM) to jbyteArray
++ * step 3. Set the rsa param to the param array
+  */
+ static bool SetRSAKeyParam(JNIEnv* env, RSA* rsa, jobjectArray params, RSAParamIndex rsaParamIndex) {
+-    // get rsa param name
+-    const char* rsaParamName = rsaParamNames[rsaParamIndex];
+-
+     // get rsa param value
+     const BIGNUM* rsaParamValue = GetRSAParamFunctionList[rsaParamIndex](rsa);
+     if (rsaParamValue == NULL) {
+@@ -118,7 +111,7 @@ static bool SetRSAKeyParam(JNIEnv* env, RSA* rsa, jobjectArray params, RSAParamI
+     }
+ 
+     // Convert paramValue to jbyteArray
+-    jbyteArray param = KAE_GetByteArrayFromBigNum(env, rsaParamValue, rsaParamName);
++    jbyteArray param = KAE_GetByteArrayFromBigNum(env, rsaParamValue);
+     if (param == NULL) {
+         return false;
+     }
+@@ -156,8 +149,8 @@ static jobjectArray NewRSAKeyParams(JNIEnv* env, RSA* rsa) {
+  * Method:    nativeGenerateKeyPair
+  * Signature: (I[B)[[B
+  */
+-JNIEXPORT jobjectArray JNICALL Java_org_openeuler_security_openssl_KAERSAKeyPairGenerator_nativeGenerateKeyPair
+-        (JNIEnv* env, jclass cls, jint keySize, jbyteArray publicExponent) {
++JNIEXPORT jobjectArray JNICALL Java_org_openeuler_security_openssl_KAERSAKeyPairGenerator_nativeGenerateKeyPair (
++    JNIEnv* env, jclass cls, jint keySize, jbyteArray publicExponent) {
+     if (publicExponent == NULL) {
+         return NULL;
+     }
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_symmetric_cipher.c b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_symmetric_cipher.c
+index 81c7b3ef..71c28bde 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_symmetric_cipher.c
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_symmetric_cipher.c
+@@ -170,7 +170,7 @@ Java_org_openeuler_security_openssl_KAESymmetricCipherBase_nativeInit(JNIEnv* en
+     }
+ 
+     if (!EVP_CipherInit_ex(ctx, cipher, kaeEngine, (const unsigned char*)keyBytes,
+-                (const unsigned char*)ivBytes, encrypt ? 1 : 0)) {
++            (const unsigned char*)ivBytes, encrypt ? 1 : 0)) {
+         KAE_ThrowFromOpenssl(env, "EVP_CipherInit_ex failed", KAE_ThrowRuntimeException);
+         goto cleanup;
+     }
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_util.c b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_util.c
+index a92ba406..0e656a83 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_util.c
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_util.c
+@@ -77,7 +77,7 @@ void KAE_ReleaseBigNumFromByteArray(BIGNUM* bn) {
+     }
+ }
+ 
+-jbyteArray KAE_GetByteArrayFromBigNum(JNIEnv* env, const BIGNUM* bn, const char* sourceName) {
++jbyteArray KAE_GetByteArrayFromBigNum(JNIEnv* env, const BIGNUM* bn) {
+     if (bn == NULL) {
+         return NULL;
+     }
+@@ -89,12 +89,12 @@ jbyteArray KAE_GetByteArrayFromBigNum(JNIEnv* env, const BIGNUM* bn, const char*
+     bnSize += 1;
+     jbyteArray javaBytes = (*env)->NewByteArray(env, bnSize);
+     if (javaBytes == NULL) {
+-        KAE_ThrowOOMException(env, "new byte array failed");
++        KAE_ThrowOOMException(env, "New byte array failed.");
+         return NULL;
+     }
+     jbyte* bytes = (*env)->GetByteArrayElements(env, javaBytes, NULL);
+     if (bytes == NULL) {
+-        KAE_ThrowNullPointerException(env,"GetByteArrayElements failed");
++        KAE_ThrowNullPointerException(env, "GetByteArrayElements failed.");
+         return NULL;
+     }
+     unsigned char* tmp = (unsigned char*) bytes;
+diff --git a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_util.h b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_util.h
+index fee81627..13bd5976 100644
+--- a/jdk/src/solaris/native/org/openeuler/security/openssl/kae_util.h
++++ b/jdk/src/solaris/native/org/openeuler/security/openssl/kae_util.h
+@@ -34,7 +34,7 @@ BIGNUM* KAE_GetBigNumFromByteArray(JNIEnv* env, jbyteArray byteArray);
+ void KAE_ReleaseBigNumFromByteArray(BIGNUM* bn);
+ 
+ /* BIGNUM convert to jbyteArray */
+-jbyteArray KAE_GetByteArrayFromBigNum(JNIEnv* env, const BIGNUM* bn, const char* sourceName);
++jbyteArray KAE_GetByteArrayFromBigNum(JNIEnv* env, const BIGNUM* bn);
+ 
+ void SetKaeEngine(ENGINE* engine);
+ 
+diff --git a/jdk/test/micro/org/openeuler/bench/security/openssl/DHKeyAgreementBenchMark.java b/jdk/test/micro/org/openeuler/bench/security/openssl/DHKeyAgreementBenchMark.java
+index 8a9a2d5d..c204f4ce 100644
+--- a/jdk/test/micro/org/openeuler/bench/security/openssl/DHKeyAgreementBenchMark.java
++++ b/jdk/test/micro/org/openeuler/bench/security/openssl/DHKeyAgreementBenchMark.java
+@@ -43,9 +43,13 @@ public class DHKeyAgreementBenchMark extends BenchmarkBase {
+     @Param({"512", "1024", "2048", "3072", "4096"})
+     private int keySize;
+ 
+-    private KeyPairGenerator aliceKpairGen, bobKpairGen, carolKpairGen;
++    private KeyPairGenerator aliceKpairGen;
++    private KeyPairGenerator bobKpairGen;
++    private KeyPairGenerator carolKpairGen;
+ 
+-    private KeyPair aliceKpair, bobKpair, carolKpair;
++    private KeyPair aliceKpair;
++    private KeyPair bobKpair;
++    private KeyPair carolKpair;
+ 
+     private DHParameterSpec dhSkipParamSpec;
+ 
