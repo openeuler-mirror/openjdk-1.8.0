@@ -1,0 +1,49 @@
+From f061aeed6337ea1a5fdfe9b05c0eee4b26d6b26b Mon Sep 17 00:00:00 2001
+From: mashoubing <mashoubing1@huawei.com>
+Date: Thu, 16 Sep 2021 14:28:41 +0800
+Subject: [PATCH 22/23] G1Uncommit: Introduce G1PeriodGCNotRetry control
+ whether periodic GC retry again when denied
+
+Summary:gc:periodic gc spin in retry gc
+LLT: NA
+Patch Type: huawei
+Bug url:
+---
+ .../src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp   | 6 ++++++
+ hotspot/src/share/vm/gc_implementation/g1/g1_globals.hpp    | 3 +++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
+index 8ed6207ad..4f45bba52 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
+@@ -2577,6 +2577,12 @@ void G1CollectedHeap::collect(GCCause::Cause cause) {
+         }
+ 
+         if (retry_gc) {
++          if (cause == GCCause::_g1_periodic_collection && G1PeriodGCNotRetry) {
++            gclog_or_tty->date_stamp(PrintGCDateStamps);
++            gclog_or_tty->stamp(PrintGCTimeStamps);
++            gclog_or_tty->print_cr("Periodic GC is denied and not try !");
++            return;
++          }
+           if (GC_locker::is_active_and_needs_gc()) {
+             GC_locker::stall_until_clear();
+           }
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1_globals.hpp b/hotspot/src/share/vm/gc_implementation/g1/g1_globals.hpp
+index ee7f14278..edac4d72c 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1_globals.hpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1_globals.hpp
+@@ -333,6 +333,9 @@
+   product(bool, G1Uncommit, false,                                          \
+           "Allow G1 to uncommit unused memory.")                            \
+                                                                             \
++  product(bool, G1PeriodGCNotRetry, true,                                   \
++          "Not allow denied G1 Periodic GC try again.")                     \
++                                                                            \
+   product(bool, G1UncommitLog, false,                                       \
+           "Enable G1 uncommit logs.")                                       \
+                                                                             \
+-- 
+2.22.0
+
