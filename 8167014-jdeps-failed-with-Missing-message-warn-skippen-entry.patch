@@ -1,0 +1,64 @@
+From 6456acbb0412f0a0f3e7374b27e66a504ece36ff Mon Sep 17 00:00:00 2001
+From: c00229008 <chenshanyao@huawei.com>
+Date: Wed, 4 Aug 2021 09:43:49 +0800
+Subject: [PATCH 01/23] 8167014: jdeps failed with "Missing message:
+ warn.skipped.entry"
+
+Summary: <langtools>: jdeps failed with "Missing message: warn.skipped.entry"
+LLT: tomcat-websocket-10.0.8.jar
+Patch Type: backport
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8167014
+---
+ .../share/classes/com/sun/tools/jdeps/ClassFileReader.java  | 5 ++++-
+ .../src/share/classes/com/sun/tools/jdeps/JdepsTask.java    | 6 ++++--
+ .../classes/com/sun/tools/jdeps/resources/jdeps.properties  | 1 +
+ 3 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/langtools/src/share/classes/com/sun/tools/jdeps/ClassFileReader.java b/langtools/src/share/classes/com/sun/tools/jdeps/ClassFileReader.java
+index f41f2d0ba..07da40357 100644
+--- a/langtools/src/share/classes/com/sun/tools/jdeps/ClassFileReader.java
++++ b/langtools/src/share/classes/com/sun/tools/jdeps/ClassFileReader.java
+@@ -337,7 +337,10 @@ public class ClassFileReader {
+                     cf = reader.readClassFile(jf, nextEntry);
+                     return true;
+                 } catch (ClassFileError | IOException ex) {
+-                    skippedEntries.add(nextEntry.getName());
++                    skippedEntries.add(String.format("%s: %s (%s)",
++                                                     ex.getMessage(),
++                                                     nextEntry.getName(),
++                                                     jf.getName()));
+                 }
+                 nextEntry = nextEntry();
+             }
+diff --git a/langtools/src/share/classes/com/sun/tools/jdeps/JdepsTask.java b/langtools/src/share/classes/com/sun/tools/jdeps/JdepsTask.java
+index 91002d319..97dba138e 100644
+--- a/langtools/src/share/classes/com/sun/tools/jdeps/JdepsTask.java
++++ b/langtools/src/share/classes/com/sun/tools/jdeps/JdepsTask.java
+@@ -559,8 +559,10 @@ class JdepsTask {
+                         a.addClass(d.getOrigin());
+                     }
+                 }
+-                for (String name : a.reader().skippedEntries()) {
+-                    warning("warn.skipped.entry", name, a.getPathName());
++                if (!options.nowarning) {
++                    for (String name : a.reader().skippedEntries()) {
++                        warning("warn.skipped.entry", name, a.getPathName());
++                    }
+                 }
+             }
+         }
+diff --git a/langtools/src/share/classes/com/sun/tools/jdeps/resources/jdeps.properties b/langtools/src/share/classes/com/sun/tools/jdeps/resources/jdeps.properties
+index 51d11b88a..501c4d6cd 100644
+--- a/langtools/src/share/classes/com/sun/tools/jdeps/resources/jdeps.properties
++++ b/langtools/src/share/classes/com/sun/tools/jdeps/resources/jdeps.properties
+@@ -92,6 +92,7 @@ err.option.unsupported={0} not supported: {1}
+ err.profiles.msg=No profile information
+ err.invalid.path=invalid path: {0}
+ warn.invalid.arg=Invalid classname or pathname not exist: {0}
++warn.skipped.entry={0}
+ warn.split.package=package {0} defined in {1} {2}
+ warn.replace.useJDKInternals=\
+ JDK internal APIs are unsupported and private to JDK implementation that are\n\
+-- 
+2.22.0
+
