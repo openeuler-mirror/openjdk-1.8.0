@@ -1,0 +1,305 @@
+From a83cfc9dc14746ad816933008e700d6d35dcf5f6 Mon Sep 17 00:00:00 2001
+From: wangkun <wangkun49@huawei.com>
+Date: Sat, 11 Sep 2021 09:45:39 +0800
+Subject: [PATCH 12/23] 8197387: Run the jcmd tool as the root user to access
+ the Java process that is not run by the root user.
+
+Summary: <tools> : Run the jcmd tool as the root user to access the Java process that is not run by the root user.
+LLT: NA
+Patch Type: backport
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8197387
+---
+ hotspot/src/os/aix/vm/attachListener_aix.cpp       | 11 +++++------
+ hotspot/src/os/bsd/vm/attachListener_bsd.cpp       | 11 +++++------
+ hotspot/src/os/linux/vm/attachListener_linux.cpp   | 11 +++++------
+ hotspot/src/os/posix/vm/os_posix.cpp               | 14 ++++++++++++++
+ hotspot/src/os/posix/vm/os_posix.hpp               | 10 ++++++++++
+ .../src/os/solaris/vm/attachListener_solaris.cpp   | 12 ++++++------
+ .../native/sun/tools/attach/AixVirtualMachine.c    |  5 +++--
+ .../native/sun/tools/attach/BsdVirtualMachine.c    |  6 ++++--
+ .../native/sun/tools/attach/LinuxVirtualMachine.c  |  6 ++++--
+ .../sun/tools/attach/SolarisVirtualMachine.c       |  6 ++++--
+ 10 files changed, 60 insertions(+), 32 deletions(-)
+
+diff --git a/hotspot/src/os/aix/vm/attachListener_aix.cpp b/hotspot/src/os/aix/vm/attachListener_aix.cpp
+index 5b7cb29f1..d23756ead 100644
+--- a/hotspot/src/os/aix/vm/attachListener_aix.cpp
++++ b/hotspot/src/os/aix/vm/attachListener_aix.cpp
+@@ -382,10 +382,9 @@ AixAttachOperation* AixAttachListener::dequeue() {
+       RESTARTABLE(::close(s), res);
+       continue;
+     }
+-    uid_t euid = geteuid();
+-    gid_t egid = getegid();
+-
+-    if (cred_info.euid != euid || cred_info.egid != egid) {
++    if (!os::Posix::matches_effective_uid_and_gid_or_root(cred_info.euid, cred_info.egid)) {
++      log_debug(attach)("euid/egid check failed (%d/%d vs %d/%d)",
++                        cred_info.euid, cred_info.egid, geteuid(), getegid());
+       int res;
+       RESTARTABLE(::close(s), res);
+       continue;
+@@ -541,8 +540,8 @@ bool AttachListener::is_init_trigger() {
+   }
+   if (ret == 0) {
+     // simple check to avoid starting the attach mechanism when
+-    // a bogus user creates the file
+-    if (st.st_uid == geteuid()) {
++    // a bogus non-root user creates the file
++    if (os::Posix::matches_effective_uid_or_root(st.st_uid)) {
+       init();
+       return true;
+     }
+diff --git a/hotspot/src/os/bsd/vm/attachListener_bsd.cpp b/hotspot/src/os/bsd/vm/attachListener_bsd.cpp
+index 4a580b486..4dd938954 100644
+--- a/hotspot/src/os/bsd/vm/attachListener_bsd.cpp
++++ b/hotspot/src/os/bsd/vm/attachListener_bsd.cpp
+@@ -348,10 +348,9 @@ BsdAttachOperation* BsdAttachListener::dequeue() {
+       ::close(s);
+       continue;
+     }
+-    uid_t euid = geteuid();
+-    gid_t egid = getegid();
+-
+-    if (puid != euid || pgid != egid) {
++    if (!os::Posix::matches_effective_uid_and_gid_or_root(puid, pgid)) {
++      log_debug(attach)("euid/egid check failed (%d/%d vs %d/%d)", puid, pgid,
++                        geteuid(), getegid());
+       ::close(s);
+       continue;
+     }
+@@ -502,8 +501,8 @@ bool AttachListener::is_init_trigger() {
+   RESTARTABLE(::stat(path, &st), ret);
+   if (ret == 0) {
+     // simple check to avoid starting the attach mechanism when
+-    // a bogus user creates the file
+-    if (st.st_uid == geteuid()) {
++    // a bogus non-root user creates the file
++    if (os::Posix::matches_effective_uid_or_root(st.st_uid)) {
+       init();
+       return true;
+     }
+diff --git a/hotspot/src/os/linux/vm/attachListener_linux.cpp b/hotspot/src/os/linux/vm/attachListener_linux.cpp
+index 1ca089740..2a87e0d7f 100644
+--- a/hotspot/src/os/linux/vm/attachListener_linux.cpp
++++ b/hotspot/src/os/linux/vm/attachListener_linux.cpp
+@@ -343,10 +343,9 @@ LinuxAttachOperation* LinuxAttachListener::dequeue() {
+       ::close(s);
+       continue;
+     }
+-    uid_t euid = geteuid();
+-    gid_t egid = getegid();
+-
+-    if (cred_info.uid != euid || cred_info.gid != egid) {
++    if (!os::Posix::matches_effective_uid_and_gid_or_root(cred_info.uid, cred_info.gid)) {
++      tty->print_cr("euid/egid check failed (%d/%d vs %d/%d)",
++                        cred_info.uid, cred_info.gid, geteuid(), getegid());
+       ::close(s);
+       continue;
+     }
+@@ -512,8 +511,8 @@ bool AttachListener::is_init_trigger() {
+   }
+   if (ret == 0) {
+     // simple check to avoid starting the attach mechanism when
+-    // a bogus user creates the file
+-    if (st.st_uid == geteuid()) {
++    // a bogus non-root user creates the file
++    if (os::Posix::matches_effective_uid_or_root(st.st_uid)) {
+       init();
+       return true;
+     }
+diff --git a/hotspot/src/os/posix/vm/os_posix.cpp b/hotspot/src/os/posix/vm/os_posix.cpp
+index ac00e85ba..e7f1fddb9 100644
+--- a/hotspot/src/os/posix/vm/os_posix.cpp
++++ b/hotspot/src/os/posix/vm/os_posix.cpp
+@@ -44,6 +44,8 @@ PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
+ #endif
+ #define IS_VALID_PID(p) (p > 0 && p < MAX_PID)
+ 
++#define ROOT_UID 0
++
+ // Check core dump limit and report possible place where core can be found
+ void os::check_or_create_dump(void* exceptionRecord, void* contextRecord, char* buffer, size_t bufferSize) {
+   int n;
+@@ -858,6 +860,18 @@ void os::Posix::print_siginfo_brief(outputStream* os, const siginfo_t* si) {
+   }
+ }
+ 
++bool os::Posix::is_root(uid_t uid){
++    return ROOT_UID == uid;
++}
++
++bool os::Posix::matches_effective_uid_or_root(uid_t uid) {
++    return is_root(uid) || geteuid() == uid;
++}
++
++bool os::Posix::matches_effective_uid_and_gid_or_root(uid_t uid, gid_t gid) {
++    return is_root(uid) || (geteuid() == uid && getegid() == gid);
++}
++
+ Thread* os::ThreadCrashProtection::_protected_thread = NULL;
+ os::ThreadCrashProtection* os::ThreadCrashProtection::_crash_protection = NULL;
+ volatile intptr_t os::ThreadCrashProtection::_crash_mux = 0;
+diff --git a/hotspot/src/os/posix/vm/os_posix.hpp b/hotspot/src/os/posix/vm/os_posix.hpp
+index 5cdbb9ae6..d3e55d020 100644
+--- a/hotspot/src/os/posix/vm/os_posix.hpp
++++ b/hotspot/src/os/posix/vm/os_posix.hpp
+@@ -59,6 +59,16 @@ public:
+   // A POSIX conform, platform-independend siginfo print routine.
+   static void print_siginfo_brief(outputStream* os, const siginfo_t* si);
+ 
++  // Returns true if given uid is root.
++  static bool is_root(uid_t uid);
++
++  // Returns true if given uid is effective or root uid.
++  static bool matches_effective_uid_or_root(uid_t uid);
++
++  // Returns true if either given uid is effective uid and given gid is
++  // effective gid, or if given uid is root.
++  static bool matches_effective_uid_and_gid_or_root(uid_t uid, gid_t gid);
++
+ };
+ 
+ /*
+diff --git a/hotspot/src/os/solaris/vm/attachListener_solaris.cpp b/hotspot/src/os/solaris/vm/attachListener_solaris.cpp
+index 37400795e..001f8cbce 100644
+--- a/hotspot/src/os/solaris/vm/attachListener_solaris.cpp
++++ b/hotspot/src/os/solaris/vm/attachListener_solaris.cpp
+@@ -205,12 +205,12 @@ static int check_credentials() {
+     return -1; // unable to get them
+   }
+ 
+-  // get our euid/eguid (probably could cache these)
+-  uid_t euid = geteuid();
+-  gid_t egid = getegid();
++  // get euid/egid from ucred_free
++  uid_t ucred_euid = ucred_geteuid(cred_info);
++  gid_t ucred_egid = ucred_getegid(cred_info);
+ 
+   // check that the effective uid/gid matches - discuss this with Jeff.
+-  if (cred_info.dc_euid == euid && cred_info.dc_egid == egid) {
++  if (os::Posix::matches_effective_uid_and_gid_or_root(ucred_euid, ucred_egid)) {
+     return 0;  // okay
+   } else {
+     return -1; // denied
+@@ -644,8 +644,8 @@ bool AttachListener::is_init_trigger() {
+   }
+   if (ret == 0) {
+     // simple check to avoid starting the attach mechanism when
+-    // a bogus user creates the file
+-    if (st.st_uid == geteuid()) {
++    // a bogus non-root user creates the file
++    if (os::Posix::matches_effective_uid_or_root(st.st_uid)) {
+       init();
+       return true;
+     }
+diff --git a/jdk/src/aix/native/sun/tools/attach/AixVirtualMachine.c b/jdk/src/aix/native/sun/tools/attach/AixVirtualMachine.c
+index a1e6539e4..b67a0fe5a 100644
+--- a/jdk/src/aix/native/sun/tools/attach/AixVirtualMachine.c
++++ b/jdk/src/aix/native/sun/tools/attach/AixVirtualMachine.c
+@@ -54,6 +54,7 @@
+   } while((_result == -1) && (errno == EINTR)); \
+ } while(0)
+ 
++#define ROOT_UID 0
+ 
+ /*
+  * Class:     sun_tools_attach_AixVirtualMachine
+@@ -188,11 +189,11 @@ JNIEXPORT void JNICALL Java_sun_tools_attach_AixVirtualMachine_checkPermissions
+         if (res == 0) {
+             char msg[100];
+             jboolean isError = JNI_FALSE;
+-            if (sb.st_uid != uid) {
++            if (sb.st_uid != uid && uid != ROOT_UID) {
+                 jio_snprintf(msg, sizeof(msg)-1,
+                     "file should be owned by the current user (which is %d) but is owned by %d", uid, sb.st_uid);
+                 isError = JNI_TRUE;
+-            } else if (sb.st_gid != gid) {
++            } else if (sb.st_gid != gid && uid != ROOT_UID) {
+                 jio_snprintf(msg, sizeof(msg)-1,
+                     "file's group should be the current group (which is %d) but the group is %d", gid, sb.st_gid);
+                 isError = JNI_TRUE;
+diff --git a/jdk/src/solaris/native/sun/tools/attach/BsdVirtualMachine.c b/jdk/src/solaris/native/sun/tools/attach/BsdVirtualMachine.c
+index f5afaab57..daf7b7ed9 100644
+--- a/jdk/src/solaris/native/sun/tools/attach/BsdVirtualMachine.c
++++ b/jdk/src/solaris/native/sun/tools/attach/BsdVirtualMachine.c
+@@ -50,6 +50,8 @@
+   } while((_result == -1) && (errno == EINTR)); \
+ } while(0)
+ 
++#define ROOT_UID 0
++
+ /*
+  * Class:     sun_tools_attach_BsdVirtualMachine
+  * Method:    socket
+@@ -153,11 +155,11 @@ JNIEXPORT void JNICALL Java_sun_tools_attach_BsdVirtualMachine_checkPermissions
+         if (res == 0) {
+             char msg[100];
+             jboolean isError = JNI_FALSE;
+-            if (sb.st_uid != uid) {
++            if (sb.st_uid != uid && uid != ROOT_UID) {
+                 jio_snprintf(msg, sizeof(msg)-1,
+                     "file should be owned by the current user (which is %d) but is owned by %d", uid, sb.st_uid);
+                 isError = JNI_TRUE;
+-            } else if (sb.st_gid != gid) {
++            } else if (sb.st_gid != gid && uid != ROOT_UID) {
+                 jio_snprintf(msg, sizeof(msg)-1,
+                     "file's group should be the current group (which is %d) but the group is %d", gid, sb.st_gid);
+                 isError = JNI_TRUE;
+diff --git a/jdk/src/solaris/native/sun/tools/attach/LinuxVirtualMachine.c b/jdk/src/solaris/native/sun/tools/attach/LinuxVirtualMachine.c
+index 6017308d0..32b7f8785 100644
+--- a/jdk/src/solaris/native/sun/tools/attach/LinuxVirtualMachine.c
++++ b/jdk/src/solaris/native/sun/tools/attach/LinuxVirtualMachine.c
+@@ -49,6 +49,8 @@
+   } while((_result == -1) && (errno == EINTR)); \
+ } while(0)
+ 
++#define ROOT_UID 0
++
+ /*
+  * Defines a callback that is invoked for each process
+  */
+@@ -371,11 +373,11 @@ JNIEXPORT void JNICALL Java_sun_tools_attach_LinuxVirtualMachine_checkPermission
+         if (res == 0) {
+             char msg[100];
+             jboolean isError = JNI_FALSE;
+-            if (sb.st_uid != uid) {
++            if (sb.st_uid != uid && uid != ROOT_UID) {
+                 jio_snprintf(msg, sizeof(msg)-1,
+                     "file should be owned by the current user (which is %d) but is owned by %d", uid, sb.st_uid);
+                 isError = JNI_TRUE;
+-            } else if (sb.st_gid != gid) {
++            } else if (sb.st_gid != gid && uid != ROOT_UID) {
+                 jio_snprintf(msg, sizeof(msg)-1,
+                     "file's group should be the current group (which is %d) but the group is %d", gid, sb.st_gid);
+                 isError = JNI_TRUE;
+diff --git a/jdk/src/solaris/native/sun/tools/attach/SolarisVirtualMachine.c b/jdk/src/solaris/native/sun/tools/attach/SolarisVirtualMachine.c
+index d2710aaab..217943988 100644
+--- a/jdk/src/solaris/native/sun/tools/attach/SolarisVirtualMachine.c
++++ b/jdk/src/solaris/native/sun/tools/attach/SolarisVirtualMachine.c
+@@ -45,6 +45,8 @@
+   } while((_result == -1) && (errno == EINTR)); \
+ } while(0)
+ 
++#define ROOT_UID 0
++
+ /*
+  * Class:     sun_tools_attach_SolarisVirtualMachine
+  * Method:    open
+@@ -116,11 +118,11 @@ JNIEXPORT void JNICALL Java_sun_tools_attach_SolarisVirtualMachine_checkPermissi
+         if (res == 0) {
+             char msg[100];
+             jboolean isError = JNI_FALSE;
+-            if (sb.st_uid != uid) {
++            if (sb.st_uid != uid && uid != ROOT_UID) {
+                 jio_snprintf(msg, sizeof(msg)-1,
+                     "file should be owned by the current user (which is %d) but is owned by %d", uid, sb.st_uid);
+                 isError = JNI_TRUE;
+-            } else if (sb.st_gid != gid) {
++            } else if (sb.st_gid != gid && uid != ROOT_UID) {
+                 jio_snprintf(msg, sizeof(msg)-1,
+                     "file's group should be the current group (which is %d) but the group is %d", gid, sb.st_gid);
+                 isError = JNI_TRUE;
+-- 
+2.22.0
+
