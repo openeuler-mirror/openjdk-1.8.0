@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 2
+Release: 4
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1103,6 +1103,22 @@ Patch202: Fix-RSACipher-memory-usage.patch
 Patch203: fix-lock-ordering-issue-when-calling-JVMTI-GetLoaded.patch
 Patch204: 8069191.patch
 Patch205: fix_g1uncommit_ygc_expand_crash.patch
+Patch206: 8167014-jdeps-failed-with-Missing-message-warn-skippen-entry.patch 
+Patch207: fix_bug_in_keypairgenerator.patch
+Patch208: C1-assert-is_virtual-failed-type-check.patch
+Patch209: 8197387-Run-the-jcmd-tool-as-the-root-user-to-access.patch
+Patch210: create-jfr-dump-file-with-pid-or-timestamp-if-specif.patch
+Patch211: 8268453-sun-security-pkcs12-EmptyPassword.java-fails.patch
+Patch212: enhance-the-TimeZone-s-path-solution-on-Euler.patch
+Patch213: fix-wrong-commitID-in-release-file.patch
+Patch214: fix-appcds-s-option-AppCDSLockFile.patch
+Patch215: PS-introduce-UsePSRelaxedForwardee-to-enable-using-r.patch
+Patch216: Parallel-Full-GC-for-G1.patch
+Patch217: 8202142-jfr-event-io-TestInstrumentation-is-unstable.patch
+Patch218: 8143251-Thread-suspend-on-VM_G1IncCollectionPause-do.patch
+Patch219: G1Uncommit-Introduce-G1PeriodGCNotRetry-control-whet.patch
+Patch220: JDK-debug-version-crash-when-using-AppCDS.patch
+Patch221: 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
 
 #############################################
 #
@@ -1554,6 +1570,22 @@ pushd %{top_level_dir_name}
 %patch203 -p1
 %patch204 -p1
 %patch205 -p1
+%patch206 -p1
+%patch207 -p1
+%patch208 -p1
+%patch209 -p1
+%patch210 -p1
+%patch211 -p1
+%patch212 -p1
+%patch213 -p1
+%patch214 -p1
+%patch215 -p1
+%patch216 -p1
+%patch217 -p1
+%patch218 -p1
+%patch219 -p1
+%patch220 -p1
+%patch221 -p1
 popd
 
 # System library fixes
@@ -2169,6 +2201,26 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Sat Sep 18 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.302-b07.4
+- add 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
+
+* Fri Sep 17 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.302-b07.3
+- add 8167014-jdeps-failed-with-Missing-message-warn-skippen-entry.patch
+- add fix_bug_in_keypairgenerator.patch
+- add C1-assert-is_virtual-failed-type-check.patch
+- add 8197387-Run-the-jcmd-tool-as-the-root-user-to-access.patch
+- add create-jfr-dump-file-with-pid-or-timestamp-if-specif.patch
+- add 8268453-sun-security-pkcs12-EmptyPassword.java-fails.patch
+- add enhance-the-TimeZone-s-path-solution-on-Euler.patch
+- add fix-wrong-commitID-in-release-file.patch
+- add fix-appcds-s-option-AppCDSLockFile.patch
+- add PS-introduce-UsePSRelaxedForwardee-to-enable-using-r.patch
+- add Parallel-Full-GC-for-G1.patch
+- add 8202142-jfr-event-io-TestInstrumentation-is-unstable.patch
+- add 8143251-Thread-suspend-on-VM_G1IncCollectionPause-do.patch
+- add G1Uncommit-Introduce-G1PeriodGCNotRetry-control-whet.patch
+- add JDK-debug-version-crash-when-using-AppCDS.patch
+
 * Fri Aug 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.302-b07.2
 - add fix_g1uncommit_ygc_expand_crash.patch
 
