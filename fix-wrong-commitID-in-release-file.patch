@@ -1,0 +1,32 @@
+From d94e836f5dc230839aacb4585dcc30575c94d785 Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Sat, 11 Sep 2021 15:24:54 +0800
+Subject: [PATCH 16/23] fix wrong commitID in release file
+
+Summary: <make> : fix wrong commitID in release file
+LLT: NA
+Patch Type: huawei
+Bug url: NA
+---
+ make/common/MakeBase.gmk | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/make/common/MakeBase.gmk b/make/common/MakeBase.gmk
+index 9b7ad7024..8179139ec 100644
+--- a/make/common/MakeBase.gmk
++++ b/make/common/MakeBase.gmk
+@@ -322,9 +322,10 @@ define GetSourceTips
+             fi; \
+           done >> $@), \
+           $(if $(and $(GIT), $(wildcard $(TOPDIR)/.git)), \
++            $$($(CD) $(SRC_ROOT) ; \
+             $(PRINTF) ".:git:%s%s\n" \
+                 "$$(git log -n1 --format=%H | cut -c1-12)" \
+-                "$$(if test -n "$$(git status --porcelain)"; then printf '+'; fi)" >> $@, ))
++                "$$(if test -n "$$(git status --porcelain)"; then printf '+'; fi)" >> $@), ))
+ 	$(PRINTF) "\n" >> $@
+ endef
+ 
+-- 
+2.22.0
+

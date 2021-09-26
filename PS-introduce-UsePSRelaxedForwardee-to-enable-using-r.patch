@@ -1,0 +1,96 @@
+From ec7d9d798c17df377dc8d4c00d8f285ea32e590e Mon Sep 17 00:00:00 2001
+From: mashoubing <mashoubing1@huawei.com>
+Date: Mon, 13 Sep 2021 15:22:21 +0800
+Subject: [PATCH 18/23] PS:introduce UsePSRelaxedForwardee to enable using
+ relaxed CAS in copy_to_survivor_space
+
+Summary:gc:ps use relaxed CAS for better performance in weak memory model
+LLT:NA
+Patch Type:huawei
+Bug url:NA
+---
+ .../parallelScavenge/psPromotionManager.inline.hpp     | 10 ++++++++--
+ .../parallelScavenge/psScavenge.inline.hpp             |  2 +-
+ hotspot/src/share/vm/oops/oop.inline.hpp               |  2 +-
+ hotspot/src/share/vm/runtime/globals.hpp               |  4 ++++
+ 4 files changed, 14 insertions(+), 4 deletions(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp
+index e517abcee..c58e3d1ef 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psPromotionManager.inline.hpp
+@@ -203,15 +203,17 @@ oop PSPromotionManager::copy_to_survivor_space(oop o) {
+ 
+     assert(new_obj != NULL, "allocation should have succeeded");
+ 
++    Prefetch::write(new_obj, PrefetchCopyIntervalInBytes);
+     // Copy obj
+     Copy::aligned_disjoint_words((HeapWord*)o, (HeapWord*)new_obj, new_obj_size);
+ 
+     // Now we have to CAS in the header.
+-#ifdef AARCH64
++
+     // CAS with memory fence cost a lot within copy_to_survivor_space on aarch64.
+-    // To minimize the cost, we use a normal CAS to do object forwarding, plus a
++    // To minimize the cost, we can use a normal CAS to do object forwarding, plus a
+     // memory fence only upon CAS succeeds. To further reduce the fence insertion,
+     // we can skip the fence insertion for leaf objects (objects don't have reference fields).
++#if defined(AARCH64) && defined(PRODUCT)
+     if (o->relax_cas_forward_to(new_obj, test_mark)) {
+ #else
+     if (o->cas_forward_to(new_obj, test_mark)) {
+@@ -271,6 +273,10 @@ oop PSPromotionManager::copy_to_survivor_space(oop o) {
+ #ifndef PRODUCT
+   // This code must come after the CAS test, or it will print incorrect
+   // information.
++  // When UsePSRelaxedForwardee is true or object o is gc leaf, CAS failed threads can't access forwardee's content,
++  // as relaxed CAS cann't gurantee new obj's content visible for these CAS failed threads.The below log output is
++  // dangerous. So we just support UsePSRelaxedForwardee and gc leaf in product.
++  // Everywhere access forwardee's content must be careful.
+   if (TraceScavenge) {
+     gclog_or_tty->print_cr("{%s %s " PTR_FORMAT " -> " PTR_FORMAT " (%d)}",
+        PSScavenge::should_scavenge(&new_obj) ? "copying" : "tenuring",
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psScavenge.inline.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psScavenge.inline.hpp
+index 1a722a7ca..3cfabe486 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psScavenge.inline.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psScavenge.inline.hpp
+@@ -78,7 +78,7 @@ inline void PSScavenge::copy_and_push_safe_barrier(PSPromotionManager* pm,
+ #ifndef PRODUCT
+   // This code must come after the CAS test, or it will print incorrect
+   // information.
+-  if (TraceScavenge &&  o->is_forwarded()) {
++  if (TraceScavenge && o->is_forwarded()) {
+     gclog_or_tty->print_cr("{%s %s " PTR_FORMAT " -> " PTR_FORMAT " (%d)}",
+        "forwarding",
+        new_obj->klass()->internal_name(), p2i((void *)o), p2i((void *)new_obj), new_obj->size());
+diff --git a/hotspot/src/share/vm/oops/oop.inline.hpp b/hotspot/src/share/vm/oops/oop.inline.hpp
+index 00fb2374e..ed37d0558 100644
+--- a/hotspot/src/share/vm/oops/oop.inline.hpp
++++ b/hotspot/src/share/vm/oops/oop.inline.hpp
+@@ -705,7 +705,7 @@ inline bool oopDesc::relax_cas_forward_to(oop p, markOop compare) {
+   if (old_markoop == compare) {
+     // Once the CAS succeeds, leaf object never needs to be visible to other threads (finished
+     // collection by current thread), so we can save the fence.
+-    if (!p->klass()->oop_is_gc_leaf()) {
++    if (!(UsePSRelaxedForwardee || p->klass()->oop_is_gc_leaf())) {
+       OrderAccess::fence();
+     }
+     return true;
+diff --git a/hotspot/src/share/vm/runtime/globals.hpp b/hotspot/src/share/vm/runtime/globals.hpp
+index cef343a0e..9779653ba 100644
+--- a/hotspot/src/share/vm/runtime/globals.hpp
++++ b/hotspot/src/share/vm/runtime/globals.hpp
+@@ -1441,6 +1441,10 @@ class CommandLineFlags {
+   product(bool, UseParallelGC, false,                                       \
+           "Use the Parallel Scavenge garbage collector")                    \
+                                                                             \
++  experimental(bool, UsePSRelaxedForwardee, false,                          \
++          "Use the UsePSRelaxedForwardee to enable ps use relaxed"          \
++          "during young gc copying object")                                 \
++                                                                            \
+   product(bool, UseParallelOldGC, false,                                    \
+           "Use the Parallel Old garbage collector")                         \
+                                                                             \
+-- 
+2.22.0
+
