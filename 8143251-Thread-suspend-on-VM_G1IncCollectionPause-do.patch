@@ -1,0 +1,121 @@
+From e10cb7fc2dc99af5f7ccb4947fe828c008843f22 Mon Sep 17 00:00:00 2001
+From: mashoubing <mashoubing1@huawei.com>
+Date: Tue, 14 Sep 2021 20:26:58 +0800
+Subject: [PATCH 21/23] 8143251:Thread suspend on
+ VM_G1IncCollectionPause::doit_epilogue()
+
+Summary: gc:call system.gc after remark cause Process suspending
+LLT: NA
+Patch Type:backport
+Bug url:NA
+---
+ .../gc_implementation/g1/g1CollectedHeap.cpp  | 14 +++++++++----
+ .../gc_implementation/g1/g1CollectedHeap.hpp  |  2 ++
+ .../g1/g1CollectorPolicy.cpp                  | 21 +++++++++++++------
+ .../g1/g1CollectorPolicy.hpp                  |  5 +++++
+ 4 files changed, 32 insertions(+), 10 deletions(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
+index 1afc2e331..8ed6207ad 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
+@@ -2383,15 +2383,21 @@ size_t G1CollectedHeap::recalculate_used() const {
+   return blk.result();
+ }
+ 
++bool  G1CollectedHeap::is_user_requested_concurrent_full_gc(GCCause::Cause cause) {
++  switch (cause) {
++    case GCCause::_java_lang_system_gc:                 return ExplicitGCInvokesConcurrent;
++    case GCCause::_update_allocation_context_stats_inc: return true;
++    case GCCause::_wb_conc_mark:                        return true;
++    default :                                           return false;
++  }
++}
++
+ bool G1CollectedHeap::should_do_concurrent_full_gc(GCCause::Cause cause) {
+   switch (cause) {
+     case GCCause::_gc_locker:               return GCLockerInvokesConcurrent;
+-    case GCCause::_java_lang_system_gc:     return ExplicitGCInvokesConcurrent;
+     case GCCause::_g1_humongous_allocation: return true;
+-    case GCCause::_update_allocation_context_stats_inc: return true;
+-    case GCCause::_wb_conc_mark:            return true;
+     case GCCause::_g1_periodic_collection:  return true;
+-    default:                                return false;
++    default:                                return is_user_requested_concurrent_full_gc(cause);
+   }
+ }
+ 
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp
+index 2858ebfba..d83e6cb65 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp
+@@ -715,6 +715,8 @@ public:
+     _in_cset_fast_test.clear();
+   }
+ 
++  bool is_user_requested_concurrent_full_gc(GCCause::Cause cause);
++
+   // This is called at the start of either a concurrent cycle or a Full
+   // GC to update the number of old marking cycles started.
+   void increment_old_marking_cycles_started();
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp
+index 6d817883a..099762f2b 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.cpp
+@@ -1504,6 +1504,11 @@ bool G1CollectorPolicy::force_initial_mark_if_outside_cycle(
+   }
+ }
+ 
++void G1CollectorPolicy::initiate_conc_mark() {
++  set_during_initial_mark_pause();
++  clear_initiate_conc_mark_if_possible();
++}
++
+ void
+ G1CollectorPolicy::decide_on_conc_mark_initiation() {
+   // We are about to decide on whether this pause will be an
+@@ -1523,15 +1528,19 @@ G1CollectorPolicy::decide_on_conc_mark_initiation() {
+     if (!about_to_start_mixed_phase() && gcs_are_young()) {
+       // Initiate a new initial mark only if there is no marking or reclamation going
+       // on.
+-      set_during_initial_mark_pause();
+-
+-      // And we can now clear initiate_conc_mark_if_possible() as
+-      // we've already acted on it.
+-      clear_initiate_conc_mark_if_possible();
+-
++      initiate_conc_mark();
+       ergo_verbose0(ErgoConcCycles,
+                   "initiate concurrent cycle",
+                   ergo_format_reason("concurrent cycle initiation requested"));
++    } else if (_g1->is_user_requested_concurrent_full_gc(_g1->gc_cause())) {
++      // Initiate a user requested initial mark. An initial mark must be young only
++      // GC, so the collector state must be updated to reflect this.
++      set_gcs_are_young(true);
++      _last_young_gc = false;
++      initiate_conc_mark();
++      ergo_verbose0(ErgoConcCycles,
++                  "initiate concurrent cycle",
++                  ergo_format_reason("user requested concurrent cycle"));
+     } else {
+       // The concurrent marking thread is still finishing up the
+       // previous cycle. If we start one right now the two cycles
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.hpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.hpp
+index 6438e5e90..1a0d20d6f 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.hpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectorPolicy.hpp
+@@ -808,6 +808,11 @@ private:
+   // (should not be called directly).
+   void add_region_to_incremental_cset_common(HeapRegion* hr);
+ 
++  // Set the state to start a concurrent marking cycle and clear
++  // _initiate_conc_mark_if_possible because it has now been
++  // acted on.
++  void initiate_conc_mark();
++
+ public:
+   // Add hr to the LHS of the incremental collection set.
+   void add_region_to_incremental_cset_lhs(HeapRegion* hr);
+-- 
+2.22.0
+
