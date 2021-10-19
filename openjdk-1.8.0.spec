@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 4
+Release: 5
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1666,7 +1666,7 @@ EXTRA_ASFLAGS="${EXTRA_CFLAGS} -Wa,--generate-missing-build-notes=yes"
 export EXTRA_CFLAGS EXTRA_ASFLAGS
 
 for suffix in %{build_loop} ; do
-if [ "x$suffix" = "x" ] ; then
+(if [ "x$suffix" = "x" ] ; then
   debugbuild=release
 else
   # change --something to something
@@ -1714,7 +1714,7 @@ if echo $debugbuild | grep -q "debug" ; then
   maketargets="%{debug_targets}"
 fi
 
-make \
+make JOBS=%(/usr/bin/getconf _NPROCESSORS_ONLN 2> /dev/null || :) \
     JAVAC_FLAGS=-g \
     SCTP_WERROR= \
     ${maketargets} || ( pwd; find $top_dir_abs_path -name "hs_err_pid*.log" | xargs cat && false )
@@ -1747,7 +1747,9 @@ ln -s %{_datadir}/javazi-1.8/tzdb.dat $JAVA_HOME/jre/lib/tzdb.dat
 
 
 # build cycles
+)&
 done
+wait
 
 %check
 
@@ -2201,6 +2203,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Oct 15 2021 zhangweiguo <zhangweiguo2@huawei.com> - 1:1.8.0.302-b07.5
+- parallelize compilation targets and set make JOBS to cpu number
+
 * Sat Sep 18 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.302-b07.4
 - add 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
 
