@@ -3,7 +3,6 @@ From: zhangyipeng <zhangyipeng7@huawei.com>
 Date: Tue, 20 Apr 2021 10:40:35 +0800
 Subject: [PATCH] [Huawei]update cacerts and VerifyCACerts.java test
 
-
 Signed-off-by: Wang Kun <wangkun49@huawei.com>
 ---
  jdk/make/data/cacerts/addtrustexternalca           | 32 -----------------
@@ -260,7 +259,7 @@ index dd107fc..791ddb6 100644
              put("quovadisrootca1g3 [jdk]",
                      "8A:86:6F:D1:B2:76:B5:7E:57:8E:92:1C:65:82:8A:2B:ED:58:E9:F2:F2:88:05:41:34:B7:F1:F4:BF:C9:CC:74");
              put("quovadisrootca2 [jdk]",
-@@ -267,20 +247,7 @@ public class VerifyCACerts {
+@@ -267,22 +247,7 @@ public class VerifyCACerts {
      // Exception list to 90 days expiry policy
      // No error will be reported if certificate in this list expires
      @SuppressWarnings("serial")
@@ -276,6 +275,8 @@ index dd107fc..791ddb6 100644
 -            add("luxtrustglobalrootca [jdk]");
 -            // Valid until: Wed Mar 17 11:33:33 PDT 2021
 -            add("quovadisrootca [jdk]");
+-            // Valid until: Thu Sep 30 14:01:15 GMT 2021
+-            add("identrustdstx3 [jdk]");
 -        }
 -    };
 +    private static final HashSet<String> EXPIRY_EXC_ENTRIES = new HashSet<String>();
