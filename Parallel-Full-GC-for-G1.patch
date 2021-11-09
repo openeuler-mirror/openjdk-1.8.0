@@ -2056,22 +2056,17 @@ index d12e25af7..16d410fdc 100644
          Pattern p = Pattern.compile("Full GC");
  
 diff --git a/jdk/test/jdk/jfr/event/gc/detailed/ExecuteOOMApp.java b/jdk/test/jdk/jfr/event/gc/detailed/ExecuteOOMApp.java
-index 03158ea00..0b0620028 100644
+index 048bbad0..af0f4096 100644
 --- a/jdk/test/jdk/jfr/event/gc/detailed/ExecuteOOMApp.java
 +++ b/jdk/test/jdk/jfr/event/gc/detailed/ExecuteOOMApp.java
-@@ -51,12 +51,12 @@ public class ExecuteOOMApp {
-         OutputAnalyzer out = AppExecutorHelper.executeAndRecord(settings, jfrFilename, additionalVmFlagsList.toArray(new String[0]),
-                                                                 OOMApp.class.getName(), String.valueOf(bytesToAllocate));
- 
--        if ((out.getExitValue() == 1 && out.getOutput().contains("Exception: java.lang.OutOfMemoryError"))) {
-+        if ((out.getExitValue() != 0 && out.getOutput().contains("java.lang.OutOfMemoryError"))) {
+@@ -55,8 +55,8 @@ public class ExecuteOOMApp {
              return false;
          }
- 
+
 -        out.shouldHaveExitValue(0);
          System.out.println(out.getOutput());
 +        out.shouldHaveExitValue(0);
- 
+
          return true;
      }
 diff --git a/jdk/test/jdk/jfr/event/gc/detailed/TestG1ConcurrentModeFailureEvent.java b/jdk/test/jdk/jfr/event/gc/detailed/TestG1ConcurrentModeFailureEvent.java
