@@ -146,12 +146,12 @@
 %global origin_nice     OpenJDK
 %global top_level_dir_name   %{origin}
 %global repo		jdk8u
-%global revision    	jdk8u302-b07
+%global revision    	jdk8u312-b07
 %global full_revision	%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
 
-%global updatever       302
+%global updatever       312
 %global buildver        b07
 # priority must be 7 digits in total. The expression is workarounding tip
 %global priority        1800%{updatever}
@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 4
+Release: 5
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -977,7 +977,6 @@ Patch21: 8202952.patch
 Patch25: 8196485.patch
 Patch26: disable-UseLSE-on-ARMv8.1-by-default.patch
 Patch27: 8157570.patch
-Patch28: 8194246.patch
 Patch30: 8191483.patch
 Patch31: 8141356.patch
 Patch33: 8166253.patch
@@ -1059,7 +1058,6 @@ Patch155: Use-atomic-operation-when-G1Uncommit.patch
 Patch157: 8140597-Postpone-the-initial-mark-request-until-the-.patch
 Patch158: Use-Mutex-when-G1Uncommit.patch
 Patch159: C1-typos-repair.patch
-Patch160: 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
 Patch162: 8214535-support-Jmap-parallel.patch
 Patch163: Fixed-a-copyright-writing-problem.patch
 Patch164: fix-arguments.cpp-error-C2131-on-windows.patch
@@ -1108,7 +1106,6 @@ Patch207: fix_bug_in_keypairgenerator.patch
 Patch208: C1-assert-is_virtual-failed-type-check.patch
 Patch209: 8197387-Run-the-jcmd-tool-as-the-root-user-to-access.patch
 Patch210: create-jfr-dump-file-with-pid-or-timestamp-if-specif.patch
-Patch211: 8268453-sun-security-pkcs12-EmptyPassword.java-fails.patch
 Patch212: enhance-the-TimeZone-s-path-solution-on-Euler.patch
 Patch213: fix-wrong-commitID-in-release-file.patch
 Patch214: fix-appcds-s-option-AppCDSLockFile.patch
@@ -1119,6 +1116,8 @@ Patch218: 8143251-Thread-suspend-on-VM_G1IncCollectionPause-do.patch
 Patch219: G1Uncommit-Introduce-G1PeriodGCNotRetry-control-whet.patch
 Patch220: JDK-debug-version-crash-when-using-AppCDS.patch
 Patch221: 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
+
+# 8u312
 
 #############################################
 #
@@ -1461,7 +1460,6 @@ pushd %{top_level_dir_name}
 %patch25 -p1
 %patch26 -p1
 %patch27 -p1
-%patch28 -p1
 %patch30 -p1
 %patch31 -p1
 %patch33 -p1
@@ -1531,7 +1529,6 @@ pushd %{top_level_dir_name}
 %patch157 -p1
 %patch158 -p1
 %patch159 -p1
-%patch160 -p1
 %patch162 -p1
 %patch163 -p1
 %patch164 -p1
@@ -1575,7 +1572,6 @@ pushd %{top_level_dir_name}
 %patch208 -p1
 %patch209 -p1
 %patch210 -p1
-%patch211 -p1
 %patch212 -p1
 %patch213 -p1
 %patch214 -p1
@@ -1666,7 +1662,7 @@ EXTRA_ASFLAGS="${EXTRA_CFLAGS} -Wa,--generate-missing-build-notes=yes"
 export EXTRA_CFLAGS EXTRA_ASFLAGS
 
 for suffix in %{build_loop} ; do
-if [ "x$suffix" = "x" ] ; then
+(if [ "x$suffix" = "x" ] ; then
   debugbuild=release
 else
   # change --something to something
@@ -1714,7 +1710,7 @@ if echo $debugbuild | grep -q "debug" ; then
   maketargets="%{debug_targets}"
 fi
 
-make \
+make JOBS=%(/usr/bin/getconf _NPROCESSORS_ONLN 2> /dev/null || :) \
     JAVAC_FLAGS=-g \
     SCTP_WERROR= \
     ${maketargets} || ( pwd; find $top_dir_abs_path -name "hs_err_pid*.log" | xargs cat && false )
@@ -1747,7 +1743,9 @@ ln -s %{_datadir}/javazi-1.8/tzdb.dat $JAVA_HOME/jre/lib/tzdb.dat
 
 
 # build cycles
+)&
 done
+wait
 
 %check
 
@@ -2201,6 +2199,18 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Mon Nov 11 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.0
+- update to 8u312-b07(ga)
+- delete 8194246.patch
+- delete 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
+- delete 8268453-sun-security-pkcs12-EmptyPassword.java-fails.patch
+- modified Parallel-Full-GC-for-G1.patch
+- modified update-cacerts-and-VerifyCACerts.java-test.patch
+- modified openjdk-1.8.0.spec
+
+* Fri Oct 15 2021 zhangweiguo <zhangweiguo2@huawei.com> - 1:1.8.0.302-b07.5
+- parallelize compilation targets and set make JOBS to cpu number
+
 * Sat Sep 18 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.302-b07.4
 - add 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
 
