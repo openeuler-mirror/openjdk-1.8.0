@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 5
+Release: 1
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2199,6 +2199,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Nov 23 2021 lijingwei <lijingwei@uniontech.com> - 1:1.8.0.312-b07.1
+- correct spec file release number typo
+
 * Mon Nov 11 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.0
 - update to 8u312-b07(ga)
 - delete 8194246.patch
