@@ -1655,10 +1655,10 @@ export ARCH_DATA_MODEL=64
 
 # We use ourcppflags because the OpenJDK build seems to
 # pass EXTRA_CFLAGS to the HotSpot C++ compiler...
-EXTRA_CFLAGS="%ourcppflags -Wno-error -fcommon -fsigned-char"
+EXTRA_CFLAGS="%ourcppflags -Wno-error -fcommon -fsigned-char -fstack-protector-all"
 EXTRA_CPP_FLAGS="%ourcppflags -Wno-error"
 
-EXTRA_ASFLAGS="${EXTRA_CFLAGS} -Wa,--generate-missing-build-notes=yes"
+EXTRA_ASFLAGS="${EXTRA_CFLAGS} -Wa,--generate-missing-build-notes=yes -fstack-protector-all"
 export EXTRA_CFLAGS EXTRA_ASFLAGS
 
 for suffix in %{build_loop} ; do
