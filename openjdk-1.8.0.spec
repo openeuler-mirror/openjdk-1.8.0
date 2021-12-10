@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1
+Release: 2
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1116,6 +1116,7 @@ Patch218: 8143251-Thread-suspend-on-VM_G1IncCollectionPause-do.patch
 Patch219: G1Uncommit-Introduce-G1PeriodGCNotRetry-control-whet.patch
 Patch220: JDK-debug-version-crash-when-using-AppCDS.patch
 Patch221: 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
+Patch222: 8273111-Default-timezone-should-return-zone-ID-if-locatiome-is-valid-but-not-canonicalization-on-linux.patch
 
 # 8u312
 
@@ -1582,6 +1583,7 @@ pushd %{top_level_dir_name}
 %patch219 -p1
 %patch220 -p1
 %patch221 -p1
+%patch222 -p1
 popd
 
 # System library fixes
@@ -2199,6 +2201,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Dec 10 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.2
+- add 8273111-Default-timezone-should-return-zone-ID-if-locatiome-is-valid-but-not-canonicalization-on-linux.patch
+
 * Tue Nov 23 2021 lijingwei <lijingwei@uniontech.com> - 1:1.8.0.312-b07.1
 - correct spec file release number typo
 
