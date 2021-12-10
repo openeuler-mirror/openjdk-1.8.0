@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 4
+Release: 5
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1119,6 +1119,7 @@ Patch221: 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
 Patch222: 8273111-Default-timezone-should-return-zone-ID-if-locatiome-is-valid-but-not-canonicalization-on-linux.patch
 Patch223: 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
 Patch224: G1Ucommit-Refactor-Trigger-mechanism.patch
+Patch225: G1-Full-GC-parallel-mark.patch
 
 # 8u312
 
@@ -1588,6 +1589,7 @@ pushd %{top_level_dir_name}
 %patch222 -p1
 %patch223 -p1
 %patch224 -p1
+%patch225 -p1
 popd
 
 # System library fixes
@@ -2205,6 +2207,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Dec 10 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.5
+- add G1-Full-GC-parallel-mark.patch
+
 * Fri Dec 10 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.4
 - add G1Ucommit-Refactor-Trigger-mechanism.patch
 
