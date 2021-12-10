@@ -1,0 +1,52 @@
+From cf0e0f39908c8de21d69139e1144c2ad131c1140 Mon Sep 17 00:00:00 2001
+From: mashoubing <mashoubing1@huawei.com>
+Date: Sun, 26 Sep 2021 17:30:48 +0800
+Subject: [PATCH 2/4] 8233280: Remove GCLockerInvokesConcurrent relative logic
+ for G1
+
+---
+ .../src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp    | 4 ----
+ .../src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp    | 5 ++---
+ 2 files changed, 2 insertions(+), 7 deletions(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
+index 4f45bba52..060531901 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
+@@ -2394,7 +2394,6 @@ bool  G1CollectedHeap::is_user_requested_concurrent_full_gc(GCCause::Cause cause
+ 
+ bool G1CollectedHeap::should_do_concurrent_full_gc(GCCause::Cause cause) {
+   switch (cause) {
+-    case GCCause::_gc_locker:               return GCLockerInvokesConcurrent;
+     case GCCause::_g1_humongous_allocation: return true;
+     case GCCause::_g1_periodic_collection:  return true;
+     default:                                return is_user_requested_concurrent_full_gc(cause);
+@@ -2583,9 +2582,6 @@ void G1CollectedHeap::collect(GCCause::Cause cause) {
+             gclog_or_tty->print_cr("Periodic GC is denied and not try !");
+             return;
+           }
+-          if (GC_locker::is_active_and_needs_gc()) {
+-            GC_locker::stall_until_clear();
+-          }
+         }
+       }
+     } else if (GC_locker::should_discard(cause, gc_count_before)) {
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp
+index d83e6cb65..3225967b3 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp
+@@ -354,9 +354,8 @@ private:
+   // It decides whether an explicit GC should start a concurrent cycle
+   // instead of doing a STW GC. Currently, a concurrent cycle is
+   // explicitly started if:
+-  // (a) cause == _gc_locker and +GCLockerInvokesConcurrent, or
+-  // (b) cause == _java_lang_system_gc and +ExplicitGCInvokesConcurrent.
+-  // (c) cause == _g1_humongous_allocation
++  // (a) cause == _java_lang_system_gc and +ExplicitGCInvokesConcurrent.
++  // (b) cause == _g1_humongous_allocation
+   bool should_do_concurrent_full_gc(GCCause::Cause cause);
+ 
+   // Keeps track of how many "old marking cycles" (i.e., Full GCs or
+-- 
+2.22.0
+

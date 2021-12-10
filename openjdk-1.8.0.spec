@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 2
+Release: 3
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1117,6 +1117,7 @@ Patch219: G1Uncommit-Introduce-G1PeriodGCNotRetry-control-whet.patch
 Patch220: JDK-debug-version-crash-when-using-AppCDS.patch
 Patch221: 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
 Patch222: 8273111-Default-timezone-should-return-zone-ID-if-locatiome-is-valid-but-not-canonicalization-on-linux.patch
+Patch223: 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
 
 # 8u312
 
@@ -1584,6 +1585,7 @@ pushd %{top_level_dir_name}
 %patch220 -p1
 %patch221 -p1
 %patch222 -p1
+%patch223 -p1
 popd
 
 # System library fixes
@@ -2201,6 +2203,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri Dec 10 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.3
+- add 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
+
 * Fri Dec 10 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.2
 - add 8273111-Default-timezone-should-return-zone-ID-if-locatiome-is-valid-but-not-canonicalization-on-linux.patch
 
