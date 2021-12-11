@@ -1,0 +1,67 @@
+From 309b16c487fa42fc65781da3ccf79af67f142ee9 Mon Sep 17 00:00:00 2001
+From: mashoubing <mashoubing1@huawei.com>
+Date: Mon, 6 Dec 2021 16:05:39 +0800
+Subject: [PATCH] G1Uncommit: add G1UncommitLog limit before G1Uncommit log
+ message
+---
+ .../src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp | 8 +++++---
+ .../share/vm/gc_implementation/g1/g1UncommitThread.cpp    | 4 +++-
+ .../share/vm/gc_implementation/g1/heapRegionManager.cpp   | 8 +++++---
+ 3 files changed, 13 insertions(+), 7 deletions(-)
+
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
+index 6ee33fd05..f7266c9c4 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
+@@ -2221,9 +2221,11 @@ void G1CollectedHeap::shrink_heap_at_remark() {
+     uint num_candidate_to_remove = (uint)(resize_amount / HeapRegion::GrainBytes);
+     uint count = _hrm.extract_uncommit_list(num_candidate_to_remove);
+ 
+-    gclog_or_tty->print(" [G1Uncommit list " UINT32_FORMAT ", remaining " UINT32_FORMAT
+-                        ", free list " UINT32_FORMAT "]",
+-                        count, length - count, _hrm.num_free_regions());
++    if (G1UncommitLog) {
++      gclog_or_tty->print(" [G1Uncommit list " UINT32_FORMAT ", remaining " UINT32_FORMAT
++                          ", free list " UINT32_FORMAT "]",
++                          count, length - count, _hrm.num_free_regions());
++    }
+   }
+ }
+ 
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1UncommitThread.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1UncommitThread.cpp
+index 503218917..280313b69 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/g1UncommitThread.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/g1UncommitThread.cpp
+@@ -190,7 +190,9 @@ bool PeriodicGC::should_start_periodic_gc() {
+   if (g1p->os_load() < G1PeriodicGCLoadThreshold || !G1PeriodicGCLoadThreshold) {
+     return true;
+   }
+-  gclog_or_tty->print_cr("[G1Uncommit] Periodic GC request denied, skipping!");
++  if (G1UncommitLog) {
++    gclog_or_tty->print_cr("[G1Uncommit] Periodic GC request denied, skipping!");
++  }
+   return false;
+ }
+ 
+diff --git a/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp b/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp
+index d31073f9f..83513b3b8 100644
+--- a/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp
++++ b/hotspot/src/share/vm/gc_implementation/g1/heapRegionManager.cpp
+@@ -577,9 +577,11 @@ uint HeapRegionManager::extract_uncommit_list(uint num_candidate_to_remove) {
+   assert_at_safepoint(true /* should_be_vm_thread */);
+   double start_up_sec = os::elapsedTime();
+   if (start_up_sec < G1UncommitDelay) {
+-    gclog_or_tty->date_stamp(PrintGCDateStamps);
+-    gclog_or_tty->stamp(PrintGCTimeStamps);
+-    gclog_or_tty->print_cr("start up seconds:%lf, less than G1UncommitDelay, will not uncommit.", start_up_sec);
++    if (G1UncommitLog) {
++      gclog_or_tty->date_stamp(PrintGCDateStamps);
++      gclog_or_tty->stamp(PrintGCTimeStamps);
++      gclog_or_tty->print_cr("start up seconds:%lf, less than G1UncommitDelay, will not uncommit.", start_up_sec);
++    }
+     return 0;
+   }
+ 
+-- 
+2.22.0
+
