@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 6
+Release: 7
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1115,14 +1115,17 @@ Patch217: 8202142-jfr-event-io-TestInstrumentation-is-unstable.patch
 Patch218: 8143251-Thread-suspend-on-VM_G1IncCollectionPause-do.patch
 Patch219: G1Uncommit-Introduce-G1PeriodGCNotRetry-control-whet.patch
 Patch220: JDK-debug-version-crash-when-using-AppCDS.patch
+
+# 8u312
 Patch221: 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
 Patch222: 8273111-Default-timezone-should-return-zone-ID-if-locatiome-is-valid-but-not-canonicalization-on-linux.patch
 Patch223: 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
 Patch224: G1Ucommit-Refactor-Trigger-mechanism.patch
 Patch225: G1-Full-GC-parallel-mark.patch
 Patch226: G1Uncommit-add-G1UncommitLog-limit-before-G1Uncommit.patch
+Patch227: Delete-expired-certificate-globalsignr2ca.patch
 
-# 8u312
+# 8u322
 
 #############################################
 #
@@ -1592,6 +1595,7 @@ pushd %{top_level_dir_name}
 %patch224 -p1
 %patch225 -p1
 %patch226 -p1
+%patch227 -p1
 popd
 
 # System library fixes
@@ -2209,6 +2213,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Dec 16 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.7
+- add Delete-expired-certificate-globalsignr2ca.patch
+
 * Fri Dec 10 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.6
 - add G1Uncommit-add-G1UncommitLog-limit-before-G1Uncommit.patch
 
