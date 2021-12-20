@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 7
+Release: 8
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1124,6 +1124,7 @@ Patch224: G1Ucommit-Refactor-Trigger-mechanism.patch
 Patch225: G1-Full-GC-parallel-mark.patch
 Patch226: G1Uncommit-add-G1UncommitLog-limit-before-G1Uncommit.patch
 Patch227: Delete-expired-certificate-globalsignr2ca.patch
+Patch228: add-wrap_memcpy-to-libsaproc.patch
 
 # 8u322
 
@@ -1596,6 +1597,7 @@ pushd %{top_level_dir_name}
 %patch225 -p1
 %patch226 -p1
 %patch227 -p1
+%patch228 -p1
 popd
 
 # System library fixes
@@ -2213,6 +2215,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Mon Dec 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.8
+- add wrap_memcpy to libsaproc
+
 * Thu Dec 16 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.7
 - add Delete-expired-certificate-globalsignr2ca.patch
 

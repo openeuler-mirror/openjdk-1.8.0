@@ -1,0 +1,27 @@
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Thu, 4 Mar 2021 11:10:07 +0800
+Subject: add wrap_memcpy to libsaproc
+
+---
+ hotspot/make/linux/makefiles/saproc.make | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/hotspot/make/linux/makefiles/saproc.make b/hotspot/make/linux/makefiles/saproc.make
+index dfeb254da..258585366 100644
+--- a/hotspot/make/linux/makefiles/saproc.make
++++ b/hotspot/make/linux/makefiles/saproc.make
+@@ -46,6 +46,11 @@ SASRCFILES = $(SASRCDIR)/salibelf.c                   \
+              $(SASRCDIR)/LinuxDebuggerLocal.c         \
+              $(AGENT_DIR)/src/share/native/sadis.c
+ 
++# wrap memcpy
++ifeq ($(OPENJDK_TARGET_CPU_ARCH), x86)
++  SASRCFILES += $(HOTSPOT_TOPDIR)/src/os_cpu/linux_x86/vm/memcpy.cpp
++endif
++
+ -include $(HS_ALT_MAKE)/linux/makefiles/saproc.make
+ 
+ SAMAPFILE = $(SASRCDIR)/mapfile
+-- 
+2.19.0
+
