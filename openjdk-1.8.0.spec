@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1
+Release: 10
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1115,9 +1115,19 @@ Patch217: 8202142-jfr-event-io-TestInstrumentation-is-unstable.patch
 Patch218: 8143251-Thread-suspend-on-VM_G1IncCollectionPause-do.patch
 Patch219: G1Uncommit-Introduce-G1PeriodGCNotRetry-control-whet.patch
 Patch220: JDK-debug-version-crash-when-using-AppCDS.patch
-Patch221: 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
 
 # 8u312
+Patch221: 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
+Patch222: 8273111-Default-timezone-should-return-zone-ID-if-locatiome-is-valid-but-not-canonicalization-on-linux.patch
+Patch223: 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
+Patch224: G1Ucommit-Refactor-Trigger-mechanism.patch
+Patch225: G1-Full-GC-parallel-mark.patch
+Patch226: G1Uncommit-add-G1UncommitLog-limit-before-G1Uncommit.patch
+Patch227: Delete-expired-certificate-globalsignr2ca.patch
+Patch228: add-wrap_memcpy-to-libsaproc.patch
+Patch229: downgrade-the-symver-of-fcntl64.patch
+
+# 8u322
 
 #############################################
 #
@@ -1582,6 +1592,14 @@ pushd %{top_level_dir_name}
 %patch219 -p1
 %patch220 -p1
 %patch221 -p1
+%patch222 -p1
+%patch223 -p1
+%patch224 -p1
+%patch225 -p1
+%patch226 -p1
+%patch227 -p1
+%patch228 -p1
+%patch229 -p1
 popd
 
 # System library fixes
@@ -1655,10 +1673,10 @@ export ARCH_DATA_MODEL=64
 
 # We use ourcppflags because the OpenJDK build seems to
 # pass EXTRA_CFLAGS to the HotSpot C++ compiler...
-EXTRA_CFLAGS="%ourcppflags -Wno-error -fcommon -fsigned-char -fstack-protector-all"
+EXTRA_CFLAGS="%ourcppflags -Wno-error -fcommon -fsigned-char"
 EXTRA_CPP_FLAGS="%ourcppflags -Wno-error"
 
-EXTRA_ASFLAGS="${EXTRA_CFLAGS} -Wa,--generate-missing-build-notes=yes -fstack-protector-all"
+EXTRA_ASFLAGS="${EXTRA_CFLAGS} -Wa,--generate-missing-build-notes=yes"
 export EXTRA_CFLAGS EXTRA_ASFLAGS
 
 for suffix in %{build_loop} ; do
@@ -2199,6 +2217,33 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Dec 21 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.10
+- delete stack protection
+
+* Mon Dec 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.9
+- add downgrade-the-symver-of-fcntl64.patch
+
+* Mon Dec 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.8
+- add wrap_memcpy to libsaproc
+
+* Thu Dec 16 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.7
+- add Delete-expired-certificate-globalsignr2ca.patch
+
+* Fri Dec 10 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.6
+- add G1Uncommit-add-G1UncommitLog-limit-before-G1Uncommit.patch
+
+* Fri Dec 10 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.5
+- add G1-Full-GC-parallel-mark.patch
+
+* Fri Dec 10 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.4
+- add G1Ucommit-Refactor-Trigger-mechanism.patch
+
+* Fri Dec 10 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.3
+- add 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
+
+* Fri Dec 10 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.2
+- add 8273111-Default-timezone-should-return-zone-ID-if-locatiome-is-valid-but-not-canonicalization-on-linux.patch
+
 * Tue Nov 23 2021 lijingwei <lijingwei@uniontech.com> - 1:1.8.0.312-b07.1
 - correct spec file release number typo
 
