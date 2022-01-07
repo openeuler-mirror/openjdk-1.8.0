@@ -820,7 +820,7 @@ Requires: nss-softokn%{?_isa} %{NSSSOFTOKN_BUILDTIME_VERSION}
 # tool to copy jdk's configs - should be Recommends only, but then only dnf/yum enforce it,
 # not rpm transaction and so no configs are persisted when pure rpm -u is run. It may be
 # considered as regression
-Requires: copy-jdk-configs >= 3.3
+Requires: copy-jdk-configs >= 3.9
 OrderWithRequires: copy-jdk-configs
 # for printing support
 Requires: cups-libs
@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 10
+Release: 11
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2050,7 +2050,13 @@ done
 -- whether copy-jdk-configs is installed or not. If so, then configs are copied
 -- (copy_jdk_configs from %%{_libexecdir} used) or not copied at all
 local posix = require "posix"
-local debug = false
+
+if (os.getenv("debug") == "true") then
+  debug = true;
+  print("cjc: in spec debug is on")
+else
+  debug = false;
+end
 
 SOURCE1 = "%{rpm_state_dir}/copy_jdk_configs.lua"
 SOURCE2 = "%{_libexecdir}/copy_jdk_configs.lua"
@@ -2079,8 +2085,9 @@ else
   end
 end
 -- run content of included file with fake args
+cjc = require "copy_jdk_configs.lua"
 arg = {"--currentjvm", "%{uniquesuffix %{nil}}", "--jvmdir", "%{_jvmdir %{nil}}", "--origname", "%{name}", "--origjavaver", "%{javaver}", "--arch", "%{_arch}", "--temp", "%{rpm_state_dir}/%{name}.%{_arch}"}
-require "copy_jdk_configs.lua"
+cjc.mainProgram(arg)
 
 %post
 %{post_script %{nil}}
@@ -2217,6 +2224,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Wed Jan 05 2021 noah <hedongbo@huawei.com> - 1:1.8.0.312-b07.11
+- adapted to newst cjc to fix issue with rpm 4.17
+
 * Tue Dec 21 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.10
 - delete stack protection
 
