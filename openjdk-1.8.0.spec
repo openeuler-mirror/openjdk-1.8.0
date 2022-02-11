@@ -146,13 +146,13 @@
 %global origin_nice     OpenJDK
 %global top_level_dir_name   %{origin}
 %global repo		jdk8u
-%global revision    	jdk8u312-b07
+%global revision    	jdk8u322-b06
 %global full_revision	%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
 
-%global updatever       312
-%global buildver        b07
+%global updatever       322
+%global buildver        b06
 # priority must be 7 digits in total. The expression is workarounding tip
 %global priority        1800%{updatever}
 
@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 10
+Release: 0
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -995,7 +995,6 @@ Patch63: 8033552.patch
 Patch67: 8165860.patch
 Patch68: 8194154.patch
 Patch70: 8164948.patch
-Patch72: inline-optimize-for-aarch64.patch
 
 # 8u242
 Patch75: Add-ability-to-configure-third-port-for-remote-JMX.patch
@@ -1083,7 +1082,6 @@ Patch183: revert-windows-bugfix.patch
 Patch184: set-vm.vendor-by-configure.patch
 Patch185: update-cacerts-and-VerifyCACerts.java-test.patch
 Patch186: update-to-keep-same-with-master.patch
-Patch187: 8182036.patch
 Patch188: 8247691_incorrect_handling_of_VM_exceptions_in_C1_deopt_stub.patch
 Patch189: 8266187_Memory_leak_in_appendBootClassPath.patch
 Patch192: add_kae_implementation_add_default_conf_file.patch
@@ -1117,13 +1115,11 @@ Patch219: G1Uncommit-Introduce-G1PeriodGCNotRetry-control-whet.patch
 Patch220: JDK-debug-version-crash-when-using-AppCDS.patch
 
 # 8u312
-Patch221: 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
 Patch222: 8273111-Default-timezone-should-return-zone-ID-if-locatiome-is-valid-but-not-canonicalization-on-linux.patch
 Patch223: 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
 Patch224: G1Ucommit-Refactor-Trigger-mechanism.patch
 Patch225: G1-Full-GC-parallel-mark.patch
 Patch226: G1Uncommit-add-G1UncommitLog-limit-before-G1Uncommit.patch
-Patch227: Delete-expired-certificate-globalsignr2ca.patch
 Patch228: add-wrap_memcpy-to-libsaproc.patch
 Patch229: downgrade-the-symver-of-fcntl64.patch
 
@@ -1488,7 +1484,6 @@ pushd %{top_level_dir_name}
 %patch67 -p1
 %patch68 -p1
 %patch70 -p1
-%patch72 -p1
 %patch75 -p1
 %patch83 -p1
 %patch85 -p1
@@ -1562,7 +1557,6 @@ pushd %{top_level_dir_name}
 %patch184 -p1
 %patch185 -p1
 %patch186 -p1
-%patch187 -p1
 %patch188 -p1
 %patch189 -p1
 %patch192 -p1
@@ -1591,13 +1585,11 @@ pushd %{top_level_dir_name}
 %patch218 -p1
 %patch219 -p1
 %patch220 -p1
-%patch221 -p1
 %patch222 -p1
 %patch223 -p1
 %patch224 -p1
 %patch225 -p1
 %patch226 -p1
-%patch227 -p1
 %patch228 -p1
 %patch229 -p1
 popd
@@ -2217,6 +2209,16 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Feb 10 2022 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.322-b06.0
+- upgrade to 8u322-b06(ga)
+- modified fast-serializer-jdk8.patch to adopt openjdk
+- modified update-cacerts-and-VerifyCACerts.java-test.patch
+- deleted 8182036.patch
+- deleted 8183543-Aarch64-C2-compilation-often-fails-with-fail--last.patch
+- deleted Delete-expired-certificate-globalsignr2ca.patch
+- deleted inline-optimize-for-aarch64.patch
+
+
 * Tue Dec 21 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.10
 - delete stack protection
 
