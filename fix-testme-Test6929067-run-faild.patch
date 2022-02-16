@@ -1,0 +1,51 @@
+diff --git a/hotspot/test/runtime/6929067/Test6929067.sh b/hotspot/test/runtime/6929067/Test6929067.sh
+index 90b96d5e9..438a287c8 100644
+--- a/hotspot/test/runtime/6929067/Test6929067.sh
++++ b/hotspot/test/runtime/6929067/Test6929067.sh
+@@ -101,6 +101,10 @@ case "$ARCH" in
+ esac
+ 
+ 
++if [ "${VM_CPU}" == "aarch64" ]; then
++    COMP_FLAG="-mabi=lp64"
++fi
++
+ # VM type: need to know server or client
+ VMTYPE=client
+ grep Server vm_version.out > ${NULL}
+@@ -128,7 +132,7 @@ echo "VM type: ${VMTYPE}"
+ $gcc_cmd -DLINUX ${COMP_FLAG} -o invoke \
+     -I${COMPILEJAVA}/include -I${COMPILEJAVA}/include/linux \
+     -L${COMPILEJAVA}/jre/lib/${ARCH}/${VMTYPE} \
+-    -ljvm -lpthread invoke.c
++    invoke.c -ljvm -lpthread
+ 
+ ./invoke
+ exit $?
+diff --git a/hotspot/test/runtime/InitialThreadOverflow/testme.sh b/hotspot/test/runtime/InitialThreadOverflow/testme.sh
+index ee8d35ede..ffd7d6e3d 100644
+--- a/hotspot/test/runtime/InitialThreadOverflow/testme.sh
++++ b/hotspot/test/runtime/InitialThreadOverflow/testme.sh
+@@ -51,6 +51,10 @@ fi
+ 
+ CFLAGS="-m${VM_BITS}"
+ 
++if [ "${VM_CPU}" == "aarch64" ]; then
++    CFLAGS="-mabi=lp64"
++fi
++
+ LD_LIBRARY_PATH=.:${COMPILEJAVA}/jre/lib/${VM_CPU}/${VM_TYPE}:/usr/lib:$LD_LIBRARY_PATH
+ export LD_LIBRARY_PATH
+ 
+@@ -67,7 +71,7 @@ echo "Compilation flag: ${COMP_FLAG}"
+ $gcc_cmd -DLINUX ${CFLAGS} -o invoke \
+     -I${COMPILEJAVA}/include -I${COMPILEJAVA}/include/linux \
+     -L${COMPILEJAVA}/jre/lib/${VM_CPU}/${VM_TYPE} \
+-    -ljvm -lpthread invoke.cxx
++    invoke.cxx -ljvm -lpthread
+ 
+ ./invoke
+ exit $?
+-- 
+2.22.0
+

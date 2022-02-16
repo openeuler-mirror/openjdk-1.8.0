@@ -1,0 +1,333 @@
+diff --git a/hotspot/src/os_cpu/bsd_x86/vm/os_bsd_x86.cpp b/hotspot/src/os_cpu/bsd_x86/vm/os_bsd_x86.cpp
+index f0de6456b..a9562f74a 100644
+--- a/hotspot/src/os_cpu/bsd_x86/vm/os_bsd_x86.cpp
++++ b/hotspot/src/os_cpu/bsd_x86/vm/os_bsd_x86.cpp
+@@ -280,11 +280,11 @@ PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
+ 
+ address os::current_stack_pointer() {
+ #if defined(__clang__) || defined(__llvm__)
+-  register void *esp;
++  void *esp;
+   __asm__("mov %%" SPELL_REG_SP ", %0":"=r"(esp));
+   return (address) esp;
+ #elif defined(SPARC_WORKS)
+-  register void *esp;
++  void *esp;
+   __asm__("mov %%" SPELL_REG_SP ", %0":"=r"(esp));
+   return (address) ((char*)esp + sizeof(long)*2);
+ #else
+@@ -367,7 +367,7 @@ frame os::get_sender_for_C_frame(frame* fr) {
+ 
+ intptr_t* _get_previous_fp() {
+ #if defined(SPARC_WORKS) || defined(__clang__) || defined(__llvm__)
+-  register intptr_t **ebp;
++  intptr_t **ebp;
+   __asm__("mov %%" SPELL_REG_FP ", %0":"=r"(ebp));
+ #else
+   register intptr_t **ebp __asm__ (SPELL_REG_FP);
+diff --git a/hotspot/src/os_cpu/linux_x86/vm/os_linux_x86.cpp b/hotspot/src/os_cpu/linux_x86/vm/os_linux_x86.cpp
+index 65c3165ca..4775dc875 100644
+--- a/hotspot/src/os_cpu/linux_x86/vm/os_linux_x86.cpp
++++ b/hotspot/src/os_cpu/linux_x86/vm/os_linux_x86.cpp
+@@ -92,11 +92,11 @@ PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
+ 
+ address os::current_stack_pointer() {
+ #ifdef SPARC_WORKS
+-  register void *esp;
++  void *esp;
+   __asm__("mov %%"SPELL_REG_SP", %0":"=r"(esp));
+   return (address) ((char*)esp + sizeof(long)*2);
+ #elif defined(__clang__)
+-  intptr_t* esp;
++  void* esp;
+   __asm__ __volatile__ ("mov %%"SPELL_REG_SP", %0":"=r"(esp):);
+   return (address) esp;
+ #else
+@@ -179,7 +179,7 @@ frame os::get_sender_for_C_frame(frame* fr) {
+ 
+ intptr_t* _get_previous_fp() {
+ #ifdef SPARC_WORKS
+-  register intptr_t **ebp;
++  intptr_t **ebp;
+   __asm__("mov %%"SPELL_REG_FP", %0":"=r"(ebp));
+ #elif defined(__clang__)
+   intptr_t **ebp;
+diff --git a/hotspot/src/share/vm/adlc/adlparse.cpp b/hotspot/src/share/vm/adlc/adlparse.cpp
+index 31955ff7d..de66eb414 100644
+--- a/hotspot/src/share/vm/adlc/adlparse.cpp
++++ b/hotspot/src/share/vm/adlc/adlparse.cpp
+@@ -4564,7 +4564,7 @@ char *ADLParser::get_paren_expr(const char *description, bool include_location)
+ // string(still inside the file buffer).  Returns a pointer to the string or
+ // NULL if some other token is found instead.
+ char *ADLParser::get_ident_common(bool do_preproc) {
+-  register char c;
++  char c;
+   char *start;                    // Pointer to start of token
+   char *end;                      // Pointer to end of token
+ 
+@@ -4762,7 +4762,7 @@ char *ADLParser::get_unique_ident(FormDict& dict, const char* nameDescription){
+ // invokes a parse_err if the next token is not an integer.
+ // This routine does not leave the integer null-terminated.
+ int ADLParser::get_int(void) {
+-  register char c;
++  char          c;
+   char         *start;            // Pointer to start of token
+   char         *end;              // Pointer to end of token
+   int           result;           // Storage for integer result
+diff --git a/hotspot/src/share/vm/adlc/arena.cpp b/hotspot/src/share/vm/adlc/arena.cpp
+index d7e4fc6eb..8ec3584d1 100644
+--- a/hotspot/src/share/vm/adlc/arena.cpp
++++ b/hotspot/src/share/vm/adlc/arena.cpp
+@@ -79,7 +79,7 @@ Arena::Arena( Arena *a )
+ // Total of all Chunks in arena
+ size_t Arena::used() const {
+   size_t sum = _chunk->_len - (_max-_hwm); // Size leftover in this Chunk
+-  register Chunk *k = _first;
++  Chunk *k = _first;
+   while( k != _chunk) {         // Whilst have Chunks in a row
+     sum += k->_len;             // Total size of this Chunk
+     k = k->_next;               // Bump along to next Chunk
+@@ -93,7 +93,7 @@ void* Arena::grow( size_t x ) {
+   // Get minimal required size.  Either real big, or even bigger for giant objs
+   size_t len = max(x, Chunk::size);
+ 
+-  register Chunk *k = _chunk;   // Get filled-up chunk address
++  Chunk *k = _chunk;            // Get filled-up chunk address
+   _chunk = new (len) Chunk(len);
+ 
+   if( k ) k->_next = _chunk;    // Append new chunk to end of linked list
+diff --git a/hotspot/src/share/vm/adlc/dict2.cpp b/hotspot/src/share/vm/adlc/dict2.cpp
+index f341a2b67..2dc60b250 100644
+--- a/hotspot/src/share/vm/adlc/dict2.cpp
++++ b/hotspot/src/share/vm/adlc/dict2.cpp
+@@ -283,9 +283,9 @@ void Dict::print(PrintKeyOrValue print_key, PrintKeyOrValue print_value) {
+ // limited to MAXID characters in length.  Experimental evidence on 150K of
+ // C text shows excellent spreading of values for any size hash table.
+ int hashstr(const void *t) {
+-  register char c, k = 0;
+-  register int sum = 0;
+-  register const char *s = (const char *)t;
++  char c, k = 0;
++  int sum = 0;
++  const char *s = (const char *)t;
+ 
+   while (((c = s[k]) != '\0') && (k < MAXID-1)) { // Get characters till nul
+     c = (char) ((c << 1) + 1);    // Characters are always odd!
+diff --git a/hotspot/src/share/vm/adlc/main.cpp b/hotspot/src/share/vm/adlc/main.cpp
+index 52044f12d..bcb385563 100644
+--- a/hotspot/src/share/vm/adlc/main.cpp
++++ b/hotspot/src/share/vm/adlc/main.cpp
+@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
+ 
+   // Read command line arguments and file names
+   for( int i = 1; i < argc; i++ ) { // For all arguments
+-    register char *s = argv[i]; // Get option/filename
++    char *s = argv[i];          // Get option/filename
+ 
+     if( *s++ == '-' ) {         // It's a flag? (not a filename)
+       if( !*s ) {               // Stand-alone `-' means stdin
+diff --git a/hotspot/src/share/vm/interpreter/bytecodeInterpreter.cpp b/hotspot/src/share/vm/interpreter/bytecodeInterpreter.cpp
+index dd680a258..8ffe8f243 100644
+--- a/hotspot/src/share/vm/interpreter/bytecodeInterpreter.cpp
++++ b/hotspot/src/share/vm/interpreter/bytecodeInterpreter.cpp
+@@ -508,13 +508,13 @@ BytecodeInterpreter::run(interpreterState istate) {
+   interpreterState orig = istate;
+ #endif
+ 
+-  register intptr_t*        topOfStack = (intptr_t *)istate->stack(); /* access with STACK macros */
+-  register address          pc = istate->bcp();
+-  register jubyte opcode;
+-  register intptr_t*        locals = istate->locals();
+-  register ConstantPoolCache*    cp = istate->constants(); // method()->constants()->cache()
++  intptr_t*        topOfStack = (intptr_t *)istate->stack(); /* access with STACK macros */
++  address          pc = istate->bcp();
++  jubyte opcode;
++  intptr_t*        locals = istate->locals();
++  ConstantPoolCache*    cp = istate->constants(); // method()->constants()->cache()
+ #ifdef LOTS_OF_REGS
+-  register JavaThread*      THREAD = istate->thread();
++  JavaThread*      THREAD = istate->thread();
+ #else
+ #undef THREAD
+ #define THREAD istate->thread()
+@@ -603,7 +603,7 @@ BytecodeInterpreter::run(interpreterState istate) {
+ /* 0xF8 */ &&opc_default,     &&opc_default,        &&opc_default,      &&opc_default,
+ /* 0xFC */ &&opc_default,     &&opc_default,        &&opc_default,      &&opc_default
+   };
+-  register uintptr_t *dispatch_table = (uintptr_t*)&opclabels_data[0];
++  uintptr_t *dispatch_table = (uintptr_t*)&opclabels_data[0];
+ #endif /* USELABELS */
+ 
+ #ifdef ASSERT
+diff --git a/hotspot/src/share/vm/libadt/dict.cpp b/hotspot/src/share/vm/libadt/dict.cpp
+index 37559a097..8bef7d6ac 100644
+--- a/hotspot/src/share/vm/libadt/dict.cpp
++++ b/hotspot/src/share/vm/libadt/dict.cpp
+@@ -319,9 +319,9 @@ void Dict::print() {
+ // limited to MAXID characters in length.  Experimental evidence on 150K of
+ // C text shows excellent spreading of values for any size hash table.
+ int hashstr(const void *t) {
+-  register char c, k = 0;
+-  register int32 sum = 0;
+-  register const char *s = (const char *)t;
++  char c, k = 0;
++  int32 sum = 0;
++  const char *s = (const char *)t;
+ 
+   while( ((c = *s++) != '\0') && (k < MAXID-1) ) { // Get characters till null or MAXID-1
+     c = (c<<1)+1;               // Characters are always odd!
+diff --git a/hotspot/src/share/vm/libadt/set.cpp b/hotspot/src/share/vm/libadt/set.cpp
+index 9fab2b64b..8b511d2e7 100644
+--- a/hotspot/src/share/vm/libadt/set.cpp
++++ b/hotspot/src/share/vm/libadt/set.cpp
+@@ -73,7 +73,7 @@ char *Set::setstr() const
+   uint len = 128;               // Total string space
+   char *buf = NEW_C_HEAP_ARRAY(char,len, mtCompiler);// Some initial string space
+ 
+-  register char *s = buf;       // Current working string pointer
++  char *s = buf;                // Current working string pointer
+   *s++ = '{';
+   *s = '\0';
+ 
+@@ -125,8 +125,8 @@ void Set::print() const
+ // Set.  Return the amount of text parsed in "len", or zero in "len".
+ int Set::parse(const char *s)
+ {
+-  register char c;              // Parse character
+-  register const char *t = s;   // Save the starting position of s.
++  char c;                       // Parse character
++  const char *t = s;            // Save the starting position of s.
+   do c = *s++;                  // Skip characters
+   while( c && (c <= ' ') );     // Till no more whitespace or EOS
+   if( c != '{' ) return 0;      // Oops, not a Set openner
+diff --git a/hotspot/src/share/vm/libadt/vectset.cpp b/hotspot/src/share/vm/libadt/vectset.cpp
+index ab80afef6..d4c403858 100644
+--- a/hotspot/src/share/vm/libadt/vectset.cpp
++++ b/hotspot/src/share/vm/libadt/vectset.cpp
+@@ -105,8 +105,8 @@ void VectorSet::grow( uint newsize )
+ // Insert a member into an existing Set.
+ Set &VectorSet::operator <<= (uint elem)
+ {
+-  register uint word = elem >> 5;            // Get the longword offset
+-  register uint32 mask = 1L << (elem & 31);  // Get bit mask
++  uint word = elem >> 5;            // Get the longword offset
++  uint32 mask = 1L << (elem & 31);  // Get bit mask
+ 
+   if( word >= size )            // Need to grow set?
+     grow(elem+1);               // Then grow it
+@@ -118,10 +118,10 @@ Set &VectorSet::operator <<= (uint elem)
+ // Delete a member from an existing Set.
+ Set &VectorSet::operator >>= (uint elem)
+ {
+-  register uint word = elem >> 5; // Get the longword offset
++  uint word = elem >> 5; // Get the longword offset
+   if( word >= size )              // Beyond the last?
+     return *this;                 // Then it's clear & return clear
+-  register uint32 mask = 1L << (elem & 31);     // Get bit mask
++  uint32 mask = 1L << (elem & 31);     // Get bit mask
+   data[word] &= ~mask;            // Clear bit
+   return *this;
+ }
+@@ -132,8 +132,8 @@ VectorSet &VectorSet::operator &= (const VectorSet &s)
+ {
+   // NOTE: The intersection is never any larger than the smallest set.
+   if( s.size < size ) size = s.size; // Get smaller size
+-  register uint32 *u1 = data;   // Pointer to the destination data
+-  register uint32 *u2 = s.data; // Pointer to the source data
++  uint32 *u1 = data;   // Pointer to the destination data
++  uint32 *u2 = s.data; // Pointer to the source data
+   for( uint i=0; i<size; i++)   // For data in set
+     *u1++ &= *u2++;             // Copy and AND longwords
+   return *this;                 // Return set
+@@ -151,9 +151,9 @@ Set &VectorSet::operator &= (const Set &set)
+ VectorSet &VectorSet::operator |= (const VectorSet &s)
+ {
+   // This many words must be unioned
+-  register uint cnt = ((size<s.size)?size:s.size);
+-  register uint32 *u1 = data;   // Pointer to the destination data
+-  register uint32 *u2 = s.data; // Pointer to the source data
++  uint cnt = ((size<s.size)?size:s.size);
++  uint32 *u1 = data;   // Pointer to the destination data
++  uint32 *u2 = s.data; // Pointer to the source data
+   for( uint i=0; i<cnt; i++)    // Copy and OR the two sets
+     *u1++ |= *u2++;
+   if( size < s.size ) {         // Is set 2 larger than set 1?
+@@ -176,9 +176,9 @@ Set &VectorSet::operator |= (const Set &set)
+ VectorSet &VectorSet::operator -= (const VectorSet &s)
+ {
+   // This many words must be unioned
+-  register uint cnt = ((size<s.size)?size:s.size);
+-  register uint32 *u1 = data;   // Pointer to the destination data
+-  register uint32 *u2 = s.data; // Pointer to the source data
++  uint cnt = ((size<s.size)?size:s.size);
++  uint32 *u1 = data;   // Pointer to the destination data
++  uint32 *u2 = s.data; // Pointer to the source data
+   for( uint i=0; i<cnt; i++ )   // For data in set
+     *u1++ &= ~(*u2++);          // A <-- A & ~B  with longwords
+   return *this;                 // Return new set
+@@ -199,17 +199,17 @@ Set &VectorSet::operator -= (const Set &set)
+ //        1X --  B is a subset of A
+ int VectorSet::compare (const VectorSet &s) const
+ {
+-  register uint32 *u1 = data;   // Pointer to the destination data
+-  register uint32 *u2 = s.data; // Pointer to the source data
+-  register uint32 AnotB = 0, BnotA = 0;
++  uint32 *u1 = data;   // Pointer to the destination data
++  uint32 *u2 = s.data; // Pointer to the source data
++  uint32 AnotB = 0, BnotA = 0;
+   // This many words must be unioned
+-  register uint cnt = ((size<s.size)?size:s.size);
++  uint cnt = ((size<s.size)?size:s.size);
+ 
+   // Get bits for both sets
+   uint i;                       // Exit value of loop
+   for( i=0; i<cnt; i++ ) {      // For data in BOTH sets
+-    register uint32 A = *u1++;  // Data from one guy
+-    register uint32 B = *u2++;  // Data from other guy
++    uint32 A = *u1++;  // Data from one guy
++    uint32 B = *u2++;  // Data from other guy
+     AnotB |= (A & ~B);          // Compute bits in A not B
+     BnotA |= (B & ~A);          // Compute bits in B not A
+   }
+@@ -249,9 +249,9 @@ int VectorSet::disjoint(const Set &set) const
+   const VectorSet &s = *(set.asVectorSet());
+ 
+   // NOTE: The intersection is never any larger than the smallest set.
+-  register uint small_size = ((size<s.size)?size:s.size);
+-  register uint32 *u1 = data;        // Pointer to the destination data
+-  register uint32 *u2 = s.data;      // Pointer to the source data
++  uint small_size = ((size<s.size)?size:s.size);
++  uint32 *u1 = data;        // Pointer to the destination data
++  uint32 *u2 = s.data;      // Pointer to the source data
+   for( uint i=0; i<small_size; i++)  // For data in set
+     if( *u1++ & *u2++ )              // If any elements in common
+       return 0;                      // Then not disjoint
+@@ -290,10 +290,10 @@ int VectorSet::operator <= (const Set &set) const
+ // Test for membership.  A Zero/Non-Zero value is returned!
+ int VectorSet::operator[](uint elem) const
+ {
+-  register uint word = elem >> 5; // Get the longword offset
++  uint word = elem >> 5; // Get the longword offset
+   if( word >= size )              // Beyond the last?
+     return 0;                     // Then it's clear
+-  register uint32 mask = 1L << (elem & 31);  // Get bit mask
++  uint32 mask = 1L << (elem & 31);  // Get bit mask
+   return ((data[word] & mask))!=0;           // Return the sense of the bit
+ }
+ 
+diff --git a/hotspot/src/share/vm/opto/mulnode.cpp b/hotspot/src/share/vm/opto/mulnode.cpp
+index 9f2a134f1..5796af3a0 100644
+--- a/hotspot/src/share/vm/opto/mulnode.cpp
++++ b/hotspot/src/share/vm/opto/mulnode.cpp
+@@ -46,7 +46,7 @@ uint MulNode::hash() const {
+ //------------------------------Identity---------------------------------------
+ // Multiplying a one preserves the other argument
+ Node *MulNode::Identity( PhaseTransform *phase ) {
+-  register const Type *one = mul_id();  // The multiplicative identity
++  const Type *one = mul_id();  // The multiplicative identity
+   if( phase->type( in(1) )->higher_equal( one ) ) return in(2);
+   if( phase->type( in(2) )->higher_equal( one ) ) return in(1);
+ 
+-- 
+2.12.3
+

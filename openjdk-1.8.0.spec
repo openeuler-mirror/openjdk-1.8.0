@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1
+Release: 2
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1124,6 +1124,16 @@ Patch228: add-wrap_memcpy-to-libsaproc.patch
 Patch229: downgrade-the-symver-of-fcntl64.patch
 
 # 8u322
+Patch230: add-system-property-swing.JComboBox.useLegacyMode.patch
+Patch231: debuginfo.diz-should-not-contain-the-path-after-unzip.patch
+Patch232: 8173361-various-crashes-in-JvmtiExport-post_compiled.patch
+Patch233: fix-TestUseCompressedOopsErgo-run-failed.patch
+Patch235: fix-testme-Test6929067-run-faild.patch
+Patch236: penetration_testing_vulnerability_fix.patch
+Patch237: 8136577_Make_AbortVMOnException_available_in_product_builds.patch
+Patch238: add-environment-variable-ZIP_INVALID_LOC_HEADER_EXIT.patch
+Patch239: print-fd-and-file-path-when-a-zip-invalid-loc-header.patch
+Patch240: 8207011-Remove-uses-of-the-register-storage-class-specifier.patch
 
 #############################################
 #
@@ -1592,6 +1602,16 @@ pushd %{top_level_dir_name}
 %patch226 -p1
 %patch228 -p1
 %patch229 -p1
+%patch230 -p1
+%patch231 -p1
+%patch232 -p1
+%patch233 -p1
+%patch235 -p1
+%patch236 -p1
+%patch237 -p1
+%patch238 -p1
+%patch239 -p1
+%patch240 -p1
 popd
 
 # System library fixes
@@ -2209,6 +2229,19 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Wed Feb 16 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.2
+- add add-system-property-swing.JComboBox.useLegacyMode.patch
+- add debuginfo.diz-should-not-contain-the-path-after-unzip.patch
+- add 8173361-various-crashes-in-JvmtiExport-post_compiled.patch
+- add fix-TestUseCompressedOopsErgo-run-failed.patch
+- add fix-testme-Test6929067-run-faild.patch
+- add penetration_testing_vulnerability_fix.patch
+- add 8136577_Make_AbortVMOnException_available_in_product_builds.patch
+- add add-environment-variable-ZIP_INVALID_LOC_HEADER_EXIT.patch
+- add print-fd-and-file-path-when-a-zip-invalid-loc-header.patch
+- add 8207011-Remove-uses-of-the-register-storage-class-specifier.patch
+- modified implementation_of_Blas_hotspot_function_in_Intrinsics.patch
+
 * Tue Feb 15 2022 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.322-b06.1
 - fix makes failure when gcc version is lower than 8 
 

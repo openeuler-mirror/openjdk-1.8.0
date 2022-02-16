@@ -1,0 +1,84 @@
+diff --git a/jdk/src/share/classes/javax/swing/JComboBox.java b/jdk/src/share/classes/javax/swing/JComboBox.java
+index 27a0c055a..d62330063 100644
+--- a/jdk/src/share/classes/javax/swing/JComboBox.java
++++ b/jdk/src/share/classes/javax/swing/JComboBox.java
+@@ -24,9 +24,12 @@
+  */
+ package javax.swing;
+ 
++import sun.security.action.GetPropertyAction;
++
+ import java.beans.PropertyChangeEvent;
+ import java.beans.PropertyChangeListener;
+ import java.beans.Transient;
++import java.security.AccessController;
+ import java.util.*;
+ 
+ import java.awt.*;
+@@ -86,6 +89,16 @@ implements ItemSelectable,ListDataListener,ActionListener, Accessible {
+      */
+     private static final String uiClassID = "ComboBoxUI";
+ 
++    /**
++     * Use legacy mode, rollback JDK-8072767 changes.
++     */
++    private static final boolean useLegacyMode;
++
++    static {
++        useLegacyMode = "true".equals(AccessController.doPrivileged(
++                new GetPropertyAction("swing.JComboBox.useLegacyMode", "true")));
++    }
++
+     /**
+      * This protected field is implementation specific. Do not access directly
+      * or override. Use the accessor methods instead.
+@@ -569,7 +582,9 @@ implements ItemSelectable,ListDataListener,ActionListener, Accessible {
+                     return;
+                 }
+ 
+-                getEditor().setItem(anObject);
++                if (!useLegacyMode) {
++                    getEditor().setItem(anObject);
++                }
+             }
+ 
+             // Must toggle the state of this flag since this method
+@@ -1309,12 +1324,16 @@ implements ItemSelectable,ListDataListener,ActionListener, Accessible {
+      * do not call or override.
+      */
+     public void actionPerformed(ActionEvent e) {
+-        setPopupVisible(false);
+-        getModel().setSelectedItem(getEditor().getItem());
+-        String oldCommand = getActionCommand();
+-        setActionCommand("comboBoxEdited");
+-        fireActionEvent();
+-        setActionCommand(oldCommand);
++        ComboBoxEditor editor = getEditor();
++        if ((!useLegacyMode) || ((editor != null) && (e != null) && (editor == e.getSource()
++                || editor.getEditorComponent() == e.getSource()))) {
++            setPopupVisible(false);
++            getModel().setSelectedItem(editor.getItem());
++            String oldCommand = getActionCommand();
++            setActionCommand("comboBoxEdited");
++            fireActionEvent();
++            setActionCommand(oldCommand);
++        }
+     }
+ 
+     /**
+diff --git a/jdk/test/javax/swing/JComboBox/8072767/bug8072767.java b/jdk/test/javax/swing/JComboBox/8072767/bug8072767.java
+index 826e4631d..3d3e42cac 100644
+--- a/jdk/test/javax/swing/JComboBox/8072767/bug8072767.java
++++ b/jdk/test/javax/swing/JComboBox/8072767/bug8072767.java
+@@ -41,7 +41,7 @@ import javax.swing.SwingUtilities;
+  * @author Alexander Scherbatiy
+  * @summary DefaultCellEditor for comboBox creates ActionEvent with wrong source
+  *          object
+- * @run main bug8072767
++ * @run main/othervm -Dswing.JComboBox.useLegacyMode=false bug8072767
+  */
+ 
+ public class bug8072767 {
+-- 
+2.22.0
+
