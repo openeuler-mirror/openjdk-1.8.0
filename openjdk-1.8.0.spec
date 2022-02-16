@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 0
+Release: 1
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2209,6 +2209,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Tue Feb 15 2022 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.322-b06.1
+- fix makes failure when gcc version is lower than 8 
+
 * Thu Feb 10 2022 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.322-b06.0
 - upgrade to 8u322-b06(ga)
 - modified fast-serializer-jdk8.patch to adopt openjdk
