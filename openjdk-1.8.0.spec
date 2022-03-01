@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 2
+Release: 3
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2229,6 +2229,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Mar 1 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.3
+- modified 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
+
 * Wed Feb 16 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.2
 - add add-system-property-swing.JComboBox.useLegacyMode.patch
 - add debuginfo.diz-should-not-contain-the-path-after-unzip.patch
