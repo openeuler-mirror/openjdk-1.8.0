@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 3
+Release: 4
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1134,6 +1134,7 @@ Patch237: 8136577_Make_AbortVMOnException_available_in_product_builds.patch
 Patch238: add-environment-variable-ZIP_INVALID_LOC_HEADER_EXIT.patch
 Patch239: print-fd-and-file-path-when-a-zip-invalid-loc-header.patch
 Patch240: 8207011-Remove-uses-of-the-register-storage-class-specifier.patch
+Patch241: 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
 
 #############################################
 #
@@ -1612,6 +1613,7 @@ pushd %{top_level_dir_name}
 %patch238 -p1
 %patch239 -p1
 %patch240 -p1
+%patch241 -p1
 popd
 
 # System library fixes
@@ -2229,6 +2231,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Wed Mar 2 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.4
+- add 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
+
 * Thu Mar 1 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.3
 - modified 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
 
