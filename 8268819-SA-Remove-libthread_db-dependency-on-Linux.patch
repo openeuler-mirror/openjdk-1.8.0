@@ -1,0 +1,448 @@
+From ed8ff7161f021b4a9cb5ec7c4c55c7b62a0ac389 Mon Sep 17 00:00:00 2001
+From: d30023828 <douyiwang@huawei.com>
+Date: Wed, 9 Feb 2022 18:32:05 +0800
+Subject: [PATCH 3/8] 8268819: SA: Remove libthread_db dependency on Linux
+
+DTS/AR: DTS2022020914784
+Summary:hotspot:SA: Remove libthread_db dependency on Linux
+LLT:NA
+Patch Type:backport
+Bug url:https://bugs.openjdk.java.net/browse/JDK-8268819
+---
+ .../agent/src/os/linux/LinuxDebuggerLocal.c   |  3 +-
+ hotspot/agent/src/os/linux/Makefile           |  6 +-
+ hotspot/agent/src/os/linux/libproc.h          | 35 +--------
+ hotspot/agent/src/os/linux/libproc_impl.c     | 76 +------------------
+ hotspot/agent/src/os/linux/libproc_impl.h     |  8 +-
+ hotspot/agent/src/os/linux/proc_service.h     | 12 +--
+ hotspot/agent/src/os/linux/ps_core.c          |  6 +-
+ hotspot/agent/src/os/linux/ps_proc.c          | 35 +++++++--
+ .../debugger/linux/LinuxDebuggerLocal.java    |  2 +-
+ hotspot/make/linux/makefiles/saproc.make      |  2 +-
+ 10 files changed, 46 insertions(+), 139 deletions(-)
+
+diff --git a/hotspot/agent/src/os/linux/LinuxDebuggerLocal.c b/hotspot/agent/src/os/linux/LinuxDebuggerLocal.c
+index d6a0c7d9a..a4c6f4057 100644
+--- a/hotspot/agent/src/os/linux/LinuxDebuggerLocal.c
++++ b/hotspot/agent/src/os/linux/LinuxDebuggerLocal.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2002, 2013, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2002, 2019, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -24,6 +24,7 @@
+ 
+ #include <jni.h>
+ #include "libproc.h"
++#include "proc_service.h"
+ 
+ #include <elf.h>
+ #include <sys/types.h>
+diff --git a/hotspot/agent/src/os/linux/Makefile b/hotspot/agent/src/os/linux/Makefile
+index c0b5c869c..957b4b555 100644
+--- a/hotspot/agent/src/os/linux/Makefile
++++ b/hotspot/agent/src/os/linux/Makefile
+@@ -38,8 +38,6 @@ INCLUDES = -I${JAVA_HOME}/include -I${JAVA_HOME}/include/linux
+ 
+ OBJS     = $(SOURCES:%.c=$(ARCH)/%.o) $(ARCH)/sadis.o
+ 
+-LIBS     = -lthread_db
+-
+ CFLAGS   = -c -fPIC -g -D_GNU_SOURCE -D$(ARCH) $(INCLUDES) -I$(ARCH)
+ 
+ LIBSA = $(ARCH)/libsaproc.so
+@@ -81,13 +79,13 @@ LDFLAGS_NO_EXEC_STACK="-Wl,-z,noexecstack"
+ LFLAGS_LIBSA += $(LDFLAGS_NO_EXEC_STACK)
+ 
+ $(LIBSA): $(ARCH) $(OBJS) mapfile
+-        $(GCC) -shared $(LFLAGS_LIBSA) -o $(LIBSA) $(OBJS) $(LIBS)
++        $(GCC) -shared $(LFLAGS_LIBSA) -o $(LIBSA) $(OBJS)
+ 
+ test.o: test.c
+ 	$(GCC) -c -o test.o -g -D_GNU_SOURCE -D$(ARCH) $(INCLUDES) test.c
+ 
+ test: test.o
+-	$(GCC) -o test test.o -L$(ARCH) -lsaproc $(LIBS)
++	$(GCC) -o test test.o -L$(ARCH) -lsaproc
+ 
+ clean:
+         rm -fr $(ARCH)
+diff --git a/hotspot/agent/src/os/linux/libproc.h b/hotspot/agent/src/os/linux/libproc.h
+index 6b6e41cab..36e82d207 100644
+--- a/hotspot/agent/src/os/linux/libproc.h
++++ b/hotspot/agent/src/os/linux/libproc.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2003, 2015, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -28,49 +28,18 @@
+ #include <jni.h>
+ #include <unistd.h>
+ #include <stdint.h>
+-#include "proc_service.h"
+ 
+ #ifdef ALT_SASRCDIR
+ #include "libproc_md.h"
+ #endif
+ 
++#include <sys/procfs.h>
+ #include <sys/ptrace.h>
+ 
+ #if defined(aarch64)
+ #include "asm/ptrace.h"
+ #endif
+ 
+-/************************************************************************************
+-
+-0. This is very minimal subset of Solaris libproc just enough for current application.
+-Please note that the bulk of the functionality is from proc_service interface. This
+-adds Pgrab__ and some missing stuff. We hide the difference b/w live process and core
+-file by this interface.
+-
+-1. pthread_id unique in both NPTL & LinuxThreads. We store this in
+-OSThread::_pthread_id in JVM code.
+-
+-2. All threads see the same pid when they call getpid() under NPTL.
+-Threads receive different pid under LinuxThreads. We used to save the result of
+-::getpid() call in OSThread::_thread_id. This way uniqueness of OSThread::_thread_id
+-was lost under NPTL. Now, we store the result of ::gettid() call in
+-OSThread::_thread_id. Because gettid returns actual pid of thread (lwp id), this is
+-unique again. We therefore use OSThread::_thread_id as unique identifier.
+-
+-3. There is a unique LWP id under both thread libraries. libthread_db  maps pthread_id
+-to its underlying lwp_id under both the thread libraries. thread_info.lwp_id stores
+-lwp_id of the thread. The lwp id is nothing but the actual pid of clone'd processes. But
+-unfortunately libthread_db does not work very well for core dumps. So, we get pthread_id
+-only for processes. For core dumps, we don't use libthread_db at all (like gdb).
+-
+-4. ptrace operates on this LWP id under both the thread libraries. When we say 'pid' for
+-ptrace call, we refer to lwp_id of the thread.
+-
+-5. for core file, we parse ELF files and read data from them. For processes we  use
+-combination of ptrace and /proc calls.
+-
+-*************************************************************************************/
+-
+ 
+ #if defined(sparc) || defined(sparcv9) || defined(ppc64)
+ #include <asm/ptrace.h>
+diff --git a/hotspot/agent/src/os/linux/libproc_impl.c b/hotspot/agent/src/os/linux/libproc_impl.c
+index 73a15ce35..cf5bd030f 100644
+--- a/hotspot/agent/src/os/linux/libproc_impl.c
++++ b/hotspot/agent/src/os/linux/libproc_impl.c
+@@ -26,8 +26,9 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <fcntl.h>
+-#include <thread_db.h>
++#include <sys/procfs.h>
+ #include "libproc_impl.h"
++#include "proc_service.h"
+ 
+ #define SA_ALTROOT "SA_ALTROOT"
+ 
+@@ -105,13 +106,6 @@ bool is_debug() {
+ bool init_libproc(bool debug) {
+    // init debug mode
+    _libsaproc_debug = debug;
+-
+-   // initialize the thread_db library
+-   if (td_init() != TD_OK) {
+-     print_debug("libthread_db's td_init failed\n");
+-     return false;
+-   }
+-
+    return true;
+ }
+ 
+@@ -243,7 +237,7 @@ const char* symbol_for_pc(struct ps_prochandle* ph, uintptr_t addr, uintptr_t* p
+ }
+ 
+ // add a thread to ps_prochandle
+-thread_info* add_thread_info(struct ps_prochandle* ph, pthread_t pthread_id, lwpid_t lwp_id) {
++thread_info* add_thread_info(struct ps_prochandle* ph, lwpid_t lwp_id) {
+    thread_info* newthr;
+    if ( (newthr = (thread_info*) calloc(1, sizeof(thread_info))) == NULL) {
+       print_debug("can't allocate memory for thread_info\n");
+@@ -251,7 +245,6 @@ thread_info* add_thread_info(struct ps_prochandle* ph, pthread_t pthread_id, lwp
+    }
+ 
+    // initialize thread info
+-   newthr->pthread_id = pthread_id;
+    newthr->lwp_id = lwp_id;
+ 
+    // add new thread to the list
+@@ -282,64 +275,6 @@ void delete_thread_info(struct ps_prochandle* ph, thread_info* thr_to_be_removed
+     free(current_thr);
+ }
+ 
+-// struct used for client data from thread_db callback
+-struct thread_db_client_data {
+-   struct ps_prochandle* ph;
+-   thread_info_callback callback;
+-};
+-
+-// callback function for libthread_db
+-static int thread_db_callback(const td_thrhandle_t *th_p, void *data) {
+-  struct thread_db_client_data* ptr = (struct thread_db_client_data*) data;
+-  td_thrinfo_t ti;
+-  td_err_e err;
+-
+-  memset(&ti, 0, sizeof(ti));
+-  err = td_thr_get_info(th_p, &ti);
+-  if (err != TD_OK) {
+-    print_debug("libthread_db : td_thr_get_info failed, can't get thread info\n");
+-    return err;
+-  }
+-
+-  print_debug("thread_db : pthread %d (lwp %d)\n", ti.ti_tid, ti.ti_lid);
+-
+-  if (ti.ti_state == TD_THR_UNKNOWN || ti.ti_state == TD_THR_ZOMBIE) {
+-    print_debug("Skipping pthread %d (lwp %d)\n", ti.ti_tid, ti.ti_lid);
+-    return TD_OK;
+-  }
+-
+-  if (ptr->callback(ptr->ph, ti.ti_tid, ti.ti_lid) != true)
+-    return TD_ERR;
+-
+-  return TD_OK;
+-}
+-
+-// read thread_info using libthread_db
+-bool read_thread_info(struct ps_prochandle* ph, thread_info_callback cb) {
+-  struct thread_db_client_data mydata;
+-  td_thragent_t* thread_agent = NULL;
+-  if (td_ta_new(ph, &thread_agent) != TD_OK) {
+-     print_debug("can't create libthread_db agent\n");
+-     return false;
+-  }
+-
+-  mydata.ph = ph;
+-  mydata.callback = cb;
+-
+-  // we use libthread_db iterator to iterate thru list of threads.
+-  if (td_ta_thr_iter(thread_agent, thread_db_callback, &mydata,
+-                 TD_THR_ANY_STATE, TD_THR_LOWEST_PRIORITY,
+-                 TD_SIGNO_MASK, TD_THR_ANY_USER_FLAGS) != TD_OK) {
+-     td_ta_delete(thread_agent);
+-     return false;
+-  }
+-
+-  // delete thread agent
+-  td_ta_delete(thread_agent);
+-  return true;
+-}
+-
+-
+ // get number of threads
+ int get_num_threads(struct ps_prochandle* ph) {
+    return ph->num_threads;
+@@ -463,8 +398,3 @@ ps_err_e ps_lgetregs(struct ps_prochandle *ph, lwpid_t lid, prgregset_t gregset)
+   return PS_OK;
+ }
+ 
+-// new libthread_db of NPTL seem to require this symbol
+-ps_err_e ps_get_thread_area() {
+-  print_debug("ps_get_thread_area not implemented\n");
+-  return PS_OK;
+-}
+diff --git a/hotspot/agent/src/os/linux/libproc_impl.h b/hotspot/agent/src/os/linux/libproc_impl.h
+index 1d25a0922..8546bbf5a 100644
+--- a/hotspot/agent/src/os/linux/libproc_impl.h
++++ b/hotspot/agent/src/os/linux/libproc_impl.h
+@@ -46,7 +46,6 @@ typedef struct lib_info {
+ // list of threads
+ typedef struct thread_info {
+    lwpid_t                  lwp_id;
+-   pthread_t                pthread_id; // not used cores, always -1
+    struct user_regs_struct  regs;       // not for process, core uses for caching regset
+    struct thread_info*      next;
+ } thread_info;
+@@ -108,11 +107,6 @@ void print_debug(const char* format,...);
+ void print_error(const char* format,...);
+ bool is_debug();
+ 
+-typedef bool (*thread_info_callback)(struct ps_prochandle* ph, pthread_t pid, lwpid_t lwpid);
+-
+-// reads thread info using libthread_db and calls above callback for each thread
+-bool read_thread_info(struct ps_prochandle* ph, thread_info_callback cb);
+-
+ // deletes a thread from the thread list
+ void delete_thread_info(struct ps_prochandle* ph, thread_info* thr);
+ 
+@@ -124,7 +118,7 @@ lib_info* add_lib_info_fd(struct ps_prochandle* ph, const char* libname, int fd,
+                           uintptr_t base);
+ 
+ // adds a new thread to threads list, returns NULL on failure
+-thread_info* add_thread_info(struct ps_prochandle* ph, pthread_t pthread_id, lwpid_t lwp_id);
++thread_info* add_thread_info(struct ps_prochandle* ph, lwpid_t lwp_id);
+ 
+ // a test for ELF signature without using libelf
+ bool is_elf_file(int fd);
+diff --git a/hotspot/agent/src/os/linux/proc_service.h b/hotspot/agent/src/os/linux/proc_service.h
+index 802e5b0bb..a8e0c2a5c 100644
+--- a/hotspot/agent/src/os/linux/proc_service.h
++++ b/hotspot/agent/src/os/linux/proc_service.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2003, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2003,2019, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -26,11 +26,10 @@
+ #define _PROC_SERVICE_H_
+ 
+ #include <stdio.h>
+-#include <thread_db.h>
++#include <sys/procfs.h>
++
++#include "libproc.h"
+ 
+-// Linux does not have the proc service library, though it does provide the
+-// thread_db library which can be used to manipulate threads without having
+-// to know the details of LinuxThreads or NPTL
+ 
+ // copied from Solaris "proc_service.h"
+ typedef enum {
+@@ -70,7 +69,4 @@ ps_err_e  ps_lgetfpregs(struct  ps_prochandle  *ph,  lwpid_t lid, prfpregset_t *
+ 
+ ps_err_e ps_lgetregs(struct ps_prochandle *ph, lwpid_t lid, prgregset_t gregset);
+ 
+-// new libthread_db of NPTL seem to require this symbol
+-ps_err_e ps_get_thread_area();
+-
+ #endif /* _PROC_SERVICE_H_ */
+diff --git a/hotspot/agent/src/os/linux/ps_core.c b/hotspot/agent/src/os/linux/ps_core.c
+index b7fe4c095..6da43f195 100644
+--- a/hotspot/agent/src/os/linux/ps_core.c
++++ b/hotspot/agent/src/os/linux/ps_core.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2003, 2013, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -31,6 +31,7 @@
+ #include <elf.h>
+ #include <link.h>
+ #include "libproc_impl.h"
++#include "proc_service.h"
+ #include "salibelf.h"
+ 
+ // This file has the libproc implementation to read core files.
+@@ -546,8 +547,7 @@ static bool core_handle_prstatus(struct ps_prochandle* ph, const char* buf, size
+    prstatus_t* prstat = (prstatus_t*) buf;
+    thread_info* newthr;
+    print_debug("got integer regset for lwp %d\n", prstat->pr_pid);
+-   // we set pthread_t to -1 for core dump
+-   if((newthr = add_thread_info(ph, (pthread_t) -1,  prstat->pr_pid)) == NULL)
++    if((newthr = add_thread_info(ph, prstat->pr_pid)) == NULL)
+       return false;
+ 
+    // copy regs
+diff --git a/hotspot/agent/src/os/linux/ps_proc.c b/hotspot/agent/src/os/linux/ps_proc.c
+index c4d6a9ecc..748cc1397 100644
+--- a/hotspot/agent/src/os/linux/ps_proc.c
++++ b/hotspot/agent/src/os/linux/ps_proc.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2003, 2013, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -28,6 +28,7 @@
+ #include <signal.h>
+ #include <errno.h>
+ #include <elf.h>
++#include <dirent.h>
+ #include <ctype.h>
+ #include <sys/types.h>
+ #include <sys/wait.h>
+@@ -338,11 +339,6 @@ static char * fgets_no_cr(char * buf, int n, FILE *fp)
+    return rslt;
+ }
+ 
+-// callback for read_thread_info
+-static bool add_new_thread(struct ps_prochandle* ph, pthread_t pthread_id, lwpid_t lwp_id) {
+-  return add_thread_info(ph, pthread_id, lwp_id) != NULL;
+-}
+-
+ static bool read_lib_info(struct ps_prochandle* ph) {
+   char fname[32];
+   char buf[PATH_MAX];
+@@ -462,6 +458,7 @@ struct ps_prochandle* Pgrab(pid_t pid, char* err_buf, size_t err_buf_len) {
+ 
+   // initialize ps_prochandle
+   ph->pid = pid;
++  add_thread_info(ph, ph->pid);
+ 
+   // initialize vtable
+   ph->ops = &process_ops;
+@@ -471,8 +468,30 @@ struct ps_prochandle* Pgrab(pid_t pid, char* err_buf, size_t err_buf_len) {
+   // the list of threads within the same process.
+   read_lib_info(ph);
+ 
+-  // read thread info
+-  read_thread_info(ph, add_new_thread);
++  /*
++   * Read thread info.
++   * SA scans all tasks in /proc/<PID>/task to read all threads info.
++   */
++  char taskpath[PATH_MAX];
++  DIR *dirp;
++  struct dirent *entry;
++
++  snprintf(taskpath, PATH_MAX, "/proc/%d/task", ph->pid);
++  dirp = opendir(taskpath);
++  int lwp_id;
++  while ((entry = readdir(dirp)) != NULL) {
++    if (*entry->d_name == '.') {
++      continue;
++    }
++    lwp_id = atoi(entry->d_name);
++    if (lwp_id == ph->pid) {
++      continue;
++    }
++    if (!process_doesnt_exist(lwp_id)) {
++      add_thread_info(ph, lwp_id);
++    }
++  }
++  closedir(dirp);
+ 
+   // attach to the threads
+   thr = ph->threads;
+diff --git a/hotspot/agent/src/share/classes/sun/jvm/hotspot/debugger/linux/LinuxDebuggerLocal.java b/hotspot/agent/src/share/classes/sun/jvm/hotspot/debugger/linux/LinuxDebuggerLocal.java
+index f282a228d..7a28506b8 100644
+--- a/hotspot/agent/src/share/classes/sun/jvm/hotspot/debugger/linux/LinuxDebuggerLocal.java
++++ b/hotspot/agent/src/share/classes/sun/jvm/hotspot/debugger/linux/LinuxDebuggerLocal.java
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2002, 2013, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2002, 2019, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+diff --git a/hotspot/make/linux/makefiles/saproc.make b/hotspot/make/linux/makefiles/saproc.make
+index 258585366..d9b1f14f4 100644
+--- a/hotspot/make/linux/makefiles/saproc.make
++++ b/hotspot/make/linux/makefiles/saproc.make
+@@ -108,7 +108,7 @@ $(LIBSAPROC): $(SASRCFILES) $(SAMAPFILE)
+ 	           $(SA_OPT_FLAGS)                                      \
+ 	           $(EXTRA_CFLAGS)                                      \
+ 	           -o $@                                                \
+-	           -lthread_db -ldl
++	           -ldl
+ ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
+   ifneq ($(STRIP_POLICY),no_strip)
+ 	$(QUIETLY) $(OBJCOPY) --only-keep-debug $@ $(LIBSAPROC_DEBUGINFO)
+-- 
+2.22.0
+

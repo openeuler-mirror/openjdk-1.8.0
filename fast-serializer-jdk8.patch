@@ -314,7 +314,7 @@ index 5d30f2a01..b67f01719 100644
          ObjectStreamClass desc = new ObjectStreamClass();
          desc.readNonProxy(this);
          return desc;
-@@ -1935,17 +2056,40 @@ public class ObjectInputStream
+@@ -1996,41 +2090,64 @@ private ObjectStreamClass readNonProxyDesc(boolean unshared)
  
          skipCustomData();
  
@@ -322,6 +322,30 @@ index 5d30f2a01..b67f01719 100644
 -            totalObjectRefs++;
 -            depth++;
 -            desc.initNonProxy(readDesc, cl, resolveEx, readClassDesc(false));
+-
+-            if (cl != null) {
+-                // Check that serial filtering has been done on the local class descriptor's superclass,
+-                // in case it does not appear in the stream.
+-
+-                // Find the next super descriptor that has a local class descriptor.
+-                // Descriptors for which there is no local class are ignored.
+-                ObjectStreamClass superLocal = null;
+-                for (ObjectStreamClass sDesc = desc.getSuperDesc(); sDesc != null; sDesc = sDesc.getSuperDesc()) {
+-                    if ((superLocal = sDesc.getLocalDesc()) != null) {
+-                        break;
+-                    }
+-                }
+-
+-                // Scan local descriptor superclasses for a match with the local descriptor of the super found above.
+-                // For each super descriptor before the match, invoke the serial filter on the class.
+-                // The filter is invoked for each class that has not already been filtered
+-                // but would be filtered if the instance had been serialized by this Java runtime.
+-                for (ObjectStreamClass lDesc = desc.getLocalDesc().getSuperDesc();
+-                     lDesc != null && lDesc != superLocal;
+-                     lDesc = lDesc.getSuperDesc()) {
+-                    filterCheck(lDesc.forClass(), -1);
+-                }
+-            }
 -        } finally {
 -            depth--;
 +        totalObjectRefs++;
@@ -344,6 +368,30 @@ index 5d30f2a01..b67f01719 100644
 +        } else {
 +            try {
 +                desc.initNonProxy(readDesc, cl, resolveEx, readClassDesc(false));
++
++                if (cl != null) {
++                    // Check that serial filtering has been done on the local class descriptor's superclass,
++                    // in case it does not appear in the stream.
++
++                    // Find the next super descriptor that has a local class descriptor.
++                    // Descriptors for which there is no local class are ignored.
++                    ObjectStreamClass superLocal = null;
++                    for (ObjectStreamClass sDesc = desc.getSuperDesc(); sDesc != null; sDesc = sDesc.getSuperDesc()) {
++                        if ((superLocal = sDesc.getLocalDesc()) != null) {
++                            break;
++                        }
++                    }
++
++                    // Scan local descriptor superclasses for a match with the local descriptor of the super found above.
++                    // For each super descriptor before the match, invoke the serial filter on the class.
++                    // The filter is invoked for each class that has not already been filtered
++                    // but would be filtered if the instance had been serialized by this Java runtime.
++                    for (ObjectStreamClass lDesc = desc.getLocalDesc().getSuperDesc();
++                         lDesc != null && lDesc != superLocal;
++                         lDesc = lDesc.getSuperDesc()) {
++                        filterCheck(lDesc.forClass(), -1);
++                    }
++                }
 +            } finally {
 +                depth--;
 +            }

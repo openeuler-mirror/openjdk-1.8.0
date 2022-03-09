@@ -224,14 +224,14 @@ index dd107fc..791ddb6 100644
              + File.separator + "security" + File.separator + "cacerts";
  
      // The numbers of certs now.
--    private static final int COUNT = 91;
-+    private static final int COUNT = 86;
+-    private static final int COUNT = 89;
++    private static final int COUNT = 84;
  
      // SHA-256 of cacerts, can be generated with
      // shasum -a 256 cacerts | sed -e 's/../&:/g' | tr '[:lower:]' '[:upper:]' | cut -c1-95
      private static final String CHECKSUM
--            = "9B:C3:0B:24:D4:26:E4:A9:4F:2C:96:25:06:9B:08:E5:13:5B:0B:33:74:5F:78:DB:BD:91:CD:31:D4:37:07:28";
-+            = "A5:00:71:02:B4:8B:AC:BE:64:34:0A:F2:DF:9D:F7:75:9D:05:84:7E:F6:EA:48:F0:64:36:29:8C:E7:A2:2D:63";
+-            = "CC:AD:BB:49:70:97:3F:42:AD:73:91:A0:A2:C4:B8:AA:D1:95:59:F3:B3:22:09:2A:1F:2C:AB:04:47:08:EF:AA";
++            = "D3:05:21:64:FA:D7:CD:29:E8:CB:57:E7:47:ED:79:9B:47:D8:0E:75:2D:CA:83:BB:86:AF:D9:43:FD:3E:17:85";
  
      // map of cert alias to SHA-256 fingerprint
      @SuppressWarnings("serial")
@@ -259,7 +259,7 @@ index dd107fc..791ddb6 100644
              put("quovadisrootca1g3 [jdk]",
                      "8A:86:6F:D1:B2:76:B5:7E:57:8E:92:1C:65:82:8A:2B:ED:58:E9:F2:F2:88:05:41:34:B7:F1:F4:BF:C9:CC:74");
              put("quovadisrootca2 [jdk]",
-@@ -267,22 +247,7 @@ public class VerifyCACerts {
+@@ -267,20 +247,7 @@ public class VerifyCACerts {
      // Exception list to 90 days expiry policy
      // No error will be reported if certificate in this list expires
      @SuppressWarnings("serial")
@@ -275,8 +275,6 @@ index dd107fc..791ddb6 100644
 -            add("luxtrustglobalrootca [jdk]");
 -            // Valid until: Wed Mar 17 11:33:33 PDT 2021
 -            add("quovadisrootca [jdk]");
--            // Valid until: Thu Sep 30 14:01:15 GMT 2021
--            add("identrustdstx3 [jdk]");
 -        }
 -    };
 +    private static final HashSet<String> EXPIRY_EXC_ENTRIES = new HashSet<String>();

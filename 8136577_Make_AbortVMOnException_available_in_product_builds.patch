@@ -1,0 +1,179 @@
+diff --git a/hotspot/src/share/vm/c1/c1_Runtime1.cpp b/hotspot/src/share/vm/c1/c1_Runtime1.cpp
+index 3c1ea7280..b8d866786 100644
+--- a/hotspot/src/share/vm/c1/c1_Runtime1.cpp
++++ b/hotspot/src/share/vm/c1/c1_Runtime1.cpp
+@@ -542,7 +542,7 @@ JRT_ENTRY_NO_ASYNC(static address, exception_handler_for_pc_helper(JavaThread* t
+                     exception->print_value_string(), p2i((address)exception()), nm->method()->print_value_string(), p2i(pc), p2i(thread));
+     }
+     // for AbortVMOnException flag
+-    NOT_PRODUCT(Exceptions::debug_check_abort(exception));
++    Exceptions::debug_check_abort(exception);
+ 
+     // Clear out the exception oop and pc since looking up an
+     // exception handler can cause class loading, which might throw an
+diff --git a/hotspot/src/share/vm/interpreter/bytecodeInterpreter.cpp b/hotspot/src/share/vm/interpreter/bytecodeInterpreter.cpp
+index 3a5f31ae7..dd680a258 100644
+--- a/hotspot/src/share/vm/interpreter/bytecodeInterpreter.cpp
++++ b/hotspot/src/share/vm/interpreter/bytecodeInterpreter.cpp
+@@ -2861,7 +2861,7 @@ run:
+                       (int)continuation_bci, p2i(THREAD));
+       }
+       // for AbortVMOnException flag
+-      NOT_PRODUCT(Exceptions::debug_check_abort(except_oop));
++      Exceptions::debug_check_abort(except_oop);
+ 
+       // Update profiling data.
+       BI_PROFILE_ALIGN_TO_CURRENT_BCI();
+@@ -2877,7 +2877,8 @@ run:
+                     p2i(THREAD));
+     }
+     // for AbortVMOnException flag
+-    NOT_PRODUCT(Exceptions::debug_check_abort(except_oop));
++    Exceptions::debug_check_abort(except_oop);
++
+     // No handler in this activation, unwind and try again
+     THREAD->set_pending_exception(except_oop(), NULL, 0);
+     goto handle_return;
+diff --git a/hotspot/src/share/vm/interpreter/interpreterRuntime.cpp b/hotspot/src/share/vm/interpreter/interpreterRuntime.cpp
+index 5d2845383..b9eeffeee 100644
+--- a/hotspot/src/share/vm/interpreter/interpreterRuntime.cpp
++++ b/hotspot/src/share/vm/interpreter/interpreterRuntime.cpp
+@@ -472,7 +472,7 @@ IRT_ENTRY(address, InterpreterRuntime::exception_handler_for_exception(JavaThrea
+ //       // warning("performance bug: should not call runtime if method has no exception handlers");
+ //     }
+     // for AbortVMOnException flag
+-    NOT_PRODUCT(Exceptions::debug_check_abort(h_exception));
++    Exceptions::debug_check_abort(h_exception);
+ 
+     // exception handler lookup
+     KlassHandle h_klass(THREAD, h_exception->klass());
+diff --git a/hotspot/src/share/vm/opto/runtime.cpp b/hotspot/src/share/vm/opto/runtime.cpp
+index 6cfb99175..0a86211ba 100644
+--- a/hotspot/src/share/vm/opto/runtime.cpp
++++ b/hotspot/src/share/vm/opto/runtime.cpp
+@@ -1321,7 +1321,7 @@ JRT_ENTRY_NO_ASYNC(address, OptoRuntime::handle_exception_C_helper(JavaThread* t
+   }
+ 
+   // for AbortVMOnException flag
+-  NOT_PRODUCT(Exceptions::debug_check_abort(exception));
++  Exceptions::debug_check_abort(exception);
+ 
+ #ifdef ASSERT
+   if (!(exception->is_a(SystemDictionary::Throwable_klass()))) {
+diff --git a/hotspot/src/share/vm/runtime/globals.hpp b/hotspot/src/share/vm/runtime/globals.hpp
+index 85e91f95b..65dfcf69b 100644
+--- a/hotspot/src/share/vm/runtime/globals.hpp
++++ b/hotspot/src/share/vm/runtime/globals.hpp
+@@ -2739,11 +2739,11 @@ class CommandLineFlags {
+           "standard exit from VM if bytecode verify error "                 \
+           "(only in debug mode)")                                           \
+                                                                             \
+-  notproduct(ccstr, AbortVMOnException, NULL,                               \
++  diagnostic(ccstr, AbortVMOnException, NULL,                               \
+           "Call fatal if this exception is thrown.  Example: "              \
+           "java -XX:AbortVMOnException=java.lang.NullPointerException Foo") \
+                                                                             \
+-  notproduct(ccstr, AbortVMOnExceptionMessage, NULL,                        \
++  diagnostic(ccstr, AbortVMOnExceptionMessage, NULL,                        \
+           "Call fatal if the exception pointed by AbortVMOnException "      \
+           "has this message")                                               \
+                                                                             \
+diff --git a/hotspot/src/share/vm/runtime/sharedRuntime.cpp b/hotspot/src/share/vm/runtime/sharedRuntime.cpp
+index 5f540247f..5eabd3df0 100644
+--- a/hotspot/src/share/vm/runtime/sharedRuntime.cpp
++++ b/hotspot/src/share/vm/runtime/sharedRuntime.cpp
+@@ -895,7 +895,8 @@ address SharedRuntime::continuation_for_implicit_exception(JavaThread* thread,
+     assert(exception_kind == IMPLICIT_NULL || exception_kind == IMPLICIT_DIVIDE_BY_ZERO, "wrong implicit exception kind");
+ 
+     // for AbortVMOnException flag
+-    NOT_PRODUCT(Exceptions::debug_check_abort("java.lang.NullPointerException"));
++    Exceptions::debug_check_abort("java.lang.NullPointerException");
++
+     if (exception_kind == IMPLICIT_NULL) {
+       Events::log_exception(thread, "Implicit null exception at " INTPTR_FORMAT " to " INTPTR_FORMAT, pc, target_pc);
+     } else {
+diff --git a/hotspot/src/share/vm/runtime/thread.cpp b/hotspot/src/share/vm/runtime/thread.cpp
+index 4cb783e2d..94b9e69d2 100644
+--- a/hotspot/src/share/vm/runtime/thread.cpp
++++ b/hotspot/src/share/vm/runtime/thread.cpp
+@@ -2218,7 +2218,7 @@ void JavaThread::send_thread_stop(oop java_throwable)  {
+        tty->print_cr("Pending Async. exception installed of type: %s", InstanceKlass::cast(_pending_async_exception->klass())->external_name());
+       }
+       // for AbortVMOnException flag
+-      NOT_PRODUCT(Exceptions::debug_check_abort(InstanceKlass::cast(_pending_async_exception->klass())->external_name()));
++      Exceptions::debug_check_abort(InstanceKlass::cast(_pending_async_exception->klass())->external_name());
+     }
+   }
+ 
+diff --git a/hotspot/src/share/vm/utilities/exceptions.cpp b/hotspot/src/share/vm/utilities/exceptions.cpp
+index db4a17029..8b25cf8c4 100644
+--- a/hotspot/src/share/vm/utilities/exceptions.cpp
++++ b/hotspot/src/share/vm/utilities/exceptions.cpp
+@@ -148,7 +148,7 @@ void Exceptions::_throw(Thread* thread, const char* file, int line, Handle h_exc
+                   (address)h_exception(), file, line, thread);
+   }
+   // for AbortVMOnException flag
+-  NOT_PRODUCT(Exceptions::debug_check_abort(h_exception, message));
++  Exceptions::debug_check_abort(h_exception, message);
+ 
+   // Check for special boot-strapping/vm-thread handling
+   if (special_exception(thread, file, line, h_exception)) {
+@@ -477,13 +477,12 @@ ExceptionMark::~ExceptionMark() {
+ 
+ // ----------------------------------------------------------------------------------------
+ 
+-#ifndef PRODUCT
+ // caller frees value_string if necessary
+ void Exceptions::debug_check_abort(const char *value_string, const char* message) {
+   if (AbortVMOnException != NULL && value_string != NULL &&
+-      strstr(value_string, AbortVMOnException)) {
+-    if (AbortVMOnExceptionMessage == NULL || message == NULL ||
+-        strcmp(message, AbortVMOnExceptionMessage) == 0) {
++      strstr(AbortVMOnException, value_string)) {
++    if (AbortVMOnExceptionMessage == NULL || (message != NULL &&
++        strstr(message, AbortVMOnExceptionMessage))) {
+       fatal(err_msg("Saw %s, aborting", value_string));
+     }
+   }
+@@ -491,14 +490,17 @@ void Exceptions::debug_check_abort(const char *value_string, const char* message
+ 
+ void Exceptions::debug_check_abort(Handle exception, const char* message) {
+   if (AbortVMOnException != NULL) {
+-    ResourceMark rm;
+-    if (message == NULL && exception->is_a(SystemDictionary::Throwable_klass())) {
+-      oop msg = java_lang_Throwable::message(exception);
+-      if (msg != NULL) {
+-        message = java_lang_String::as_utf8_string(msg);
+-      }
++    debug_check_abort_helper(exception, message);
++  }
++}
++
++void Exceptions::debug_check_abort_helper(Handle exception, const char* message) {
++  ResourceMark rm;
++  if (message == NULL && exception->is_a(SystemDictionary::Throwable_klass())) {
++    oop msg = java_lang_Throwable::message(exception);
++    if (msg != NULL) {
++      message = java_lang_String::as_utf8_string(msg);
+     }
+-    debug_check_abort(InstanceKlass::cast(exception()->klass())->external_name(), message);
+   }
++  debug_check_abort(InstanceKlass::cast(exception()->klass())->external_name(), message);
+ }
+-#endif
+diff --git a/hotspot/src/share/vm/utilities/exceptions.hpp b/hotspot/src/share/vm/utilities/exceptions.hpp
+index 7e10f735e..9da8f4d4b 100644
+--- a/hotspot/src/share/vm/utilities/exceptions.hpp
++++ b/hotspot/src/share/vm/utilities/exceptions.hpp
+@@ -174,8 +174,9 @@ class Exceptions {
+   static void print_exception_counts_on_error(outputStream* st);
+ 
+   // for AbortVMOnException flag
+-  NOT_PRODUCT(static void debug_check_abort(Handle exception, const char* message = NULL);)
+-  NOT_PRODUCT(static void debug_check_abort(const char *value_string, const char* message = NULL);)
++  static void debug_check_abort(Handle exception, const char* message = NULL);
++  static void debug_check_abort_helper(Handle exception, const char* message = NULL);
++  static void debug_check_abort(const char *value_string, const char* message = NULL);
+ };
+ 
+ 

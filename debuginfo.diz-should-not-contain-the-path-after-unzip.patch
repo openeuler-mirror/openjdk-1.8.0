@@ -1,0 +1,16 @@
+diff --git a/make/common/NativeCompilation.gmk b/make/common/NativeCompilation.gmk
+index 0e0346374..2d9bdbeed 100644
+--- a/make/common/NativeCompilation.gmk
++++ b/make/common/NativeCompilation.gmk
+@@ -537,7 +537,7 @@ define SetupNativeCompilation
+             # to be rebuilt properly.
+             $$($1_DEBUGINFO_ZIP): $$($1_DEBUGINFO_FILES) $$($1_TARGET)
+ 		$(CD) $$($1_OBJECT_DIR) \
+-		&& $(ZIP) -q $$@ $$($1_DEBUGINFO_FILES)
++		&& $(ZIP) -q $$@ $$(subst $$($1_OBJECT_DIR)/,,$$($1_DEBUGINFO_FILES))
+           endif
+         else
+           ifneq ($$($1_STRIP_POLICY), no_strip)
+-- 
+2.22.0
+
