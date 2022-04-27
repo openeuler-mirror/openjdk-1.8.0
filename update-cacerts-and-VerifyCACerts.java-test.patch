@@ -3,6 +3,8 @@ From: zhangyipeng <zhangyipeng7@huawei.com>
 Date: Tue, 20 Apr 2021 10:40:35 +0800
 Subject: [PATCH] [Huawei]update cacerts and VerifyCACerts.java test
 
+Offering: Cloud Compiler JDK
+
 Signed-off-by: Wang Kun <wangkun49@huawei.com>
 ---
  jdk/make/data/cacerts/addtrustexternalca           | 32 -----------------
@@ -10,6 +12,7 @@ Signed-off-by: Wang Kun <wangkun49@huawei.com>
  jdk/make/data/cacerts/luxtrustglobalrootca         | 28 ---------------
  jdk/make/data/cacerts/quovadisrootca               | 41 ----------------------
  jdk/make/data/cacerts/utnuserfirstobjectca         | 33 -----------------
+ jdk/make/data/cacerts/geotrustglobalca             | 27 -------------------
  .../sun/security/lib/cacerts/VerifyCACerts.java    | 29 ++-------------------
  8 files changed, 3 insertions(+), 192 deletions(-)
  delete mode 100644 jdk/make/data/cacerts/addtrustexternalca
@@ -19,6 +22,7 @@ Signed-off-by: Wang Kun <wangkun49@huawei.com>
  delete mode 100644 jdk/make/data/cacerts/thawtepremiumserverca
  delete mode 100644 jdk/make/data/cacerts/utnuserfirstobjectca
  delete mode 100644 jdk/make/data/cacerts/verisigntsaca
+ delete mode 100644 jdk/make/data/cacerts/geotrustglobalca
 
 diff --git a/jdk/make/data/cacerts/addtrustexternalca b/jdk/make/data/cacerts/addtrustexternalca
 deleted file mode 100644
@@ -216,6 +220,39 @@ index 80a0b5c..0000000
 -81OtbLUrohKqGU8J2l7nk8aOFAj+8DCAGKCGhU3IfdeLA/5u1fedFqySLKAj5ZyR
 -Uh+U3xeUc8OzwcFxBSAAeL0TUh2oPs0AH8g=
 ------END CERTIFICATE-----
+diff --git a/jdk/make/data/cacerts/geotrustglobalca b/jdk/make/data/cacerts/geotrustglobalca
+deleted file mode 100644
+index 7f8bf9a6..00000000
+--- a/jdk/make/data/cacerts/geotrustglobalca
++++ /dev/null
+@@ -1,27 +0,0 @@
+-Owner: CN=GeoTrust Global CA, O=GeoTrust Inc., C=US
+-Issuer: CN=GeoTrust Global CA, O=GeoTrust Inc., C=US
+-Serial number: 23456
+-Valid from: Tue May 21 04:00:00 GMT 2002 until: Sat May 21 04:00:00 GMT 2022
+-Signature algorithm name: SHA1withRSA
+-Subject Public Key Algorithm: 2048-bit RSA key
+-Version: 3
+------BEGIN CERTIFICATE-----
+-MIIDVDCCAjygAwIBAgIDAjRWMA0GCSqGSIb3DQEBBQUAMEIxCzAJBgNVBAYTAlVT
+-MRYwFAYDVQQKEw1HZW9UcnVzdCBJbmMuMRswGQYDVQQDExJHZW9UcnVzdCBHbG9i
+-YWwgQ0EwHhcNMDIwNTIxMDQwMDAwWhcNMjIwNTIxMDQwMDAwWjBCMQswCQYDVQQG
+-EwJVUzEWMBQGA1UEChMNR2VvVHJ1c3QgSW5jLjEbMBkGA1UEAxMSR2VvVHJ1c3Qg
+-R2xvYmFsIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2swYYzD9
+-9BcjGlZ+W988bDjkcbd4kdS8odhM+KhDtgPpTSEHCIjaWC9mOSm9BXiLnTjoBbdq
+-fnGk5sRgprDvgOSJKA+eJdbtg/OtppHHmMlCGDUUna2YRpIuT8rxh0PBFpVXLVDv
+-iS2Aelet8u5fa9IAjbkU+BQVNdnARqN7csiRv8lVK83Qlz6cJmTM386DGXHKTubU
+-1XupGc1V3sjs0l44U+VcT4wt/lAjNvxm5suOpDkZALeVAjmRCw7+OC7RHQWa9k0+
+-bw8HHa8sHo9gOeL6NlMTOdReJivbPagUvTLrGAMoUgRx5aszPeE4uwc2hGKceeoW
+-MPRfwCvocWvk+QIDAQABo1MwUTAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBTA
+-ephojYn7qwVkDBF9qn1luMrMTjAfBgNVHSMEGDAWgBTAephojYn7qwVkDBF9qn1l
+-uMrMTjANBgkqhkiG9w0BAQUFAAOCAQEANeMpauUvXVSOKVCUn5kaFOSPeCpilKIn
+-Z57QzxpeR+nBsqTP3UEaBU6bS+5Kb1VSsyShNwrrZHYqLizz/Tt1kL/6cdjHPTfS
+-tQWVYrmm3ok9Nns4d0iXrKYgjy6myQzCsplFAMfOEVEiIuCl6rYVSAlk6l5PdPcF
+-PseKUgzbFbS9bZvlxrFUaKnjaZC2mqUPuLk/IH2uSrW4nOQdtqvmlKXBx4Ot2/Un
+-hw4EbNX/3aBd7YdStysVAq45pmp06drE57xNNB6pXE0zX5IJL4hmXXeXxx12E6nV
+-5fEWCRE11azbJHFwLJhWC9kXtNHjUStedejV0NxPNO3CBWaAocvmMw==
+------END CERTIFICATE-----
 diff --git a/jdk/test/sun/security/lib/cacerts/VerifyCACerts.java b/jdk/test/sun/security/lib/cacerts/VerifyCACerts.java
 index dd107fc..791ddb6 100644
 --- a/jdk/test/sun/security/lib/cacerts/VerifyCACerts.java
@@ -225,13 +262,13 @@ index dd107fc..791ddb6 100644
  
      // The numbers of certs now.
 -    private static final int COUNT = 89;
-+    private static final int COUNT = 84;
++    private static final int COUNT = 83;
  
      // SHA-256 of cacerts, can be generated with
      // shasum -a 256 cacerts | sed -e 's/../&:/g' | tr '[:lower:]' '[:upper:]' | cut -c1-95
      private static final String CHECKSUM
 -            = "CC:AD:BB:49:70:97:3F:42:AD:73:91:A0:A2:C4:B8:AA:D1:95:59:F3:B3:22:09:2A:1F:2C:AB:04:47:08:EF:AA";
-+            = "D3:05:21:64:FA:D7:CD:29:E8:CB:57:E7:47:ED:79:9B:47:D8:0E:75:2D:CA:83:BB:86:AF:D9:43:FD:3E:17:85";
++            = "2D:04:88:6C:52:53:54:EB:38:2D:BC:E0:AF:B7:82:F4:9E:32:A8:1A:1B:A3:AE:CF:25:CB:C2:F6:0F:4E:E1:20";
  
      // map of cert alias to SHA-256 fingerprint
      @SuppressWarnings("serial")
@@ -248,6 +285,15 @@ index dd107fc..791ddb6 100644
              put("baltimorecybertrustca [jdk]",
                      "16:AF:57:A9:F6:76:B0:AB:12:60:95:AA:5E:BA:DE:F2:2A:B3:11:19:D6:44:AC:95:CD:4B:93:DB:F3:F2:6A:EB");
              put("digicertglobalrootca [jdk]",
+@@ -111,8 +111,6 @@ public class VerifyCACerts {
+                     "7E:37:CB:8B:4C:47:09:0C:AB:36:55:1B:A6:F4:5D:B8:40:68:0F:BA:16:6A:95:2D:B1:00:71:7F:43:05:3F:C2");
+             put("digicerthighassuranceevrootca [jdk]",
+                     "74:31:E5:F4:C3:C1:CE:46:90:77:4F:0B:61:E0:54:40:88:3B:A9:A0:1E:D0:0B:A6:AB:D7:80:6E:D3:B1:18:CF");
+-            put("geotrustglobalca [jdk]",
+-                    "FF:85:6A:2D:25:1D:CD:88:D3:66:56:F4:50:12:67:98:CF:AB:AA:DE:40:79:9C:72:2D:E4:D2:B5:DB:36:A7:3A");
+             put("geotrustprimaryca [jdk]",
+                     "37:D5:10:06:C5:12:EA:AB:62:64:21:F1:EC:8C:92:01:3F:C5:F8:2A:E9:8E:E5:33:EB:46:19:B8:DE:B4:D0:6C");
+             put("geotrustprimarycag2 [jdk]",
 @@ -163,10 +147,6 @@ public class VerifyCACerts {
                      "5D:56:49:9B:E4:D2:E0:8B:CF:CA:D0:8A:3E:38:72:3D:50:50:3B:DE:70:69:48:E4:2F:55:60:30:19:E5:28:AE");
              put("letsencryptisrgx1 [jdk]",
@@ -259,7 +305,7 @@ index dd107fc..791ddb6 100644
              put("quovadisrootca1g3 [jdk]",
                      "8A:86:6F:D1:B2:76:B5:7E:57:8E:92:1C:65:82:8A:2B:ED:58:E9:F2:F2:88:05:41:34:B7:F1:F4:BF:C9:CC:74");
              put("quovadisrootca2 [jdk]",
-@@ -267,20 +247,7 @@ public class VerifyCACerts {
+@@ -267,22 +247,7 @@ public class VerifyCACerts {
      // Exception list to 90 days expiry policy
      // No error will be reported if certificate in this list expires
      @SuppressWarnings("serial")
@@ -275,6 +321,8 @@ index dd107fc..791ddb6 100644
 -            add("luxtrustglobalrootca [jdk]");
 -            // Valid until: Wed Mar 17 11:33:33 PDT 2021
 -            add("quovadisrootca [jdk]");
+-            // Valid until: Sat May 21 04:00:00 GMT 2022
+-            add("geotrustglobalca [jdk]");
 -        }
 -    };
 +    private static final HashSet<String> EXPIRY_EXC_ENTRIES = new HashSet<String>();
@@ -282,5 +330,4 @@ index dd107fc..791ddb6 100644
      // Ninety days in milliseconds
      private static final long NINETY_DAYS = 7776000000L;
 -- 
-1.8.3.1
-
+2.19.0

@@ -18,7 +18,7 @@ index fb0fef636..a6ef2d3a6 100644
 +++ b/jdk/src/solaris/classes/java/io/UnixFileSystem.java
 @@ -1,5 +1,5 @@
  /*
-- * Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
+- * Copyright (c) 1998, 2022, Oracle and/or its affiliates. All rights reserved.
 + * Copyright (c) 1998, 2018, Oracle and/or its affiliates. All rights reserved.
   * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
   *
@@ -59,7 +59,7 @@ index caa47f80c..1844a662a 100644
 +++ b/jdk/src/windows/classes/java/io/WinNTFileSystem.java
 @@ -1,5 +1,5 @@
  /*
-- * Copyright (c) 2001, 2012, Oracle and/or its affiliates. All rights reserved.
+- * Copyright (c) 2001, 2022, Oracle and/or its affiliates. All rights reserved.
 + * Copyright (c) 2001, 2018, Oracle and/or its affiliates. All rights reserved.
   * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
   *
@@ -70,8 +70,8 @@ index caa47f80c..1844a662a 100644
      private final char semicolon;
 +    private final String userDir;
  
-     public WinNTFileSystem() {
-         slash = AccessController.doPrivileged(
+     // Whether to enable alternative data streams (ADS) by suppressing
+     // checking the path for invalid characters, in particular ":".
 @@ -47,6 +48,8 @@ class WinNTFileSystem extends FileSystem {
          semicolon = AccessController.doPrivileged(
              new GetPropertyAction("path.separator")).charAt(0);
