@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 0
+Release: 1
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1134,6 +1134,8 @@ Patch241: 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
 
 # 8u332
 Patch242: fix-make-bugs-when-git-and-hg-not-exist.patch
+Patch243: Fix-compile-and-runtime-failures-for-minimal1-versio.patch
+
 #############################################
 #
 # Upstreamable patches
@@ -1609,6 +1611,7 @@ pushd %{top_level_dir_name}
 %patch240 -p1
 %patch241 -p1
 %patch242 -p1
+%patch243 -p1
 popd
 
 # System library fixes
@@ -2226,6 +2229,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Wed Apr 27 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.1
+- add Fix-compile-and-runtime-failures-for-minimal1-versio.patch
+
 * Wed Apr 27 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.0
 - deleted Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
 - deleted 8167014-jdeps-failed-with-Missing-message-warn-skippen-entry.patch

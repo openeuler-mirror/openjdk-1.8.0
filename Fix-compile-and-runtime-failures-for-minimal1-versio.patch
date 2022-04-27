@@ -1,0 +1,211 @@
+From d915916d5a7f3280270ea4207e4d3892ffa7de04 Mon Sep 17 00:00:00 2001
+Date: Mon, 11 Apr 2022 17:14:06 +0800
+Subject: [PATCH] Fix compile and runtime failures for minimal1 version
+
+Reference: NA
+Summary: < JDK> : Fix compile and runtime failures for minimal1 version
+---
+ .../src/share/vm/classfile/systemDictionary.cpp    | 30 ++++++++++------------
+ .../parallelScavenge/psMarkSweep.hpp               |  2 +-
+ hotspot/src/share/vm/prims/jvm.cpp                 | 12 +++++++++
+ hotspot/src/share/vm/prims/jvmtiImpl.hpp           |  8 +++---
+ hotspot/src/share/vm/runtime/memprofiler.cpp       |  2 +-
+ hotspot/src/share/vm/utilities/taskqueue.cpp       |  2 ++
+ hotspot/src/share/vm/utilities/taskqueue.hpp       |  4 +--
+ .../com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c     |  1 -
+ 8 files changed, 36 insertions(+), 25 deletions(-)
+
+diff --git a/hotspot/src/share/vm/classfile/systemDictionary.cpp b/hotspot/src/share/vm/classfile/systemDictionary.cpp
+index 0d11abfa..794ee9b1 100644
+--- a/hotspot/src/share/vm/classfile/systemDictionary.cpp
++++ b/hotspot/src/share/vm/classfile/systemDictionary.cpp
+@@ -1093,19 +1093,6 @@ Klass* SystemDictionary::parse_stream(Symbol* class_name,
+   return k();
+ }
+ 
+-static char* convert_into_package_name(char* name) {
+-  char* index = strrchr(name, '/');
+-  if (index == NULL) {
+-    return NULL;
+-  } else {  
+-    *index = '\0'; // chop to just the package name
+-    while ((index = strchr(name, '/')) != NULL) {
+-      *index = '.'; // replace '/' with '.' in package name
+-    }
+-    return name;
+-  }
+-}
+-
+ static bool is_prohibited_package_slow(Symbol* class_name) {
+   // Caller has ResourceMark
+   int length;
+@@ -1252,6 +1239,18 @@ void SystemDictionary::set_shared_dictionary(HashtableBucket<mtClass>* t, int le
+   _shared_dictionary = new Dictionary(_nof_buckets, t, number_of_entries);
+ }
+ 
++static char* convert_into_package_name(char* name) {
++  char* index = strrchr(name, '/');
++  if (index == NULL) {
++    return NULL;
++  } else {
++    *index = '\0'; // chop to just the package name
++    while ((index = strchr(name, '/')) != NULL) {
++      *index = '.'; // replace '/' with '.' in package name
++    }
++    return name;
++  }
++}
+ 
+ // If there is a shared dictionary, then find the entry for the
+ // given shared system class, if any.
+@@ -1267,7 +1266,6 @@ Klass* SystemDictionary::find_shared_class(Symbol* class_name) {
+   }
+ }
+ 
+-
+ // Load a class from the shared spaces (found through the shared system
+ // dictionary).  Force the superclass and all interfaces to be loaded.
+ // Update the class definition to include sibling classes and no
+diff --git a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psMarkSweep.hpp b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psMarkSweep.hpp
+index 01666ea4d..deeca7bb5 100644
+--- a/hotspot/src/share/vm/gc_implementation/parallelScavenge/psMarkSweep.hpp
++++ b/hotspot/src/share/vm/gc_implementation/parallelScavenge/psMarkSweep.hpp
+@@ -77,7 +77,7 @@ class PSMarkSweep : public MarkSweep {
+ 
+   // Reset time since last full gc
+   static void reset_millis_since_last_gc();
+-  static void ps_marksweep_init();
++  static void ps_marksweep_init() NOT_ALL_GCS_RETURN;
+ 
+  public:
+   static inline PSMarkSweep* the_ps_mark() { return (PSMarkSweep*)_the_ps_mark; }
+diff --git a/hotspot/src/share/vm/prims/jvm.cpp b/hotspot/src/share/vm/prims/jvm.cpp
+index c27a534ef..f75501dba 100644
+--- a/hotspot/src/share/vm/prims/jvm.cpp
++++ b/hotspot/src/share/vm/prims/jvm.cpp
+@@ -3303,20 +3303,32 @@ JVM_END
+ 
+ JVM_ENTRY(void, JVM_AdaptiveHeapSetG1PeriodicGCInterval(JNIEnv *env, jclass klass, jint interval))
+   JVMWrapper("JVM_AdaptiveHeapSetG1PeriodicGCInterval");
++#if INCLUDE_ALL_GCS
+   G1PeriodicGCInterval = interval;
++#endif
+ JVM_END
+ JVM_ENTRY(jint, JVM_AdaptiveHeapGetG1PeriodicGCInterval(JNIEnv *env, jclass klass))
+   JVMWrapper("JVM_AdaptiveHeapGetG1PeriodicGCInterval");
++#if INCLUDE_ALL_GCS
+   return G1PeriodicGCInterval;
++#else
++  return -1;
++#endif
+ JVM_END
+ 
+ JVM_ENTRY(void, JVM_AdaptiveHeapSetG1PeriodicGCLoadThreshold(JNIEnv *env, jclass clazz, jint loadThreshold))
+   JVMWrapper("JVM_AdaptiveHeapSetG1PeriodicGCLoadThreshold");
++#if INCLUDE_ALL_GCS
+   G1PeriodicGCLoadThreshold = loadThreshold;
++#endif
+ JVM_END
+ JVM_ENTRY(jint, JVM_AdaptiveHeapGetG1PeriodicGCLoadThreshold(JNIEnv *env, jclass clazz))
+   JVMWrapper("JVM_AdaptiveHeapgetG1PeriodicGCLoadThreshold");
++#if INCLUDE_ALL_GCS
+   return G1PeriodicGCLoadThreshold;
++#else
++  return -1;
++#endif
+ JVM_END
+ 
+ JVM_ENTRY(void, JVM_Yield(JNIEnv *env, jclass threadClass))
+diff --git a/hotspot/src/share/vm/prims/jvmtiImpl.hpp b/hotspot/src/share/vm/prims/jvmtiImpl.hpp
+index d74789451..ec721ca20 100644
+--- a/hotspot/src/share/vm/prims/jvmtiImpl.hpp
++++ b/hotspot/src/share/vm/prims/jvmtiImpl.hpp
+@@ -493,9 +493,9 @@ class JvmtiDeferredEvent VALUE_OBJ_CLASS_SPEC {
+   // Actually posts the event.
+   void post() NOT_JVMTI_RETURN;
+   // Sweeper support to keep nmethods from being zombied while in the queue.
+-  void nmethods_do(CodeBlobClosure* cf);
++  void nmethods_do(CodeBlobClosure* cf) NOT_JVMTI_RETURN;
+   // GC support to keep nmethod from being unloaded while in the queue.
+-  void oops_do(OopClosure* f, CodeBlobClosure* cf);
++  void oops_do(OopClosure* f, CodeBlobClosure* cf) NOT_JVMTI_RETURN;
+ };
+ 
+ /**
+@@ -534,9 +534,9 @@ class JvmtiDeferredEventQueue : AllStatic {
+   static void enqueue(const JvmtiDeferredEvent& event) NOT_JVMTI_RETURN;
+   static JvmtiDeferredEvent dequeue() NOT_JVMTI_RETURN_(JvmtiDeferredEvent());
+   // Sweeper support to keep nmethods from being zombied while in the queue.
+-  static void nmethods_do(CodeBlobClosure* cf);
++  static void nmethods_do(CodeBlobClosure* cf) NOT_JVMTI_RETURN;
+   // GC support to keep nmethod from being unloaded while in the queue.
+-  static void oops_do(OopClosure* f, CodeBlobClosure* cf);
++  static void oops_do(OopClosure* f, CodeBlobClosure* cf) NOT_JVMTI_RETURN;
+ 
+   // Used to enqueue events without using a lock, for times (such as during
+   // safepoint) when we can't or don't want to lock the Service_lock.
+diff --git a/hotspot/src/share/vm/runtime/memprofiler.cpp b/hotspot/src/share/vm/runtime/memprofiler.cpp
+index ddb22601f..a956c5252 100644
+--- a/hotspot/src/share/vm/runtime/memprofiler.cpp
++++ b/hotspot/src/share/vm/runtime/memprofiler.cpp
+@@ -126,7 +126,7 @@ void MemProfiler::do_trace() {
+ 
+   fprintf(_log_fp, UINTX_FORMAT_W(6) ",", CodeCache::capacity() / K);
+ 
+-  fprintf(_log_fp, UINTX_FORMAT_W(6) "," UINTX_FORMAT_W(6) "," UINTX_FORMAT_W(6) "\n",
++  fprintf(_log_fp, UINTX_FORMAT_W(6) "," UINTX_FORMAT_W(6) ",%6ld\n",
+           handles_memory_usage / K,
+           resource_memory_usage / K,
+           0L);
+diff --git a/hotspot/src/share/vm/utilities/taskqueue.cpp b/hotspot/src/share/vm/utilities/taskqueue.cpp
+index 120c65a60..7c6849c63 100644
+--- a/hotspot/src/share/vm/utilities/taskqueue.cpp
++++ b/hotspot/src/share/vm/utilities/taskqueue.cpp
+@@ -273,10 +273,12 @@ void ParallelTaskTerminator::reset_for_reuse(int n_threads) {
+   _n_threads = n_threads;
+ }
+ 
++#if INCLUDE_ALL_GCS
+ TaskTerminator::TaskTerminator(uint n_threads, TaskQueueSetSuper* queue_set) :
+   _terminator(UseOWSTTaskTerminator ? new OWSTTaskTerminator(n_threads, queue_set)
+                                     : new ParallelTaskTerminator(n_threads, queue_set)) {
+ }
++#endif
+ 
+ TaskTerminator::~TaskTerminator() {
+   if (_terminator != NULL) {
+diff --git a/hotspot/src/share/vm/utilities/taskqueue.hpp b/hotspot/src/share/vm/utilities/taskqueue.hpp
+index 959d0dd21..284675708 100644
+--- a/hotspot/src/share/vm/utilities/taskqueue.hpp
++++ b/hotspot/src/share/vm/utilities/taskqueue.hpp
+@@ -763,7 +763,7 @@ private:
+   TaskTerminator(const TaskTerminator& o) { }
+   TaskTerminator& operator=(TaskTerminator& o) { return *this; }
+ public:
+-  TaskTerminator(uint n_threads, TaskQueueSetSuper* queue_set);
++  TaskTerminator(uint n_threads, TaskQueueSetSuper* queue_set) NOT_ALL_GCS_RETURN;
+   ~TaskTerminator();
+ 
+   // Move assignment
+@@ -929,4 +929,4 @@ typedef OverflowTaskQueue<size_t, mtInternal>             RegionTaskQueue;
+ typedef GenericTaskQueueSet<RegionTaskQueue, mtClass>     RegionTaskQueueSet;
+ 
+ 
+-#endif // SHARE_VM_UTILITIES_TASKQUEUE_HPP
+\ No newline at end of file
++#endif // SHARE_VM_UTILITIES_TASKQUEUE_HPP
+diff --git a/jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c b/jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c
+index 99bfff885..0e365d7aa 100644
+--- a/jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c
++++ b/jdk/src/share/native/com/huawei/jvm/gc/AdaptiveHeapMXBeanImpl.c
+@@ -31,7 +31,6 @@ static JNINativeMethod methods[] = {
+   {"getG1PeriodicGCIntervalImpl",        "()I",  (void *)&JVM_AdaptiveHeapGetG1PeriodicGCInterval},
+   {"setG1PeriodicGCLoadThresholdImpl",   "(I)V", (void *)&JVM_AdaptiveHeapSetG1PeriodicGCLoadThreshold},
+   {"getG1PeriodicGCLoadThresholdImpl",   "()I",  (void *)&JVM_AdaptiveHeapGetG1PeriodicGCLoadThreshold},
+-
+ };
+ 
+ JNIEXPORT void JNICALL
+-- 
+2.12.3
+
