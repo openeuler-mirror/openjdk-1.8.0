@@ -1,0 +1,27 @@
+From a447db8644fe785db481a425fe3efa62cb11122f Mon Sep 17 00:00:00 2001
+Date: Mon, 25 Apr 2022 17:12:39 +0800
+Subject: [PATCH] Fix make bugs when git and hg not exist
+
+---
+ make/common/MakeBase.gmk | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/make/common/MakeBase.gmk b/make/common/MakeBase.gmk
+index 2ba3d04..c97a42a 100644
+--- a/make/common/MakeBase.gmk
++++ b/make/common/MakeBase.gmk
+@@ -318,9 +318,9 @@ SCM_TIP_FILECMD := $(PRINTF) "$(SCM):%s" \
+ # Emit the scm:id pair to $@
+ define GetSourceTips
+ 	$(CD) $(SRC_ROOT) ; \
+-	if [ -d $(SCM_DIR) -a "$(SCM_VERSION)" != "" ] ; then \
++	if [ -d "$(SCM_DIR)" -a "$(SCM_VERSION)" != "" ] ; then \
+ 	  $(ID_COMMAND) >> $@ ; \
+-	elif [ -f $(SCM_TIP_FILENAME) ] ; then \
++	elif [ -f "$(SCM_TIP_FILENAME)" ] ; then \
+           $(SCM_TIP_FILECMD) >> $@ ; \
+ 	fi;
+ 	$(PRINTF) "\n" >> $@
+-- 
+1.8.3.1
+
