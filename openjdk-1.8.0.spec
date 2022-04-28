@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 1
+Release: 2
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1135,6 +1135,7 @@ Patch241: 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
 # 8u332
 Patch242: fix-make-bugs-when-git-and-hg-not-exist.patch
 Patch243: Fix-compile-and-runtime-failures-for-minimal1-versio.patch
+Patch244: fix_X509TrustManagerImpl_symantec_distrust.patch
 
 #############################################
 #
@@ -1612,6 +1613,7 @@ pushd %{top_level_dir_name}
 %patch241 -p1
 %patch242 -p1
 %patch243 -p1
+%patch244 -p1
 popd
 
 # System library fixes
@@ -2229,6 +2231,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Thu Apr 28 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.2
+- add fix_X509TrustManagerImpl_symantec_distrust.patch
+
 * Wed Apr 27 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.1
 - add Fix-compile-and-runtime-failures-for-minimal1-versio.patch
 
