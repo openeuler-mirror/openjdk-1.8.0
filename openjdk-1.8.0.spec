@@ -52,6 +52,7 @@
 %endif
 
 %global aarch64         aarch64
+%global riscv64         riscv64
 %global jit_arches 	x86_64 %{aarch64}
 %global sa_arches 	x86_64 %{aarch64}
 %global jfr_arches 	x86_64 %{aarch64}
@@ -116,6 +117,17 @@
 %global stapinstall arm64
 %endif
 
+# Need to support noarch for srpm build
+%ifarch noarch
+%global archinstall %{nil}
+%global stapinstall %{nil}
+%endif
+
+%ifarch %{riscv64}
+%global archinstall riscv64
+%global stapinstall %{nil}
+%endif
+
 %ifarch %{jit_arches}
 %global with_systemtap 1
 %else
@@ -125,6 +137,7 @@
 # New Version-String scheme-style defines
 %global majorver 8
 
+%ifarch %{ix86} x86_64
 %global with_openjfx_binding 1
 %global openjfx_path %{_jvmdir}/openjfx8
 # links src directories
@@ -140,6 +153,9 @@
 %global jfx_sdk_libs javafx-mx.jar packager.jar ant-javafx.jar
 %global jfx_sdk_bins javafxpackager javapackager
 %global jfx_jre_exts jfxrt.jar
+%else
+%global with_openjfx_binding 0
+%endif
 
 # Standard JPackage naming and versioning defines.
 %global origin          openjdk
@@ -916,7 +932,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 2
+Release: 3
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1182,6 +1198,9 @@ Patch539: pr2888-openjdk_should_check_for_system_cacerts_database_eg_etc_pki_jav
 # that from OpenJDK.
 #############################################
 Patch1000: rh1648249-add_commented_out_nss_cfg_provider_to_java_security.patch
+
+# RISC-V support
+Patch2000: add-riscv-support.patch
 
 #############################################
 #
@@ -1614,6 +1633,9 @@ pushd %{top_level_dir_name}
 %patch242 -p1
 %patch243 -p1
 %patch244 -p1
+%ifarch riscv64
+%patch2000 -p1
+%endif
 popd
 
 # System library fixes
@@ -1681,7 +1703,7 @@ export NUM_PROC=${NUM_PROC:-1}
 [ ${NUM_PROC} -gt %{?_smp_ncpus_max} ] && export NUM_PROC=%{?_smp_ncpus_max}
 %endif
 
-%ifarch %{aarch64}
+%ifarch %{aarch64} riscv64
 export ARCH_DATA_MODEL=64
 %endif
 
@@ -1692,6 +1714,12 @@ EXTRA_CPP_FLAGS="%ourcppflags -Wno-error"
 
 EXTRA_ASFLAGS="${EXTRA_CFLAGS} -Wa,--generate-missing-build-notes=yes"
 export EXTRA_CFLAGS EXTRA_ASFLAGS
+
+%ifarch riscv64
+(cd %{top_level_dir_name}/common/autoconf
+ bash ./autogen.sh
+)
+%endif
 
 for suffix in %{build_loop} ; do
 (if [ "x$suffix" = "x" ] ; then
@@ -1710,6 +1738,11 @@ pushd %{buildoutputdir -- $suffix}
 bash ${top_srcdir_abs_path}/configure \
 %ifarch %{jfr_arches}
     --enable-jfr \
+%else
+    --disable-jfr \
+%endif
+%ifnarch %{jit_arches}
+    --with-jvm-variants=zero \
 %endif
     --with-native-debug-symbols=internal \
     --with-milestone="fcs" \
@@ -1723,7 +1756,11 @@ bash ${top_srcdir_abs_path}/configure \
     --with-debug-level=$debugbuild \
     --enable-unlimited-crypto \
     --with-zlib=system \
+%ifnarch %{jit_arches}
     --enable-kae=yes \
+%else
+    --disable-kae=yes \
+%endif
     --with-stdc++lib=dynamic \
     --with-extra-cflags="$EXTRA_CFLAGS" \
     --with-extra-cxxflags="$EXTRA_CPP_FLAGS" \
@@ -1732,8 +1769,10 @@ bash ${top_srcdir_abs_path}/configure \
     --with-num-cores="$NUM_PROC" \
     --with-boot-jdk-jvmargs=-XX:-UsePerfData
 
+%ifnarch riscv64
 cat spec.gmk
 cat hotspot-spec.gmk
+%endif
 
 # Debug builds don't need same targets as release for
 # build speed-up
@@ -1838,6 +1877,7 @@ do
   fi
 done
 
+%ifnarch riscv64
 # Make sure gdb can do a backtrace based on line numbers on libjvm.so
 # javaCalls.cpp:58 should map to:
 # http://hg.openjdk.java.net/jdk8u/jdk8u/hotspot/file/ff3b27e6bcc2/src/share/vm/runtime/javaCalls.cpp#l58 
@@ -1854,6 +1894,7 @@ end
 run -version
 EOF
 grep 'JavaCallWrapper::JavaCallWrapper' gdb.out
+%endif
 
 # Check src.zip has all sources. See RHBZ#1130490
 jar -tf $JAVA_HOME/src.zip | grep 'sun.misc.Unsafe'
@@ -2064,7 +2105,13 @@ done
 -- whether copy-jdk-configs is installed or not. If so, then configs are copied
 -- (copy_jdk_configs from %%{_libexecdir} used) or not copied at all
 local posix = require "posix"
-local debug = false
+
+if (os.getenv("debug") == "true") then
+  debug = true;
+  print("cjc: in spec debug is on")
+else
+  debug = false;
+end
 
 SOURCE1 = "%{rpm_state_dir}/copy_jdk_configs.lua"
 SOURCE2 = "%{_libexecdir}/copy_jdk_configs.lua"
@@ -2093,8 +2140,10 @@ else
   end
 end
 -- run content of included file with fake args
+arg = nil
+cjc = require "copy_jdk_configs.lua"
 arg = {"--currentjvm", "%{uniquesuffix %{nil}}", "--jvmdir", "%{_jvmdir %{nil}}", "--origname", "%{name}", "--origjavaver", "%{javaver}", "--arch", "%{_arch}", "--temp", "%{rpm_state_dir}/%{name}.%{_arch}"}
-require "copy_jdk_configs.lua"
+cjc.mainProgram(arg)
 
 %post
 %{post_script %{nil}}
@@ -2231,6 +2280,9 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri May 06 2022 misaka00251 <misaka00251@misakanet.cn> - 1:1.8.0.332-b09.3
+- Fix RISC-V support & merge 22.03-LTS branch
+
 * Thu Apr 28 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.2
 - add fix_X509TrustManagerImpl_symantec_distrust.patch
 
