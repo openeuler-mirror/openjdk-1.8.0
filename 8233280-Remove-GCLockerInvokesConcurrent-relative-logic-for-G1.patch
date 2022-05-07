@@ -5,9 +5,9 @@ Subject: [PATCH 2/4] 8233280: Remove GCLockerInvokesConcurrent relative logic
  for G1
 
 ---
- .../src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp    | 4 ----
+ .../src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp    | 1 ----
  .../src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp    | 5 ++---
- 2 files changed, 2 insertions(+), 7 deletions(-)
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.cpp
 index 4f45bba52..060531901 100644
@@ -21,16 +21,6 @@ index 4f45bba52..060531901 100644
      case GCCause::_g1_humongous_allocation: return true;
      case GCCause::_g1_periodic_collection:  return true;
      default:                                return is_user_requested_concurrent_full_gc(cause);
-@@ -2583,9 +2582,6 @@ void G1CollectedHeap::collect(GCCause::Cause cause) {
-             gclog_or_tty->print_cr("Periodic GC is denied and not try !");
-             return;
-           }
--          if (GC_locker::is_active_and_needs_gc()) {
--            GC_locker::stall_until_clear();
--          }
-         }
-       }
-     } else if (GC_locker::should_discard(cause, gc_count_before)) {
 diff --git a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp b/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp
 index d83e6cb65..3225967b3 100644
 --- a/hotspot/src/share/vm/gc_implementation/g1/g1CollectedHeap.hpp

@@ -1,0 +1,130 @@
+From ac34811e9819fafe28eab7ca7380fcb8808cdc3b Mon Sep 17 00:00:00 2001
+From: Wang Junqiang <wangjunqiang@iscas.ac.cn>
+Date: Wed, 23 Feb 2022 10:21:38 +0800
+Subject: [PATCH] add riscv64 support
+
+---
+ common/autoconf/build-aux/autoconf-config.guess |  3 +++
+ common/autoconf/build-aux/autoconf-config.sub   |  2 ++
+ common/autoconf/platform.m4                     |  7 +++++++
+ hotspot/src/os/linux/vm/os_linux.cpp            | 12 ++++++++++--
+ 4 files changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/common/autoconf/build-aux/autoconf-config.guess b/common/autoconf/build-aux/autoconf-config.guess
+index 15ee4389..c7355c33 100644
+--- a/common/autoconf/build-aux/autoconf-config.guess
++++ b/common/autoconf/build-aux/autoconf-config.guess
+@@ -1000,6 +1000,9 @@ EOF
+     ppc:Linux:*:*)
+ 	echo powerpc-unknown-linux-gnu
+ 	exit ;;
++    riscv64:Linux:*:*)
++    echo riscv64-unknown-linux-gnu
++    exit ;;
+     s390:Linux:*:* | s390x:Linux:*:*)
+ 	echo ${UNAME_MACHINE}-ibm-linux
+ 	exit ;;
+diff --git a/common/autoconf/build-aux/autoconf-config.sub b/common/autoconf/build-aux/autoconf-config.sub
+index 1aab2b30..662b002a 100644
+--- a/common/autoconf/build-aux/autoconf-config.sub
++++ b/common/autoconf/build-aux/autoconf-config.sub
+@@ -302,6 +302,7 @@ case $basic_machine in
+ 	| pdp10 | pdp11 | pj | pjl \
+ 	| powerpc | powerpc64 | powerpc64le | powerpcle | ppcbe \
+ 	| pyramid \
++	| riscv32 | riscv64 \
+ 	| score \
+ 	| sh | sh[1234] | sh[24]a | sh[23]e | sh[34]eb | sheb | shbe | shle | sh[1234]le | sh3ele \
+ 	| sh64 | sh64le \
+@@ -383,6 +384,7 @@ case $basic_machine in
+ 	| pdp10-* | pdp11-* | pj-* | pjl-* | pn-* | power-* \
+ 	| powerpc-* | powerpc64-* | powerpc64le-* | powerpcle-* | ppcbe-* \
+ 	| pyramid-* \
++	| riscv32-* | riscv64-* \
+ 	| romp-* | rs6000-* \
+ 	| sh-* | sh[1234]-* | sh[24]a-* | sh[23]e-* | sh[34]eb-* | sheb-* | shbe-* \
+ 	| shle-* | sh[1234]le-* | sh3ele-* | sh64-* | sh64le-* \
+diff --git a/common/autoconf/platform.m4 b/common/autoconf/platform.m4
+index 51df988f..1cce0e4f 100644
+--- a/common/autoconf/platform.m4
++++ b/common/autoconf/platform.m4
+@@ -96,6 +96,12 @@ AC_DEFUN([PLATFORM_EXTRACT_VARS_FROM_CPU],
+       VAR_CPU_BITS=64
+       VAR_CPU_ENDIAN=big
+       ;;
++    riscv64)
++      VAR_CPU=riscv64
++      VAR_CPU_ARCH=riscv
++      VAR_CPU_BITS=64
++      VAR_CPU_ENDIAN=little
++      ;;
+     *)
+       AC_MSG_ERROR([unsupported cpu $1])
+       ;;
+@@ -381,6 +387,7 @@ AC_DEFUN([PLATFORM_SETUP_LEGACY_VARS],
+     sparc*)  ZERO_ARCHDEF=SPARC ;;
+     x86_64*) ZERO_ARCHDEF=AMD64 ;;
+     x86)     ZERO_ARCHDEF=IA32  ;;
++    riscv*)  ZERO_ARCHDEF=RISCV  ;;
+     *)      ZERO_ARCHDEF=$(echo "${OPENJDK_TARGET_CPU_LEGACY_LIB}" | tr a-z A-Z)
+   esac
+   AC_SUBST(ZERO_ARCHDEF)
+diff --git a/hotspot/src/os/linux/vm/os_linux.cpp b/hotspot/src/os/linux/vm/os_linux.cpp
+index 2d3880b3..6ec35ec1 100644
+--- a/hotspot/src/os/linux/vm/os_linux.cpp
++++ b/hotspot/src/os/linux/vm/os_linux.cpp
+@@ -367,7 +367,7 @@ void os::init_system_properties_values() {
+ //        1: ...
+ //        ...
+ //        7: The default directories, normally /lib and /usr/lib.
+-#if defined(AMD64) || defined(_LP64) && (defined(SPARC) || defined(PPC) || defined(S390))
++#if defined(AMD64) || defined(_LP64) && (defined(SPARC) || defined(PPC) || defined(S390) || defined(RISCV))
+ #define DEFAULT_LIBPATH "/usr/lib64:/lib64:/lib:/usr/lib"
+ #else
+ #define DEFAULT_LIBPATH "/lib:/usr/lib"
+@@ -1953,6 +1953,9 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen)
+   #ifndef EM_AARCH64
+   #define EM_AARCH64    183               /* ARM AARCH64 */
+   #endif
++  #ifndef EM_RISCV
++  #define EM_RISCV      243               /* RISC-V */
++  #endif
+ 
+   static const arch_t arch_array[]={
+     {EM_386,         EM_386,     ELFCLASS32, ELFDATA2LSB, (char*)"IA 32"},
+@@ -1976,6 +1979,7 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen)
+     {EM_PARISC,      EM_PARISC,  ELFCLASS32, ELFDATA2MSB, (char*)"PARISC"},
+     {EM_68K,         EM_68K,     ELFCLASS32, ELFDATA2MSB, (char*)"M68k"},
+     {EM_AARCH64,     EM_AARCH64, ELFCLASS64, ELFDATA2LSB, (char*)"AARCH64"},
++    {EM_RISCV,       EM_RISCV,   ELFCLASSNONE, ELFDATA2MSB, (char*)"RISCV"},
+   };
+ 
+   #if  (defined IA32)
+@@ -2008,9 +2012,11 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen)
+     static  Elf32_Half running_arch_code=EM_68K;
+   #elif  (defined AARCH64)
+     static  Elf32_Half running_arch_code=EM_AARCH64;
++  #elif  (defined RISCV)
++    static  Elf32_Half running_arch_code=EM_RISCV;
+   #else
+     #error Method os::dll_load requires that one of following is defined:\
+-         IA32, AMD64, IA64, __sparc, __powerpc__, ARM, S390, ALPHA, MIPS, MIPSEL, PARISC, M68K, AARCH64
++         IA32, AMD64, IA64, __sparc, __powerpc__, ARM, S390, ALPHA, MIPS, MIPSEL, PARISC, M68K, AARCH64, RISCV
+   #endif
+ 
+   // Identify compatability class for VM's architecture and library's architecture
+@@ -2043,10 +2049,12 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen)
+   }
+ 
+ #ifndef S390
++#ifndef RISCV
+   if (lib_arch.elf_class != arch_array[running_arch_index].elf_class) {
+     ::snprintf(diag_msg_buf, diag_msg_max_length-1," (Possible cause: architecture word width mismatch)");
+     return NULL;
+   }
++#endif // RISCV
+ #endif // !S390
+ 
+   if (lib_arch.compat_class != arch_array[running_arch_index].compat_class) {
+-- 
+2.17.1

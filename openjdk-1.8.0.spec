@@ -52,6 +52,7 @@
 %endif
 
 %global aarch64         aarch64
+%global riscv64         riscv64
 %global jit_arches 	x86_64 %{aarch64}
 %global sa_arches 	x86_64 %{aarch64}
 %global jfr_arches 	x86_64 %{aarch64}
@@ -116,6 +117,17 @@
 %global stapinstall arm64
 %endif
 
+# Need to support noarch for srpm build
+%ifarch noarch
+%global archinstall %{nil}
+%global stapinstall %{nil}
+%endif
+
+%ifarch %{riscv64}
+%global archinstall riscv64
+%global stapinstall %{nil}
+%endif
+
 %ifarch %{jit_arches}
 %global with_systemtap 1
 %else
@@ -125,6 +137,7 @@
 # New Version-String scheme-style defines
 %global majorver 8
 
+%ifarch %{ix86} x86_64
 %global with_openjfx_binding 1
 %global openjfx_path %{_jvmdir}/openjfx8
 # links src directories
@@ -140,19 +153,22 @@
 %global jfx_sdk_libs javafx-mx.jar packager.jar ant-javafx.jar
 %global jfx_sdk_bins javafxpackager javapackager
 %global jfx_jre_exts jfxrt.jar
+%else
+%global with_openjfx_binding 0
+%endif
 
 # Standard JPackage naming and versioning defines.
 %global origin          openjdk
 %global origin_nice     OpenJDK
 %global top_level_dir_name   %{origin}
 %global repo		jdk8u
-%global revision    	jdk8u322-b06
+%global revision    	jdk8u332-b09
 %global full_revision	%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
 
-%global updatever       322
-%global buildver        b06
+%global updatever       332
+%global buildver        b09
 # priority must be 7 digits in total. The expression is workarounding tip
 %global priority        1800%{updatever}
 
@@ -916,7 +932,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 2
+Release: 3
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1030,8 +1046,6 @@ Patch115: 8243670.patch
 Patch118: Fix-LineBuffer-vappend-when-buffer-too-small.patch
 Patch121: Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
 Patch122: optimize-jmap-F-dump-xxx.patch
-Patch123: recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
-Patch124: Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
 Patch125: Extend-CDS-to-support-app-class-metadata-sharing.patch
 Patch127: add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
 
@@ -1099,13 +1113,11 @@ Patch202: Fix-RSACipher-memory-usage.patch
 Patch203: fix-lock-ordering-issue-when-calling-JVMTI-GetLoaded.patch
 Patch204: 8069191.patch
 Patch205: fix_g1uncommit_ygc_expand_crash.patch
-Patch206: 8167014-jdeps-failed-with-Missing-message-warn-skippen-entry.patch 
 Patch207: fix_bug_in_keypairgenerator.patch
 Patch208: C1-assert-is_virtual-failed-type-check.patch
 Patch209: 8197387-Run-the-jcmd-tool-as-the-root-user-to-access.patch
 Patch210: create-jfr-dump-file-with-pid-or-timestamp-if-specif.patch
 Patch212: enhance-the-TimeZone-s-path-solution-on-Euler.patch
-Patch213: fix-wrong-commitID-in-release-file.patch
 Patch214: fix-appcds-s-option-AppCDSLockFile.patch
 Patch215: PS-introduce-UsePSRelaxedForwardee-to-enable-using-r.patch
 Patch216: Parallel-Full-GC-for-G1.patch
@@ -1134,6 +1146,12 @@ Patch237: 8136577_Make_AbortVMOnException_available_in_product_builds.patch
 Patch238: add-environment-variable-ZIP_INVALID_LOC_HEADER_EXIT.patch
 Patch239: print-fd-and-file-path-when-a-zip-invalid-loc-header.patch
 Patch240: 8207011-Remove-uses-of-the-register-storage-class-specifier.patch
+Patch241: 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
+
+# 8u332
+Patch242: fix-make-bugs-when-git-and-hg-not-exist.patch
+Patch243: Fix-compile-and-runtime-failures-for-minimal1-versio.patch
+Patch244: fix_X509TrustManagerImpl_symantec_distrust.patch
 
 #############################################
 #
@@ -1180,6 +1198,9 @@ Patch539: pr2888-openjdk_should_check_for_system_cacerts_database_eg_etc_pki_jav
 # that from OpenJDK.
 #############################################
 Patch1000: rh1648249-add_commented_out_nss_cfg_provider_to_java_security.patch
+
+# RISC-V support
+Patch2000: add-riscv-support.patch
 
 #############################################
 #
@@ -1521,8 +1542,6 @@ pushd %{top_level_dir_name}
 %patch118 -p1
 %patch121 -p1
 %patch122 -p1
-%patch123 -p1
-%patch124 -p1
 %patch125 -p1
 %patch127 -p1
 %patch133 -p1
@@ -1581,13 +1600,11 @@ pushd %{top_level_dir_name}
 %patch203 -p1
 %patch204 -p1
 %patch205 -p1
-%patch206 -p1
 %patch207 -p1
 %patch208 -p1
 %patch209 -p1
 %patch210 -p1
 %patch212 -p1
-%patch213 -p1
 %patch214 -p1
 %patch215 -p1
 %patch216 -p1
@@ -1612,6 +1629,13 @@ pushd %{top_level_dir_name}
 %patch238 -p1
 %patch239 -p1
 %patch240 -p1
+%patch241 -p1
+%patch242 -p1
+%patch243 -p1
+%patch244 -p1
+%ifarch riscv64
+%patch2000 -p1
+%endif
 popd
 
 # System library fixes
@@ -1679,7 +1703,7 @@ export NUM_PROC=${NUM_PROC:-1}
 [ ${NUM_PROC} -gt %{?_smp_ncpus_max} ] && export NUM_PROC=%{?_smp_ncpus_max}
 %endif
 
-%ifarch %{aarch64}
+%ifarch %{aarch64} riscv64
 export ARCH_DATA_MODEL=64
 %endif
 
@@ -1690,6 +1714,12 @@ EXTRA_CPP_FLAGS="%ourcppflags -Wno-error"
 
 EXTRA_ASFLAGS="${EXTRA_CFLAGS} -Wa,--generate-missing-build-notes=yes"
 export EXTRA_CFLAGS EXTRA_ASFLAGS
+
+%ifarch riscv64
+(cd %{top_level_dir_name}/common/autoconf
+ bash ./autogen.sh
+)
+%endif
 
 for suffix in %{build_loop} ; do
 (if [ "x$suffix" = "x" ] ; then
@@ -1708,6 +1738,11 @@ pushd %{buildoutputdir -- $suffix}
 bash ${top_srcdir_abs_path}/configure \
 %ifarch %{jfr_arches}
     --enable-jfr \
+%else
+    --disable-jfr \
+%endif
+%ifnarch %{jit_arches}
+    --with-jvm-variants=zero \
 %endif
     --with-native-debug-symbols=internal \
     --with-milestone="fcs" \
@@ -1721,7 +1756,11 @@ bash ${top_srcdir_abs_path}/configure \
     --with-debug-level=$debugbuild \
     --enable-unlimited-crypto \
     --with-zlib=system \
+%ifnarch %{jit_arches}
     --enable-kae=yes \
+%else
+    --disable-kae=yes \
+%endif
     --with-stdc++lib=dynamic \
     --with-extra-cflags="$EXTRA_CFLAGS" \
     --with-extra-cxxflags="$EXTRA_CPP_FLAGS" \
@@ -1730,8 +1769,10 @@ bash ${top_srcdir_abs_path}/configure \
     --with-num-cores="$NUM_PROC" \
     --with-boot-jdk-jvmargs=-XX:-UsePerfData
 
+%ifnarch riscv64
 cat spec.gmk
 cat hotspot-spec.gmk
+%endif
 
 # Debug builds don't need same targets as release for
 # build speed-up
@@ -1836,6 +1877,7 @@ do
   fi
 done
 
+%ifnarch riscv64
 # Make sure gdb can do a backtrace based on line numbers on libjvm.so
 # javaCalls.cpp:58 should map to:
 # http://hg.openjdk.java.net/jdk8u/jdk8u/hotspot/file/ff3b27e6bcc2/src/share/vm/runtime/javaCalls.cpp#l58 
@@ -1852,6 +1894,7 @@ end
 run -version
 EOF
 grep 'JavaCallWrapper::JavaCallWrapper' gdb.out
+%endif
 
 # Check src.zip has all sources. See RHBZ#1130490
 jar -tf $JAVA_HOME/src.zip | grep 'sun.misc.Unsafe'
@@ -2062,7 +2105,13 @@ done
 -- whether copy-jdk-configs is installed or not. If so, then configs are copied
 -- (copy_jdk_configs from %%{_libexecdir} used) or not copied at all
 local posix = require "posix"
-local debug = false
+
+if (os.getenv("debug") == "true") then
+  debug = true;
+  print("cjc: in spec debug is on")
+else
+  debug = false;
+end
 
 SOURCE1 = "%{rpm_state_dir}/copy_jdk_configs.lua"
 SOURCE2 = "%{_libexecdir}/copy_jdk_configs.lua"
@@ -2091,8 +2140,10 @@ else
   end
 end
 -- run content of included file with fake args
+arg = nil
+cjc = require "copy_jdk_configs.lua"
 arg = {"--currentjvm", "%{uniquesuffix %{nil}}", "--jvmdir", "%{_jvmdir %{nil}}", "--origname", "%{name}", "--origjavaver", "%{javaver}", "--arch", "%{_arch}", "--temp", "%{rpm_state_dir}/%{name}.%{_arch}"}
-require "copy_jdk_configs.lua"
+cjc.mainProgram(arg)
 
 %post
 %{post_script %{nil}}
@@ -2229,6 +2280,31 @@ require "copy_jdk_configs.lua"
 %endif
 
 %changelog
+* Fri May 06 2022 misaka00251 <misaka00251@misakanet.cn> - 1:1.8.0.332-b09.3
+- Fix RISC-V support & merge 22.03-LTS branch
+
+* Thu Apr 28 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.2
+- add fix_X509TrustManagerImpl_symantec_distrust.patch
+
+* Wed Apr 27 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.1
+- add Fix-compile-and-runtime-failures-for-minimal1-versio.patch
+
+* Wed Apr 27 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.0
+- deleted Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
+- deleted 8167014-jdeps-failed-with-Missing-message-warn-skippen-entry.patch
+- deleted fix-wrong-commitID-in-release-file.patch
+- deleted recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
+- modified update-cacerts-and-VerifyCACerts.java-test.patch
+- modified 8194154.patch
+- modified add-missing-test-case.patch
+- add fix-make-bugs-when-git-and-hg-not-exist.patch
+
+* Wed Mar 2 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.4
+- add 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
+
+* Thu Mar 1 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.3
+- modified 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
+
 * Wed Feb 16 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.2
 - add add-system-property-swing.JComboBox.useLegacyMode.patch
 - add debuginfo.diz-should-not-contain-the-path-after-unzip.patch
