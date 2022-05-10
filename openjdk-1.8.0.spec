@@ -146,13 +146,13 @@
 %global origin_nice     OpenJDK
 %global top_level_dir_name   %{origin}
 %global repo		jdk8u
-%global revision    	jdk8u322-b06
+%global revision    	jdk8u332-b09
 %global full_revision	%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
 
-%global updatever       322
-%global buildver        b06
+%global updatever       332
+%global buildver        b09
 # priority must be 7 digits in total. The expression is workarounding tip
 %global priority        1800%{updatever}
 
@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 4
+Release: 2
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1030,8 +1030,6 @@ Patch115: 8243670.patch
 Patch118: Fix-LineBuffer-vappend-when-buffer-too-small.patch
 Patch121: Remove-unused-GenericTaskQueueSet-T-F-tasks.patch
 Patch122: optimize-jmap-F-dump-xxx.patch
-Patch123: recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
-Patch124: Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
 Patch125: Extend-CDS-to-support-app-class-metadata-sharing.patch
 Patch127: add-DumpSharedSpace-guarantee-when-create-anonymous-classes.patch
 
@@ -1099,13 +1097,11 @@ Patch202: Fix-RSACipher-memory-usage.patch
 Patch203: fix-lock-ordering-issue-when-calling-JVMTI-GetLoaded.patch
 Patch204: 8069191.patch
 Patch205: fix_g1uncommit_ygc_expand_crash.patch
-Patch206: 8167014-jdeps-failed-with-Missing-message-warn-skippen-entry.patch 
 Patch207: fix_bug_in_keypairgenerator.patch
 Patch208: C1-assert-is_virtual-failed-type-check.patch
 Patch209: 8197387-Run-the-jcmd-tool-as-the-root-user-to-access.patch
 Patch210: create-jfr-dump-file-with-pid-or-timestamp-if-specif.patch
 Patch212: enhance-the-TimeZone-s-path-solution-on-Euler.patch
-Patch213: fix-wrong-commitID-in-release-file.patch
 Patch214: fix-appcds-s-option-AppCDSLockFile.patch
 Patch215: PS-introduce-UsePSRelaxedForwardee-to-enable-using-r.patch
 Patch216: Parallel-Full-GC-for-G1.patch
@@ -1135,6 +1131,11 @@ Patch238: add-environment-variable-ZIP_INVALID_LOC_HEADER_EXIT.patch
 Patch239: print-fd-and-file-path-when-a-zip-invalid-loc-header.patch
 Patch240: 8207011-Remove-uses-of-the-register-storage-class-specifier.patch
 Patch241: 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
+
+# 8u332
+Patch242: fix-make-bugs-when-git-and-hg-not-exist.patch
+Patch243: Fix-compile-and-runtime-failures-for-minimal1-versio.patch
+Patch244: fix_X509TrustManagerImpl_symantec_distrust.patch
 
 #############################################
 #
@@ -1522,8 +1523,6 @@ pushd %{top_level_dir_name}
 %patch118 -p1
 %patch121 -p1
 %patch122 -p1
-%patch123 -p1
-%patch124 -p1
 %patch125 -p1
 %patch127 -p1
 %patch133 -p1
@@ -1582,13 +1581,11 @@ pushd %{top_level_dir_name}
 %patch203 -p1
 %patch204 -p1
 %patch205 -p1
-%patch206 -p1
 %patch207 -p1
 %patch208 -p1
 %patch209 -p1
 %patch210 -p1
 %patch212 -p1
-%patch213 -p1
 %patch214 -p1
 %patch215 -p1
 %patch216 -p1
@@ -1614,6 +1611,9 @@ pushd %{top_level_dir_name}
 %patch239 -p1
 %patch240 -p1
 %patch241 -p1
+%patch242 -p1
+%patch243 -p1
+%patch244 -p1
 popd
 
 # System library fixes
@@ -2238,6 +2238,22 @@ cjc.mainProgram(arg)
 %endif
 
 %changelog
+* Thu Apr 28 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.2
+- add fix_X509TrustManagerImpl_symantec_distrust.patch
+
+* Wed Apr 27 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.1
+- add Fix-compile-and-runtime-failures-for-minimal1-versio.patch
+
+* Wed Apr 27 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.0
+- deleted Support-Git-commit-ID-in-the-SOURCE-field-of-the-release.patch
+- deleted 8167014-jdeps-failed-with-Missing-message-warn-skippen-entry.patch
+- deleted fix-wrong-commitID-in-release-file.patch
+- deleted recreate-.java_pid-file-when-deleted-for-attach-mechanism.patch
+- modified update-cacerts-and-VerifyCACerts.java-test.patch
+- modified 8194154.patch
+- modified add-missing-test-case.patch
+- add fix-make-bugs-when-git-and-hg-not-exist.patch
+
 * Wed Mar 2 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.4
 - add 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
 
