@@ -2250,7 +2250,7 @@ require "copy_jdk_configs.lua"
 * Wed Mar 2 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.4
 - add 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
 
-* Thu Mar 1 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.3
+* Tue Mar 1 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.3
 - modified 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
 
 * Wed Feb 16 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.2
@@ -2309,7 +2309,7 @@ require "copy_jdk_configs.lua"
 * Tue Nov 23 2021 lijingwei <lijingwei@uniontech.com> - 1:1.8.0.312-b07.1
 - correct spec file release number typo
 
-* Mon Nov 11 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.0
+* Mon Nov 1 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.0
 - update to 8u312-b07(ga)
 - delete 8194246.patch
 - delete 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
@@ -2365,10 +2365,10 @@ require "copy_jdk_configs.lua"
 - delete fix-crash-in-JVMTI-debug.patch
 - other adaptations to jdk8u302
 
-* Thu Jul 12 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.19
+* Mon Jul 12 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.19
 - add Fix-RSACipher-memory-usage.patch
 
-* Thu Jul 12 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.18
+* Mon Jul 12 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.18
 - fix run SPECjvm2008 failed on 32 bit system
 
 * Thu Jul 8 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.17
@@ -2392,7 +2392,7 @@ require "copy_jdk_configs.lua"
 * Sat Jun 12 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.11
 - add g1gc-numa-aware-Implementation.patch
 
-* Wed Jun 10 2021 hu_bo_dao <hubodao@huawei.com> - 1:1.8.0.292-b10.10
+* Fri Jun 11 2021 hu_bo_dao <hubodao@huawei.com> - 1:1.8.0.292-b10.10
 - add support_CMS_parallel_inspection.patch
 
 * Wed Jun 9 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.9
@@ -2413,13 +2413,13 @@ require "copy_jdk_configs.lua"
 * Thu May 27 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.4
 - add 8264640.patch
 
-* Fri May 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.3
+* Fri May 21 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.3
 - add 8266929_huawei_add_oid_mapping_common_sig_types.patch
 
-* Fri May 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.2
+* Fri May 21 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.2
 - add 8266187_Memory_leak_in_appendBootClassPath.patch
 
-* Fri May 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.1
+* Fri May 21 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.1
 - add 8247691_incorrect_handling_of_VM_exceptions_in_C1_deopt_stub.patch
 
 * Tue May 18 2021 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.292-b10.0
