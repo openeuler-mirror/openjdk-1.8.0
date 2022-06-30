@@ -96,7 +96,7 @@ index 2d3880b3..6ec35ec1 100644
      {EM_PARISC,      EM_PARISC,  ELFCLASS32, ELFDATA2MSB, (char*)"PARISC"},
      {EM_68K,         EM_68K,     ELFCLASS32, ELFDATA2MSB, (char*)"M68k"},
      {EM_AARCH64,     EM_AARCH64, ELFCLASS64, ELFDATA2LSB, (char*)"AARCH64"},
-+    {EM_RISCV,       EM_RISCV,   ELFCLASSNONE, ELFDATA2MSB, (char*)"RISCV"},
++    {EM_RISCV,       EM_RISCV,   ELFCLASS64, ELFDATA2LSB, (char*)"RISCV"},
    };
  
    #if  (defined IA32)

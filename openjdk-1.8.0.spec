@@ -932,7 +932,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 3
+Release: 4
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2280,6 +2280,9 @@ cjc.mainProgram(arg)
 %endif
 
 %changelog
+* Wed Jun 29 2022 laokz <laokz@foxmail.com> - 1:1.8.0.332-b09.4
+- Fix RISC-V patch to os_linux.cpp
+
 * Fri May 06 2022 misaka00251 <misaka00251@misakanet.cn> - 1:1.8.0.332-b09.3
 - Fix RISC-V support & merge 22.03-LTS branch
 
