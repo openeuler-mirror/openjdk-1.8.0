@@ -3,11 +3,6 @@ From: d30023828 <douyiwang@huawei.com>
 Date: Wed, 9 Feb 2022 18:32:05 +0800
 Subject: [PATCH 3/8] 8268819: SA: Remove libthread_db dependency on Linux
 
-DTS/AR: DTS2022020914784
-Summary:hotspot:SA: Remove libthread_db dependency on Linux
-LLT:NA
-Patch Type:backport
-Bug url:https://bugs.openjdk.java.net/browse/JDK-8268819
 ---
  .../agent/src/os/linux/LinuxDebuggerLocal.c   |  3 +-
  hotspot/agent/src/os/linux/Makefile           |  6 +-
