@@ -4,10 +4,6 @@ Date: Wed, 8 Jun 2022 09:38:47 +0800
 Subject: [PATCH 06/10] 7092821: java.security.Provider.getService() is
  synchronized and became scalability bottleneck
 
-DTS/AR: DTS2022060716094
-Summary: <JDK> : backport patch jdk-7092821 to jdk8, imporve provider performance
-LLT: NA
-Patch Type: backport
 Bug url: https://bugs.openjdk.java.net/browse/JDK-7092821
 ---
  .../com/sun/crypto/provider/SunJCE.java       | 1300 ++++++++---------
