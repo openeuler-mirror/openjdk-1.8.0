@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 3
+Release: 4
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1137,6 +1137,7 @@ Patch242: fix-make-bugs-when-git-and-hg-not-exist.patch
 Patch243: Fix-compile-and-runtime-failures-for-minimal1-versio.patch
 Patch244: fix_X509TrustManagerImpl_symantec_distrust.patch
 Patch245: change-sa-jdi.jar-make-file-for-BEP.PATCH
+Patch246: 7092821-java.security.Provider.getService-is-synchro.patch
 
 #############################################
 #
@@ -1616,6 +1617,7 @@ pushd %{top_level_dir_name}
 %patch243 -p1
 %patch244 -p1
 %patch245 -p1
+%patch246 -p1
 popd
 
 # System library fixes
@@ -2240,6 +2242,9 @@ cjc.mainProgram(arg)
 %endif
 
 %changelog
+* Mon Jul 4 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.4
+- add 7092821-java.security.Provider.getService-is-synchro.patch
+
 * Fri Jun 30 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.3
 - add change-sa-jdi.jar-make-file-for-BEP.PATCH
 
