@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 5
+Release: 6
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1139,6 +1139,7 @@ Patch244: fix_X509TrustManagerImpl_symantec_distrust.patch
 Patch245: change-sa-jdi.jar-make-file-for-BEP.PATCH
 Patch246: 7092821-java.security.Provider.getService-is-synchro.patch
 Patch247: 8173339-AArch64-Fix-minimum-stack-size-computations.patch
+Patch248: 8067941-TESTBUG-Fix-tests-for-OS-with-64K-page-size.patch
 
 #############################################
 #
@@ -1620,6 +1621,7 @@ pushd %{top_level_dir_name}
 %patch245 -p1
 %patch246 -p1
 %patch247 -p1
+%patch248 -p1
 popd
 
 # System library fixes
@@ -2244,6 +2246,9 @@ cjc.mainProgram(arg)
 %endif
 
 %changelog
+* Mon Jul 4 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.6
+- add 8067941-TESTBUG-Fix-tests-for-OS-with-64K-page-size.patch
+
 * Mon Jul 4 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.5
 - add 8173339-AArch64-Fix-minimum-stack-size-computations.patch
 
