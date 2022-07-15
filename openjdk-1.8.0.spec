@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 6
+Release: 7
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1075,7 +1075,6 @@ Patch177: downgrade-symver-of-memcpy-GLIBC.patch
 Patch178: fix-log-bug-enhance-aes-hmac-performance.patch
 Patch179: keep-the-binary-equal.patch
 Patch180: link-option-use-rpath-instead-of-runpath.patch
-Patch181: remove-gnu-debuglink-when-using-enable-debug-.patch
 Patch183: revert-windows-bugfix.patch
 Patch184: set-vm.vendor-by-configure.patch
 Patch185: update-cacerts-and-VerifyCACerts.java-test.patch
@@ -1566,7 +1565,6 @@ pushd %{top_level_dir_name}
 %patch178 -p1
 %patch179 -p1
 %patch180 -p1
-%patch181 -p1
 %patch183 -p1
 %patch184 -p1
 %patch185 -p1
@@ -2246,6 +2244,9 @@ cjc.mainProgram(arg)
 %endif
 
 %changelog
+* Fri Jul 15 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.7
+- del remove-gnu-debuglink-when-using-enable-debug-.patch
+
 * Mon Jul 4 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.6
 - add 8067941-TESTBUG-Fix-tests-for-OS-with-64K-page-size.patch
 
