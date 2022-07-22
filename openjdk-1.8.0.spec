@@ -146,13 +146,13 @@
 %global origin_nice     OpenJDK
 %global top_level_dir_name   %{origin}
 %global repo		jdk8u
-%global revision    	jdk8u332-b09
+%global revision    	jdk8u342-b07
 %global full_revision	%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
 
-%global updatever       332
-%global buildver        b09
+%global updatever       342
+%global buildver        b07
 # priority must be 7 digits in total. The expression is workarounding tip
 %global priority        1800%{updatever}
 
@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 7
+Release: 0
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -993,7 +993,6 @@ Patch58: Reduce-the-probability-of-the-crash-related-to-ciObj.patch
 Patch62: 8165857.patch
 Patch63: 8033552.patch
 Patch67: 8165860.patch
-Patch68: 8194154.patch
 Patch70: 8164948.patch
 
 # 8u242
@@ -1044,7 +1043,6 @@ Patch142: 8207160.patch
 Patch144: add-appcds-test-case.patch
 
 # 8u282
-Patch146: 8168926.patch
 Patch147: 8215047.patch
 Patch148: 8237894.patch
 Patch149: Remove-the-parentheses-around-company-name.patch
@@ -1080,7 +1078,6 @@ Patch184: set-vm.vendor-by-configure.patch
 Patch185: update-cacerts-and-VerifyCACerts.java-test.patch
 Patch186: update-to-keep-same-with-master.patch
 Patch188: 8247691_incorrect_handling_of_VM_exceptions_in_C1_deopt_stub.patch
-Patch189: 8266187_Memory_leak_in_appendBootClassPath.patch
 Patch192: add_kae_implementation_add_default_conf_file.patch
 Patch193: improve_algorithmConstraints_checkAlgorithm_performance.patch
 Patch194: modify_the_default_iteration_time_and_forks_in_the_JMH_of_KAEProvider.patch
@@ -1104,7 +1101,6 @@ Patch212: enhance-the-TimeZone-s-path-solution-on-Euler.patch
 Patch214: fix-appcds-s-option-AppCDSLockFile.patch
 Patch215: PS-introduce-UsePSRelaxedForwardee-to-enable-using-r.patch
 Patch216: Parallel-Full-GC-for-G1.patch
-Patch217: 8202142-jfr-event-io-TestInstrumentation-is-unstable.patch
 Patch218: 8143251-Thread-suspend-on-VM_G1IncCollectionPause-do.patch
 Patch219: G1Uncommit-Introduce-G1PeriodGCNotRetry-control-whet.patch
 Patch220: JDK-debug-version-crash-when-using-AppCDS.patch
@@ -1120,7 +1116,6 @@ Patch229: downgrade-the-symver-of-fcntl64.patch
 
 # 8u322
 Patch230: add-system-property-swing.JComboBox.useLegacyMode.patch
-Patch231: debuginfo.diz-should-not-contain-the-path-after-unzip.patch
 Patch232: 8173361-various-crashes-in-JvmtiExport-post_compiled.patch
 Patch233: fix-TestUseCompressedOopsErgo-run-failed.patch
 Patch235: fix-testme-Test6929067-run-faild.patch
@@ -1132,13 +1127,14 @@ Patch240: 8207011-Remove-uses-of-the-register-storage-class-specifier.patch
 Patch241: 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
 
 # 8u332
-Patch242: fix-make-bugs-when-git-and-hg-not-exist.patch
 Patch243: Fix-compile-and-runtime-failures-for-minimal1-versio.patch
 Patch244: fix_X509TrustManagerImpl_symantec_distrust.patch
 Patch245: change-sa-jdi.jar-make-file-for-BEP.PATCH
 Patch246: 7092821-java.security.Provider.getService-is-synchro.patch
 Patch247: 8173339-AArch64-Fix-minimum-stack-size-computations.patch
 Patch248: 8067941-TESTBUG-Fix-tests-for-OS-with-64K-page-size.patch
+
+# 8u342
 
 #############################################
 #
@@ -1497,7 +1493,6 @@ pushd %{top_level_dir_name}
 %patch62 -p1
 %patch63 -p1
 %patch67 -p1
-%patch68 -p1
 %patch70 -p1
 %patch75 -p1
 %patch83 -p1
@@ -1536,7 +1531,6 @@ pushd %{top_level_dir_name}
 %patch141 -p1
 %patch142 -p1
 %patch144 -p1
-%patch146 -p1
 %patch147 -p1
 %patch148 -p1
 %patch149 -p1
@@ -1570,7 +1564,6 @@ pushd %{top_level_dir_name}
 %patch185 -p1
 %patch186 -p1
 %patch188 -p1
-%patch189 -p1
 %patch192 -p1
 %patch194 -p1
 %patch195 -p1
@@ -1591,7 +1584,6 @@ pushd %{top_level_dir_name}
 %patch214 -p1
 %patch215 -p1
 %patch216 -p1
-%patch217 -p1
 %patch218 -p1
 %patch219 -p1
 %patch220 -p1
@@ -1603,7 +1595,6 @@ pushd %{top_level_dir_name}
 %patch228 -p1
 %patch229 -p1
 %patch230 -p1
-%patch231 -p1
 %patch232 -p1
 %patch233 -p1
 %patch235 -p1
@@ -1613,7 +1604,6 @@ pushd %{top_level_dir_name}
 %patch239 -p1
 %patch240 -p1
 %patch241 -p1
-%patch242 -p1
 %patch243 -p1
 %patch244 -p1
 %patch245 -p1
@@ -2244,6 +2234,17 @@ cjc.mainProgram(arg)
 %endif
 
 %changelog
+* Fri Jul 22 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.342-b07.0
+- del 8168926.patch
+- del 8194154.patch
+- del 8202142-jfr-event-io-TestInstrumentation-is-unstable.patch
+- del 8266187_Memory_leak_in_appendBootClassPath.patch
+- del debuginfo.diz-should-not-contain-the-path-after-unzip.patch
+- del fix-make-bugs-when-git-and-hg-not-exist.patch
+- modified 7092821-java.security.Provider.getService-is-synchro.patch
+- modified 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
+- modified fix-log-bug-enhance-aes-hmac-performance.patch
+
 * Fri Jul 15 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.7
 - del remove-gnu-debuglink-when-using-enable-debug-.patch
 
@@ -2256,7 +2257,7 @@ cjc.mainProgram(arg)
 * Mon Jul 4 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.4
 - add 7092821-java.security.Provider.getService-is-synchro.patch
 
-* Fri Jun 30 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.3
+* Thu Jun 30 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.3
 - add change-sa-jdi.jar-make-file-for-BEP.PATCH
 
 * Thu Apr 28 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.2
@@ -2306,7 +2307,7 @@ cjc.mainProgram(arg)
 - deleted Delete-expired-certificate-globalsignr2ca.patch
 - deleted inline-optimize-for-aarch64.patch
 
-* Wed Jan 05 2021 noah <hedongbo@huawei.com> - 1:1.8.0.312-b07.11
+* Tue Jan 05 2021 noah <hedongbo@huawei.com> - 1:1.8.0.312-b07.11
 - adapted to newst cjc to fix issue with rpm 4.17
 
 * Tue Dec 21 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.10

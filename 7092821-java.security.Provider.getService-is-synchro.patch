@@ -43,21 +43,22 @@ Bug url: https://bugs.openjdk.java.net/browse/JDK-7092821
  create mode 100644 jdk/test/micro/org/openeuler/bench/security/provider/GetServiceBenchmark.java
 
 diff --git a/jdk/src/share/classes/com/sun/crypto/provider/SunJCE.java b/jdk/src/share/classes/com/sun/crypto/provider/SunJCE.java
-index efe8031fe..472439b86 100644
+index 1e5b5dd0..66a26db2 100644
 --- a/jdk/src/share/classes/com/sun/crypto/provider/SunJCE.java
 +++ b/jdk/src/share/classes/com/sun/crypto/provider/SunJCE.java
-@@ -28,6 +28,10 @@ package com.sun.crypto.provider;
+@@ -28,7 +28,10 @@ package com.sun.crypto.provider;
  import java.security.AccessController;
  import java.security.Provider;
  import java.security.SecureRandom;
+-
 +import java.security.PrivilegedAction;
 +import java.util.Arrays;
 +import java.util.HashMap;
 +import java.util.List;
  
- 
  /**
-@@ -78,16 +82,6 @@ public final class SunJCE extends Provider {
+  * The "SunJCE" Cryptographic Service Provider.
+@@ -78,16 +81,6 @@ public final class SunJCE extends Provider {
      "(implements RSA, DES, Triple DES, AES, Blowfish, ARCFOUR, RC2, PBE, "
      + "Diffie-Hellman, HMAC)";
  
@@ -74,11 +75,10 @@ index efe8031fe..472439b86 100644
      /* Are we debugging? -- for developers */
      static final boolean debug = false;
  
-@@ -102,10 +96,116 @@ public final class SunJCE extends Provider {
+@@ -102,10 +95,115 @@ public final class SunJCE extends Provider {
      }
      static SecureRandom getRandom() { return SecureRandomHolder.RANDOM; }
  
-+
 +    // create an aliases List from the specified aliases
 +    public static List<String> createAliases(String ... aliases) {
 +        return Arrays.asList(aliases);
@@ -191,7 +191,7 @@ index efe8031fe..472439b86 100644
          final String BLOCK_MODES = "ECB|CBC|PCBC|CTR|CTS|CFB|OFB" +
              "|CFB8|CFB16|CFB24|CFB32|CFB40|CFB48|CFB56|CFB64" +
              "|OFB8|OFB16|OFB24|OFB32|OFB40|OFB48|OFB56|OFB64";
-@@ -114,676 +214,516 @@ public final class SunJCE extends Provider {
+@@ -114,694 +212,529 @@ public final class SunJCE extends Provider {
              "|OFB72|OFB80|OFB88|OFB96|OFB104|OFB112|OFB120|OFB128";
          final String BLOCK_PADS = "NOPADDING|PKCS5PADDING|ISO10126PADDING";
  
@@ -788,7 +788,19 @@ index efe8031fe..472439b86 100644
 -                    put("Alg.Alias.Mac.1.2.840.113549.2.11", "HmacSHA512");
 -
 -                    put("Mac.HmacPBESHA1",
--                        "com.sun.crypto.provider.HmacPKCS12PBESHA1");
+-                        "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA1");
+-                    put("Mac.HmacPBESHA224",
+-                        "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA224");
+-                    put("Mac.HmacPBESHA256",
+-                        "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA256");
+-                    put("Mac.HmacPBESHA384",
+-                        "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA384");
+-                    put("Mac.HmacPBESHA512",
+-                        "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA512");
+-                    put("Mac.HmacPBESHA512/224",
+-                        "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA512_224");
+-                    put("Mac.HmacPBESHA512/256",
+-                        "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA512_256");
 -
 -                    // PBMAC1
 -
@@ -815,6 +827,12 @@ index efe8031fe..472439b86 100644
 -                    put("Mac.HmacSHA384 SupportedKeyFormats", "RAW");
 -                    put("Mac.HmacSHA512 SupportedKeyFormats", "RAW");
 -                    put("Mac.HmacPBESHA1 SupportedKeyFormats", "RAW");
+-                    put("Mac.HmacPBESHA224 SupportedKeyFormats", "RAW");
+-                    put("Mac.HmacPBESHA256 SupportedKeyFormats", "RAW");
+-                    put("Mac.HmacPBESHA384 SupportedKeyFormats", "RAW");
+-                    put("Mac.HmacPBESHA512 SupportedKeyFormats", "RAW");
+-                    put("Mac.HmacPBESHA512/224 SupportedKeyFormats", "RAW");
+-                    put("Mac.HmacPBESHA512/256 SupportedKeyFormats", "RAW");
 -                    put("Mac.PBEWithHmacSHA1 SupportedKeyFormatS", "RAW");
 -                    put("Mac.PBEWithHmacSHA224 SupportedKeyFormats", "RAW");
 -                    put("Mac.PBEWithHmacSHA256 SupportedKeyFormats", "RAW");
@@ -1324,8 +1342,21 @@ index efe8031fe..472439b86 100644
 +        ps("Mac", "HmacSHA512", "com.sun.crypto.provider.HmacCore$HmacSHA512",
 +                macSHA512Aliases, attrs);
 +        // TODO: aliases with OIDs
-+        ps("Mac", "HmacPBESHA1", "com.sun.crypto.provider.HmacPKCS12PBESHA1",
++        ps("Mac", "HmacPBESHA1", "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA1",
 +                null, attrs);
++        ps("Mac", "HmacPBESHA224", "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA224",
++                null, attrs);
++        ps("Mac", "HmacPBESHA256", "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA256",
++                null, attrs);
++        ps("Mac", "HmacPBESHA384", "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA384",
++                null, attrs);
++        ps("Mac", "HmacPBESHA512", "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA512",
++                null, attrs);
++        ps("Mac", "HmacPBESHA512/224", "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA512_224",
++                null, attrs);
++        ps("Mac", "HmacPBESHA512/256", "com.sun.crypto.provider.HmacPKCS12PBECore$HmacPKCS12PBE_SHA512_256",
++                null, attrs);
++
 +        // PBMAC1
 +        ps("Mac", "PBEWithHmacSHA1",
 +                "com.sun.crypto.provider.PBMAC1Core$HmacSHA1", null, attrs);
