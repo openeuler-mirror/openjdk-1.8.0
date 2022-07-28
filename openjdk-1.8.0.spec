@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 0
+Release: 1
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -2234,6 +2234,9 @@ cjc.mainProgram(arg)
 %endif
 
 %changelog
+* Thu Jul 28 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.342-b07.1
+- del hg git files
+
 * Fri Jul 22 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.342-b07.0
 - del 8168926.patch
 - del 8194154.patch
