@@ -1,0 +1,56 @@
+From 9d32c786ff6886bcd4b76e0a80eb19ce602dbe42 Mon Sep 17 00:00:00 2001
+From: wangkun <wangkun49@huawei.com>
+Date: Thu, 28 Jul 2022 17:24:52 +0800
+Subject: [PATCH 3/3] fix xx
+
+---
+ .../classes/org/openeuler/security/openssl/KAEDigest.java   | 6 +++---
+ .../classes/org/openeuler/security/openssl/KAEProvider.java | 2 --
+ jdk/src/solaris/native/java/io/path_util.c                  | 1 -
+ 3 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEDigest.java b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEDigest.java
+index bb5c8681..6ff03241 100644
+--- a/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEDigest.java
++++ b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEDigest.java
+@@ -88,9 +88,9 @@ abstract class KAEDigest extends MessageDigestSpi implements Cloneable {
+     private static class DigestContextRef extends PhantomReference<KAEDigest>
+         implements Comparable<DigestContextRef> {
+ 
+-        private static ReferenceQueue<KAEDigest> referenceQueue = new ReferenceQueue<>();
+-        private static Set<DigestContextRef> referenceList = new ConcurrentSkipListSet<>();
+-        private static boolean disableKaeDispose = Boolean.getBoolean("kae.disableKaeDispose");
++        private static final ReferenceQueue<KAEDigest> referenceQueue = new ReferenceQueue<>();
++        private static final Set<DigestContextRef> referenceList = new ConcurrentSkipListSet<>();
++        private static final boolean disableKaeDispose = Boolean.getBoolean("kae.disableKaeDispose");
+ 
+         private final long ctxAddress;
+ 
+diff --git a/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java
+index 8ba70200..83ed8649 100644
+--- a/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java
++++ b/jdk/src/solaris/classes/org/openeuler/security/openssl/KAEProvider.java
+@@ -104,8 +104,6 @@ public class KAEProvider extends Provider {
+         if (needLog && "true".equalsIgnoreCase(props.getProperty("kae.log"))) {
+             logStart(excp);
+             needLog = false; // Log only once
+-        } else {
+-            KAEProvider.excp = null; // Ignore exception.
+         }
+         if (!"false".equalsIgnoreCase(props.getProperty("kae.md5"))) {
+             putMD5();
+diff --git a/jdk/src/solaris/native/java/io/path_util.c b/jdk/src/solaris/native/java/io/path_util.c
+index 8a533f81..4b978206 100644
+--- a/jdk/src/solaris/native/java/io/path_util.c
++++ b/jdk/src/solaris/native/java/io/path_util.c
+@@ -116,7 +116,6 @@ collapse(char *path)
+     int nc;
+     char **ix;
+     int i, j;
+-    char *p, *q;
+ 
+     nc = collapsible(names);
+     if (nc < 2) return;         /* Nothing to do */
+-- 
+2.22.0
+
