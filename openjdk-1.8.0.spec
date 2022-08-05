@@ -916,7 +916,7 @@ Provides: java-%{javaver}-%{origin}-accessibility%{?1} = %{epoch}:%{version}-%{r
 
 Name:    java-%{javaver}-%{origin}
 Version: %{javaver}.%{updatever}.%{buildver}
-Release: 2
+Release: 3
 # java-1.5.0-ibm from jpackage.org set Epoch to 1 for unknown reasons
 # and this change was brought into RHEL-4. java-1.5.0-ibm packages
 # also included the epoch in their virtual provides. This created a
@@ -1138,6 +1138,7 @@ Patch248: 8067941-TESTBUG-Fix-tests-for-OS-with-64K-page-size.patch
 Patch249: Improve_AlgorithmConstraints_checkAlgorithm_performance.patch
 Patch250: modify_coding_style_and_describe_error.patch
 Patch251: fix_wrap_memcpy_undefined_gcc10_3.patch
+Patch252: 8290705_fix_StringConcat_validate_mem_flow_asserts_with_unexpected_userStoreI.patch
 
 #############################################
 #
@@ -1616,6 +1617,7 @@ pushd %{top_level_dir_name}
 %patch249 -p1
 %patch250 -p1
 %patch251 -p1
+%patch252 -p1
 popd
 
 # System library fixes
@@ -2240,6 +2242,10 @@ cjc.mainProgram(arg)
 %endif
 
 %changelog
+* Fri Aug 5 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.342-b07.3
+- add 8290705_fix_StringConcat_validate_mem_flow_asserts_with_unexpected_userStoreI.patch
+- modified version.txt
+
 * Thu Jul 28 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.342-b07.2
 - add modify_coding_style_and_describe_error.patch
 - add Improve_AlgorithmConstraints_checkAlgorithm_performance.patch

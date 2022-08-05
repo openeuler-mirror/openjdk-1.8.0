@@ -1,0 +1,145 @@
+diff --git a/hotspot/src/share/vm/opto/stringopts.cpp b/hotspot/src/share/vm/opto/stringopts.cpp
+index d92a3d7a3..2d11b2257 100644
+--- a/hotspot/src/share/vm/opto/stringopts.cpp
++++ b/hotspot/src/share/vm/opto/stringopts.cpp
+@@ -968,6 +968,21 @@ bool StringConcat::validate_control_flow() {
+       fail = true;
+       break;
+     } else if (ptr->is_Proj() && ptr->in(0)->is_Initialize()) {
++      // Check for side effect between Initialize and the constructor
++      for (SimpleDUIterator iter(ptr); iter.has_next(); iter.next()) {
++        Node* use = iter.get();
++        if (!use->is_CFG() && !use->is_CheckCastPP() && !use->is_Load()) {
++#ifndef PRODUCT
++          if (PrintOptimizeStringConcat) {
++            tty->print_cr("unexpected control use of Initialize");
++            ptr->in(0)->dump(); // Initialize node
++            use->dump(1);
++          }
++#endif
++          fail = true;
++          break;
++        }
++      }
+       ptr = ptr->in(0)->in(0);
+     } else if (ptr->is_Region()) {
+       Node* copy = ptr->as_Region()->is_copy();
+diff --git a/hotspot/test/compiler/stringopts/SideEffectBeforeConstructor.jasm b/hotspot/test/compiler/stringopts/SideEffectBeforeConstructor.jasm
+new file mode 100644
+index 000000000..cbc6d754b
+--- /dev/null
++++ b/hotspot/test/compiler/stringopts/SideEffectBeforeConstructor.jasm
+@@ -0,0 +1,58 @@
++/*
++ * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++
++super public class compiler/stringopts/SideEffectBeforeConstructor
++	version 51:0
++{
++  public static Field result:I;
++
++  static Method "<clinit>":"()V"
++	stack 2 locals 0
++  {
++		iconst_0;
++		putstatic	Field result:"I";
++		return;
++  }
++  public Method "<init>":"()V"
++	stack 1 locals 1
++  {
++		aload_0;
++		invokespecial	Method java/lang/Object."<init>":"()V";
++		return;
++  }
++
++  public static Method test:"(Ljava/lang/String;)V"
++	stack 4 locals 1
++  {
++		new	class java/lang/StringBuffer;
++		dup;
++		getstatic	Field result:"I";
++		iconst_1;
++		iadd;
++		putstatic	Field result:"I";
++		aload_0;
++		invokespecial	Method java/lang/StringBuffer."<init>":"(Ljava/lang/String;)V";
++		invokevirtual	Method java/lang/StringBuffer.toString:"()Ljava/lang/String;";
++		return;
++  }
++}
+diff --git a/hotspot/test/compiler/stringopts/TestSideEffectBeforeConstructor.java b/hotspot/test/compiler/stringopts/TestSideEffectBeforeConstructor.java
+new file mode 100644
+index 000000000..86c5eca1d
+--- /dev/null
++++ b/hotspot/test/compiler/stringopts/TestSideEffectBeforeConstructor.java
+@@ -0,0 +1,49 @@
++/*
++ * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++
++/*
++ * @test
++ * @bug 8290705
++ * @summary Test correctness of the string concatenation optimization with
++ *          a store between StringBuffer allocation and constructor invocation.
++ * @compile SideEffectBeforeConstructor.jasm
++ * @run main/othervm -Xbatch compiler.stringopts.TestSideEffectBeforeConstructor
++ */
++
++package compiler.stringopts;
++
++public class TestSideEffectBeforeConstructor {
++
++    public static void main(String[] args) {
++        for (int i = 0; i < 100_000; ++i) {
++            try {
++                SideEffectBeforeConstructor.test(null);
++            } catch (NullPointerException npe) {
++                // Expected
++            }
++        }
++        if (SideEffectBeforeConstructor.result != 100_000) {
++            throw new RuntimeException("Unexpected result: " + SideEffectBeforeConstructor.result);
++        }
++    }
++}
