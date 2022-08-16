@@ -1,0 +1,170 @@
+From c97998519552b7d8287125e46a3db2f29293784f Mon Sep 17 00:00:00 2001
+From: xiezhaokun <xiezhaokun@huawei.com>
+Date: Wed, 8 Jun 2022 10:32:52 +0800
+Subject: [PATCH 08/10] 8067941: [TESTBUG] Fix tests for OS with 64K page size
+
+---
+ hotspot/src/share/vm/memory/metaspace.cpp                 | 8 +++++---
+ hotspot/test/compiler/6865265/StackOverflowBug.java       | 2 +-
+ hotspot/test/compiler/8009761/Test8009761.java            | 2 +-
+ .../exceptions/TestRecursiveReplacedException.java        | 2 +-
+ .../compiler/uncommontrap/StackOverflowGuardPagesOff.java | 2 +-
+ .../compiler/uncommontrap/TestStackBangMonitorOwned.java  | 2 +-
+ hotspot/test/compiler/uncommontrap/TestStackBangRbp.java  | 2 +-
+ hotspot/test/gc/arguments/TestMaxHeapSizeTools.java       | 2 +-
+ hotspot/test/gc/g1/TestHumongousAllocInitialMark.java     | 4 +++-
+ 9 files changed, 15 insertions(+), 11 deletions(-)
+
+diff --git a/hotspot/src/share/vm/memory/metaspace.cpp b/hotspot/src/share/vm/memory/metaspace.cpp
+index 600bcfd1..2912f41b 100644
+--- a/hotspot/src/share/vm/memory/metaspace.cpp
++++ b/hotspot/src/share/vm/memory/metaspace.cpp
+@@ -3937,11 +3937,13 @@ class TestVirtualSpaceNodeTest {
+       assert(cm.sum_free_chunks() == 2*MediumChunk, "sizes should add up");
+     }
+ 
+-    { // 4 pages of VSN is committed, some is used by chunks
++    const size_t page_chunks = 4 * (size_t)os::vm_page_size() / BytesPerWord;
++    // This doesn't work for systems with vm_page_size >= 16K.
++    if (page_chunks < MediumChunk) {
++      // 4 pages of VSN is committed, some is used by chunks
+       ChunkManager cm(SpecializedChunk, SmallChunk, MediumChunk);
+       VirtualSpaceNode vsn(vsn_test_size_bytes);
+-      const size_t page_chunks = 4 * (size_t)os::vm_page_size() / BytesPerWord;
+-      assert(page_chunks < MediumChunk, "Test expects medium chunks to be at least 4*page_size");
++
+       vsn.initialize();
+       vsn.expand_by(page_chunks, page_chunks);
+       vsn.get_chunk_vs(SmallChunk);
+diff --git a/hotspot/test/compiler/6865265/StackOverflowBug.java b/hotspot/test/compiler/6865265/StackOverflowBug.java
+index 295a6b41..c5d0f3b6 100644
+--- a/hotspot/test/compiler/6865265/StackOverflowBug.java
++++ b/hotspot/test/compiler/6865265/StackOverflowBug.java
+@@ -28,7 +28,7 @@
+  * @summary JVM crashes with "missing exception handler" error
+  * @author volker.simonis@sap.com
+  *
+- * @run main/othervm -XX:CompileThreshold=100 -Xbatch -Xss248k StackOverflowBug
++ * @run main/othervm -XX:CompileThreshold=100 -Xbatch -Xss512k StackOverflowBug
+  */
+ 
+ 
+diff --git a/hotspot/test/compiler/8009761/Test8009761.java b/hotspot/test/compiler/8009761/Test8009761.java
+index 401458b6..b41f49fd 100644
+--- a/hotspot/test/compiler/8009761/Test8009761.java
++++ b/hotspot/test/compiler/8009761/Test8009761.java
+@@ -25,7 +25,7 @@
+  * @test
+  * @bug 8009761
+  * @summary Deoptimization on sparc doesn't set Llast_SP correctly in the interpreter frames it creates
+- * @run main/othervm -XX:CompileCommand=exclude,Test8009761::m2 -XX:-UseOnStackReplacement -XX:-BackgroundCompilation -Xss256K Test8009761
++ * @run main/othervm -XX:CompileCommand=exclude,Test8009761::m2 -XX:-UseOnStackReplacement -XX:-BackgroundCompilation -Xss512K Test8009761
+  *
+  */
+ 
+diff --git a/hotspot/test/compiler/exceptions/TestRecursiveReplacedException.java b/hotspot/test/compiler/exceptions/TestRecursiveReplacedException.java
+index 996d82a0..950ed18c 100644
+--- a/hotspot/test/compiler/exceptions/TestRecursiveReplacedException.java
++++ b/hotspot/test/compiler/exceptions/TestRecursiveReplacedException.java
+@@ -25,7 +25,7 @@
+  * @test
+  * @bug 8054224
+  * @summary Recursive method compiled by C1 is unable to catch StackOverflowError
+- * @run main/othervm -Xcomp -XX:CompileOnly=Test.run -XX:+TieredCompilation -XX:TieredStopAtLevel=2 -Xss256K TestRecursiveReplacedException
++ * @run main/othervm -Xcomp -XX:CompileOnly=Test.run -XX:+TieredCompilation -XX:TieredStopAtLevel=2 -Xss512K TestRecursiveReplacedException
+  *
+  */
+ 
+diff --git a/hotspot/test/compiler/uncommontrap/StackOverflowGuardPagesOff.java b/hotspot/test/compiler/uncommontrap/StackOverflowGuardPagesOff.java
+index 4ad409bb..835283c0 100644
+--- a/hotspot/test/compiler/uncommontrap/StackOverflowGuardPagesOff.java
++++ b/hotspot/test/compiler/uncommontrap/StackOverflowGuardPagesOff.java
+@@ -25,7 +25,7 @@
+  * @test
+  * @bug 8029383
+  * @summary stack overflow if callee is marked for deoptimization causes crash
+- * @run main/othervm -XX:TieredStopAtLevel=1 -XX:-BackgroundCompilation -XX:CompileCommand=dontinline,StackOverflowGuardPagesOff::m1 -XX:CompileCommand=exclude,StackOverflowGuardPagesOff::m2 -Xss256K -XX:-UseOnStackReplacement StackOverflowGuardPagesOff
++ * @run main/othervm -XX:TieredStopAtLevel=1 -XX:-BackgroundCompilation -XX:CompileCommand=dontinline,StackOverflowGuardPagesOff::m1 -XX:CompileCommand=exclude,StackOverflowGuardPagesOff::m2 -Xss512K -XX:-UseOnStackReplacement StackOverflowGuardPagesOff
+  *
+  */
+ 
+diff --git a/hotspot/test/compiler/uncommontrap/TestStackBangMonitorOwned.java b/hotspot/test/compiler/uncommontrap/TestStackBangMonitorOwned.java
+index 3d93d7d5..c07a995d 100644
+--- a/hotspot/test/compiler/uncommontrap/TestStackBangMonitorOwned.java
++++ b/hotspot/test/compiler/uncommontrap/TestStackBangMonitorOwned.java
+@@ -25,7 +25,7 @@
+  * @test
+  * @bug 8032410
+  * @summary Stack overflow at deoptimization doesn't release owned monitors
+- * @run main/othervm -XX:-BackgroundCompilation -XX:CompileCommand=dontinline,TestStackBangMonitorOwned::m1 -XX:CompileCommand=exclude,TestStackBangMonitorOwned::m2 -Xss256K -XX:-UseOnStackReplacement TestStackBangMonitorOwned
++ * @run main/othervm -XX:-BackgroundCompilation -XX:CompileCommand=dontinline,TestStackBangMonitorOwned::m1 -XX:CompileCommand=exclude,TestStackBangMonitorOwned::m2 -Xss512K -XX:-UseOnStackReplacement TestStackBangMonitorOwned
+  *
+  */
+ public class TestStackBangMonitorOwned {
+diff --git a/hotspot/test/compiler/uncommontrap/TestStackBangRbp.java b/hotspot/test/compiler/uncommontrap/TestStackBangRbp.java
+index 38d4e206..9b96951a 100644
+--- a/hotspot/test/compiler/uncommontrap/TestStackBangRbp.java
++++ b/hotspot/test/compiler/uncommontrap/TestStackBangRbp.java
+@@ -25,7 +25,7 @@
+  * @test
+  * @bug 8028308
+  * @summary rbp not restored when stack overflow is thrown from deopt/uncommon trap blobs
+- * @run main/othervm -XX:-BackgroundCompilation -XX:CompileCommand=dontinline,TestStackBangRbp::m1 -XX:CompileCommand=exclude,TestStackBangRbp::m2 -Xss256K -XX:-UseOnStackReplacement TestStackBangRbp
++ * @run main/othervm -XX:-BackgroundCompilation -XX:CompileCommand=dontinline,TestStackBangRbp::m1 -XX:CompileCommand=exclude,TestStackBangRbp::m2 -Xss512K -XX:-UseOnStackReplacement TestStackBangRbp
+  *
+  */
+ public class TestStackBangRbp {
+diff --git a/hotspot/test/gc/arguments/TestMaxHeapSizeTools.java b/hotspot/test/gc/arguments/TestMaxHeapSizeTools.java
+index b5859b5c..99ed508d 100644
+--- a/hotspot/test/gc/arguments/TestMaxHeapSizeTools.java
++++ b/hotspot/test/gc/arguments/TestMaxHeapSizeTools.java
+@@ -112,7 +112,7 @@ class TestMaxHeapSizeTools {
+   }
+ 
+   private static void checkInvalidMinInitialHeapCombinations(String gcflag) throws Exception {
+-    expectError(new String[] { gcflag, "-Xms8M", "-XX:InitialHeapSize=4M", "-version" });
++    expectError(new String[] { gcflag, "-Xms64M", "-XX:InitialHeapSize=32M", "-version" });
+   }
+ 
+   private static void checkValidMinInitialHeapCombinations(String gcflag) throws Exception {
+diff --git a/hotspot/test/gc/g1/TestHumongousAllocInitialMark.java b/hotspot/test/gc/g1/TestHumongousAllocInitialMark.java
+index 473ce666..b6e5c3d6 100644
+--- a/hotspot/test/gc/g1/TestHumongousAllocInitialMark.java
++++ b/hotspot/test/gc/g1/TestHumongousAllocInitialMark.java
+@@ -31,7 +31,9 @@
+ import com.oracle.java.testlibrary.*;
+ 
+ public class TestHumongousAllocInitialMark {
+-    private static final int heapSize                       = 200; // MB
++    // Heap sizes < 224 MB are increased to 224 MB if vm_page_size == 64K to
++    // fulfill alignment constraints.
++    private static final int heapSize                       = 224; // MB
+     private static final int heapRegionSize                 = 1;   // MB
+     private static final int initiatingHeapOccupancyPercent = 50;  // %
+ 
+diff --git a/hotspot/test/runtime/6929067/invoke.c b/hotspot/test/runtime/6929067/invoke.c
+index 8dde2cd6..cf8014be 100644
+--- a/hotspot/test/runtime/6929067/invoke.c
++++ b/hotspot/test/runtime/6929067/invoke.c
+@@ -68,7 +68,7 @@ floobydust (void *p)
+ int
+ main (int argc, const char** argv)
+ {
+-  options[0].optionString = "-Xss320k";
++  options[0].optionString = "-Xss512k";
+ 
+   vm_args.version = JNI_VERSION_1_2;
+   vm_args.ignoreUnrecognized = JNI_TRUE;
+diff --git a/hotspot/test/runtime/InitialThreadOverflow/invoke.cxx b/hotspot/test/runtime/InitialThreadOverflow/invoke.cxx
+index 55213c0f..2bca88f1 100644
+--- a/hotspot/test/runtime/InitialThreadOverflow/invoke.cxx
++++ b/hotspot/test/runtime/InitialThreadOverflow/invoke.cxx
+@@ -48,7 +48,7 @@ floobydust (void *p) {
+ int
+ main (int argc, const char** argv) {
+   JavaVMOption options[1];
+-  options[0].optionString = (char*) "-Xss320k";
++  options[0].optionString = (char*) "-Xss512k";
+ 
+   JavaVMInitArgs vm_args;
+   vm_args.version = JNI_VERSION_1_2;
