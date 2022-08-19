@@ -1,5 +1,17 @@
+From 4e520a51acbb192a0df844fcca247998d7fb8854 Mon Sep 17 00:00:00 2001
+From: wangkun <wangkun49@huawei.com>
+Date: Thu, 28 Jul 2022 17:19:32 +0800
+Subject: [PATCH 2/3] add
+ Improve-AlgorithmConstraints-checkAlgorithm-performa.patch
+
+---
+ .../util/AbstractAlgorithmConstraints.java    | 30 +++++++------------
+ .../util/DisabledAlgorithmConstraints.java    | 20 +++++++++----
+ .../util/LegacyAlgorithmConstraints.java      | 12 ++++++--
+ 3 files changed, 35 insertions(+), 27 deletions(-)
+
 diff --git a/jdk/src/share/classes/sun/security/util/AbstractAlgorithmConstraints.java b/jdk/src/share/classes/sun/security/util/AbstractAlgorithmConstraints.java
-index 944958de4..5c7602925 100644
+index 944958de..5c760292 100644
 --- a/jdk/src/share/classes/sun/security/util/AbstractAlgorithmConstraints.java
 +++ b/jdk/src/share/classes/sun/security/util/AbstractAlgorithmConstraints.java
 @@ -77,34 +77,26 @@ public abstract class AbstractAlgorithmConstraints
@@ -49,7 +61,7 @@ index 944958de4..5c7602925 100644
  
          return true;
 diff --git a/jdk/src/share/classes/sun/security/util/DisabledAlgorithmConstraints.java b/jdk/src/share/classes/sun/security/util/DisabledAlgorithmConstraints.java
-index 51e625632..6ff26bf2f 100644
+index 51e62563..6ff26bf2 100644
 --- a/jdk/src/share/classes/sun/security/util/DisabledAlgorithmConstraints.java
 +++ b/jdk/src/share/classes/sun/security/util/DisabledAlgorithmConstraints.java
 @@ -96,7 +96,7 @@ public class DisabledAlgorithmConstraints extends AbstractAlgorithmConstraints {
@@ -99,7 +111,7 @@ index 51e625632..6ff26bf2f 100644
  
      /*
 diff --git a/jdk/src/share/classes/sun/security/util/LegacyAlgorithmConstraints.java b/jdk/src/share/classes/sun/security/util/LegacyAlgorithmConstraints.java
-index 4e7502fb5..01d0447ab 100644
+index 4e7502fb..01d0447a 100644
 --- a/jdk/src/share/classes/sun/security/util/LegacyAlgorithmConstraints.java
 +++ b/jdk/src/share/classes/sun/security/util/LegacyAlgorithmConstraints.java
 @@ -28,6 +28,7 @@ package sun.security.util;
@@ -132,3 +144,6 @@ index 4e7502fb5..01d0447ab 100644
      }
  
      @Override
+-- 
+2.22.0
+

@@ -162,13 +162,13 @@
 %global origin_nice     OpenJDK
 %global top_level_dir_name   %{origin}
 %global repo		jdk8u
-%global revision    	jdk8u332-b09
+%global revision    	jdk8u342-b07
 %global full_revision	%{repo}-%{revision}
 # Define IcedTea version used for SystemTap tapsets and desktop files
 %global icedteaver      3.15.0
 
-%global updatever       332
-%global buildver        b09
+%global updatever       342
+%global buildver        b07
 # priority must be 7 digits in total. The expression is workarounding tip
 %global priority        1800%{updatever}
 
@@ -836,7 +836,7 @@ Requires: nss-softokn%{?_isa} %{NSSSOFTOKN_BUILDTIME_VERSION}
 # tool to copy jdk's configs - should be Recommends only, but then only dnf/yum enforce it,
 # not rpm transaction and so no configs are persisted when pure rpm -u is run. It may be
 # considered as regression
-Requires: copy-jdk-configs >= 3.3
+Requires: copy-jdk-configs >= 3.9
 OrderWithRequires: copy-jdk-configs
 # for printing support
 Requires: cups-libs
@@ -1009,7 +1009,6 @@ Patch58: Reduce-the-probability-of-the-crash-related-to-ciObj.patch
 Patch62: 8165857.patch
 Patch63: 8033552.patch
 Patch67: 8165860.patch
-Patch68: 8194154.patch
 Patch70: 8164948.patch
 
 # 8u242
@@ -1060,7 +1059,6 @@ Patch142: 8207160.patch
 Patch144: add-appcds-test-case.patch
 
 # 8u282
-Patch146: 8168926.patch
 Patch147: 8215047.patch
 Patch148: 8237894.patch
 Patch149: Remove-the-parentheses-around-company-name.patch
@@ -1091,13 +1089,11 @@ Patch177: downgrade-symver-of-memcpy-GLIBC.patch
 Patch178: fix-log-bug-enhance-aes-hmac-performance.patch
 Patch179: keep-the-binary-equal.patch
 Patch180: link-option-use-rpath-instead-of-runpath.patch
-Patch181: remove-gnu-debuglink-when-using-enable-debug-.patch
 Patch183: revert-windows-bugfix.patch
 Patch184: set-vm.vendor-by-configure.patch
 Patch185: update-cacerts-and-VerifyCACerts.java-test.patch
 Patch186: update-to-keep-same-with-master.patch
 Patch188: 8247691_incorrect_handling_of_VM_exceptions_in_C1_deopt_stub.patch
-Patch189: 8266187_Memory_leak_in_appendBootClassPath.patch
 Patch192: add_kae_implementation_add_default_conf_file.patch
 Patch193: improve_algorithmConstraints_checkAlgorithm_performance.patch
 Patch194: modify_the_default_iteration_time_and_forks_in_the_JMH_of_KAEProvider.patch
@@ -1121,7 +1117,6 @@ Patch212: enhance-the-TimeZone-s-path-solution-on-Euler.patch
 Patch214: fix-appcds-s-option-AppCDSLockFile.patch
 Patch215: PS-introduce-UsePSRelaxedForwardee-to-enable-using-r.patch
 Patch216: Parallel-Full-GC-for-G1.patch
-Patch217: 8202142-jfr-event-io-TestInstrumentation-is-unstable.patch
 Patch218: 8143251-Thread-suspend-on-VM_G1IncCollectionPause-do.patch
 Patch219: G1Uncommit-Introduce-G1PeriodGCNotRetry-control-whet.patch
 Patch220: JDK-debug-version-crash-when-using-AppCDS.patch
@@ -1137,7 +1132,6 @@ Patch229: downgrade-the-symver-of-fcntl64.patch
 
 # 8u322
 Patch230: add-system-property-swing.JComboBox.useLegacyMode.patch
-Patch231: debuginfo.diz-should-not-contain-the-path-after-unzip.patch
 Patch232: 8173361-various-crashes-in-JvmtiExport-post_compiled.patch
 Patch233: fix-TestUseCompressedOopsErgo-run-failed.patch
 Patch235: fix-testme-Test6929067-run-faild.patch
@@ -1149,9 +1143,18 @@ Patch240: 8207011-Remove-uses-of-the-register-storage-class-specifier.patch
 Patch241: 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
 
 # 8u332
-Patch242: fix-make-bugs-when-git-and-hg-not-exist.patch
 Patch243: Fix-compile-and-runtime-failures-for-minimal1-versio.patch
 Patch244: fix_X509TrustManagerImpl_symantec_distrust.patch
+Patch245: change-sa-jdi.jar-make-file-for-BEP.PATCH
+Patch246: 7092821-java.security.Provider.getService-is-synchro.patch
+Patch247: 8173339-AArch64-Fix-minimum-stack-size-computations.patch
+Patch248: 8067941-TESTBUG-Fix-tests-for-OS-with-64K-page-size.patch
+
+# 8u342
+Patch249: Improve_AlgorithmConstraints_checkAlgorithm_performance.patch
+Patch250: modify_coding_style_and_describe_error.patch
+Patch251: fix_wrap_memcpy_undefined_gcc10_3.patch
+Patch252: 8290705_fix_StringConcat_validate_mem_flow_asserts_with_unexpected_userStoreI.patch
 
 #############################################
 #
@@ -1513,7 +1516,6 @@ pushd %{top_level_dir_name}
 %patch62 -p1
 %patch63 -p1
 %patch67 -p1
-%patch68 -p1
 %patch70 -p1
 %patch75 -p1
 %patch83 -p1
@@ -1552,7 +1554,6 @@ pushd %{top_level_dir_name}
 %patch141 -p1
 %patch142 -p1
 %patch144 -p1
-%patch146 -p1
 %patch147 -p1
 %patch148 -p1
 %patch149 -p1
@@ -1581,13 +1582,11 @@ pushd %{top_level_dir_name}
 %patch178 -p1
 %patch179 -p1
 %patch180 -p1
-%patch181 -p1
 %patch183 -p1
 %patch184 -p1
 %patch185 -p1
 %patch186 -p1
 %patch188 -p1
-%patch189 -p1
 %patch192 -p1
 %patch194 -p1
 %patch195 -p1
@@ -1608,7 +1607,6 @@ pushd %{top_level_dir_name}
 %patch214 -p1
 %patch215 -p1
 %patch216 -p1
-%patch217 -p1
 %patch218 -p1
 %patch219 -p1
 %patch220 -p1
@@ -1620,7 +1618,6 @@ pushd %{top_level_dir_name}
 %patch228 -p1
 %patch229 -p1
 %patch230 -p1
-%patch231 -p1
 %patch232 -p1
 %patch233 -p1
 %patch235 -p1
@@ -1630,9 +1627,16 @@ pushd %{top_level_dir_name}
 %patch239 -p1
 %patch240 -p1
 %patch241 -p1
-%patch242 -p1
 %patch243 -p1
 %patch244 -p1
+%patch245 -p1
+%patch246 -p1
+%patch247 -p1
+%patch248 -p1
+%patch249 -p1
+%patch250 -p1
+%patch251 -p1
+%patch252 -p1
 %ifarch riscv64
 %patch2000 -p1
 %endif
@@ -1882,7 +1886,7 @@ done
 # javaCalls.cpp:58 should map to:
 # http://hg.openjdk.java.net/jdk8u/jdk8u/hotspot/file/ff3b27e6bcc2/src/share/vm/runtime/javaCalls.cpp#l58 
 # Using line number 1 might cause build problems.
-gdb -q "$JAVA_HOME/bin/java" <<EOF | tee gdb.out
+gdb -q "$JAVA_HOME/bin/java" <<EOF | tee gdb.,out
 handle SIGSEGV pass nostop noprint
 handle SIGILL pass nostop noprint
 set breakpoint pending on
@@ -2140,7 +2144,6 @@ else
   end
 end
 -- run content of included file with fake args
-arg = nil
 cjc = require "copy_jdk_configs.lua"
 arg = {"--currentjvm", "%{uniquesuffix %{nil}}", "--jvmdir", "%{_jvmdir %{nil}}", "--origname", "%{name}", "--origjavaver", "%{javaver}", "--arch", "%{_arch}", "--temp", "%{rpm_state_dir}/%{name}.%{_arch}"}
 cjc.mainProgram(arg)
@@ -2280,11 +2283,47 @@ cjc.mainProgram(arg)
 %endif
 
 %changelog
-* Wed Jun 29 2022 laokz <laokz@foxmail.com> - 1:1.8.0.332-b09.4
-- Fix RISC-V patch to os_linux.cpp
+* Fri May 06 2022 misaka00251 <misaka00251@misakanet.cn> - 1:1.8.0.342-b07.4
+- Fix RISC-V support & merge upstream
 
-* Fri May 06 2022 misaka00251 <misaka00251@misakanet.cn> - 1:1.8.0.332-b09.3
-- Fix RISC-V support & merge 22.03-LTS branch
+* Fri Aug 5 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.342-b07.3
+- add 8290705_fix_StringConcat_validate_mem_flow_asserts_with_unexpected_userStoreI.patch
+- modified version.txt
+
+* Thu Jul 28 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.342-b07.2
+- add modify_coding_style_and_describe_error.patch
+- add Improve_AlgorithmConstraints_checkAlgorithm_performance.patch
+- add fix_wrap_memcpy_undefined_gcc10_3.patch
+- modified implementation_of_Blas_hotspot_function_in_Intrinsics.patch
+
+* Thu Jul 28 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.342-b07.1
+- del hg git files
+
+* Fri Jul 22 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.342-b07.0
+- del 8168926.patch
+- del 8194154.patch
+- del 8202142-jfr-event-io-TestInstrumentation-is-unstable.patch
+- del 8266187_Memory_leak_in_appendBootClassPath.patch
+- del debuginfo.diz-should-not-contain-the-path-after-unzip.patch
+- del fix-make-bugs-when-git-and-hg-not-exist.patch
+- modified 7092821-java.security.Provider.getService-is-synchro.patch
+- modified 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
+- modified fix-log-bug-enhance-aes-hmac-performance.patch
+
+* Fri Jul 15 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.7
+- del remove-gnu-debuglink-when-using-enable-debug-.patch
+
+* Mon Jul 4 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.6
+- add 8067941-TESTBUG-Fix-tests-for-OS-with-64K-page-size.patch
+
+* Mon Jul 4 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.5
+- add 8173339-AArch64-Fix-minimum-stack-size-computations.patch
+
+* Mon Jul 4 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.4
+- add 7092821-java.security.Provider.getService-is-synchro.patch
+
+* Thu Jun 30 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.3
+- add change-sa-jdi.jar-make-file-for-BEP.PATCH
 
 * Thu Apr 28 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.332-b09.2
 - add fix_X509TrustManagerImpl_symantec_distrust.patch
@@ -2305,7 +2344,7 @@ cjc.mainProgram(arg)
 * Wed Mar 2 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.4
 - add 8268819-SA-Remove-libthread_db-dependency-on-Linux.patch
 
-* Thu Mar 1 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.3
+* Tue Mar 1 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.3
 - modified 8233280-Remove-GCLockerInvokesConcurrent-relative-logic-for-G1.patch
 
 * Wed Feb 16 2022 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.322-b06.2
@@ -2333,6 +2372,8 @@ cjc.mainProgram(arg)
 - deleted Delete-expired-certificate-globalsignr2ca.patch
 - deleted inline-optimize-for-aarch64.patch
 
+* Tue Jan 05 2021 noah <hedongbo@huawei.com> - 1:1.8.0.312-b07.11
+- adapted to newst cjc to fix issue with rpm 4.17
 
 * Tue Dec 21 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.10
 - delete stack protection
@@ -2364,7 +2405,7 @@ cjc.mainProgram(arg)
 * Tue Nov 23 2021 lijingwei <lijingwei@uniontech.com> - 1:1.8.0.312-b07.1
 - correct spec file release number typo
 
-* Mon Nov 11 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.0
+* Mon Nov 1 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.312-b07.0
 - update to 8u312-b07(ga)
 - delete 8194246.patch
 - delete 8214418-half-closed-SSLEngine-status-may-cause-appli.patch
@@ -2420,10 +2461,10 @@ cjc.mainProgram(arg)
 - delete fix-crash-in-JVMTI-debug.patch
 - other adaptations to jdk8u302
 
-* Thu Jul 12 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.19
+* Mon Jul 12 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.19
 - add Fix-RSACipher-memory-usage.patch
 
-* Thu Jul 12 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.18
+* Mon Jul 12 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.18
 - fix run SPECjvm2008 failed on 32 bit system
 
 * Thu Jul 8 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.17
@@ -2447,7 +2488,7 @@ cjc.mainProgram(arg)
 * Sat Jun 12 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.11
 - add g1gc-numa-aware-Implementation.patch
 
-* Wed Jun 10 2021 hu_bo_dao <hubodao@huawei.com> - 1:1.8.0.292-b10.10
+* Fri Jun 11 2021 hu_bo_dao <hubodao@huawei.com> - 1:1.8.0.292-b10.10
 - add support_CMS_parallel_inspection.patch
 
 * Wed Jun 9 2021 noah <hedongbo@huawei.com> - 1:1.8.0.292-b10.9
@@ -2468,13 +2509,13 @@ cjc.mainProgram(arg)
 * Thu May 27 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.4
 - add 8264640.patch
 
-* Fri May 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.3
+* Fri May 21 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.3
 - add 8266929_huawei_add_oid_mapping_common_sig_types.patch
 
-* Fri May 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.2
+* Fri May 21 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.2
 - add 8266187_Memory_leak_in_appendBootClassPath.patch
 
-* Fri May 20 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.1
+* Fri May 21 2021 kuenking111 <wangkun49@huawei.com> - 1:1.8.0.292-b10.1
 - add 8247691_incorrect_handling_of_VM_exceptions_in_C1_deopt_stub.patch
 
 * Tue May 18 2021 eapen <zhangyipeng7@huawei.com> - 1:1.8.0.292-b10.0

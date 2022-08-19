@@ -1,0 +1,29 @@
+From 85a351276984f56d817560db8b5b837254ec2994 Mon Sep 17 00:00:00 2001
+From: zhangyipeng <zhangyipeng7@huawei.com>
+Date: Tue, 7 Jun 2022 20:10:03 +0800
+Subject: [PATCH 05/10] 8173339: AArch64: Fix minimum stack size computations
+
+Bug url: https://bugs.openjdk.java.net/browse/JDK-8173339
+---
+ hotspot/src/cpu/aarch64/vm/globals_aarch64.hpp | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/hotspot/src/cpu/aarch64/vm/globals_aarch64.hpp b/hotspot/src/cpu/aarch64/vm/globals_aarch64.hpp
+index 6610cc4fb..7c6b24879 100644
+--- a/hotspot/src/cpu/aarch64/vm/globals_aarch64.hpp
++++ b/hotspot/src/cpu/aarch64/vm/globals_aarch64.hpp
+@@ -56,7 +56,10 @@ define_pd_global(intx, InlineFrequencyCount,     100);
+ define_pd_global(intx, StackYellowPages, 2);
+ define_pd_global(intx, StackRedPages, 1);
+ 
+-define_pd_global(intx, StackShadowPages, 4 DEBUG_ONLY(+5));
++// Java_java_net_SocketOutputStream_socketWrite0() uses a 64k buffer on the
++// stack if compiled for unix and LP64. To pass stack overflow tests we need
++// 20 shadow pages.
++define_pd_global(intx, StackShadowPages, 20 DEBUG_ONLY(+5));
+ 
+ define_pd_global(intx, PreInflateSpin,           10);
+ 
+-- 
+2.22.0
+
